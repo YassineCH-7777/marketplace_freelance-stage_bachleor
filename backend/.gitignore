@@ -1,0 +1,35 @@
+# backend/.gitignore
+# Ignore Maven build output
+/target/
+*.jar
+*.war
+*.ear
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+
+# IDE files
+/.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.class
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ specific
+out/
+
+# Other
+node_modules/
+coverage/
