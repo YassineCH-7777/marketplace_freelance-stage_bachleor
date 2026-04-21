@@ -62,7 +62,7 @@ public class PublicController {
                 .categoryName(service.getCategory().getName())
                 .freelancerId(service.getFreelancer().getId())
                 .freelancerEmail(service.getFreelancer().getEmail())
-                .freelancerCity(service.getFreelancer().getProfile() != null ? service.getFreelancer().getProfile().getCity() : null)
+                .freelancerCity(service.getFreelancer().getCity())
                 .build();
     }
 
@@ -71,7 +71,7 @@ public class PublicController {
                 .id(profile.getId())
                 .email(profile.getUser().getEmail())
                 .bio(profile.getBio())
-                .city(profile.getCity())
+                .city(profile.getUser().getCity())
                 .portfolioUrl(profile.getPortfolioUrl())
                 .skills(profile.getSkills())
                 .build();

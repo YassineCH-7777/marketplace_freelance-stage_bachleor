@@ -36,15 +36,14 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
-                .requestMatchers("/h2-console/**").permitAll()
+                // h2-console removed; no special permit needed
                 .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-        // Required to allow h2-console to be viewed in an iframe
-        http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
+    // No H2 console; keep default headers
 
         return http.build();
     }

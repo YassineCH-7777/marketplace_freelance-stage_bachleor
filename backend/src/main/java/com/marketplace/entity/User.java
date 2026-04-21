@@ -31,8 +31,20 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
+    @Column(name = "password_hash", nullable = false)
     private String password;
+
+    @Column(name = "first_name", length = 100)
+    private String firstName;
+
+    @Column(name = "last_name", length = 100)
+    private String lastName;
+
+    @Column(name = "phone", length = 30)
+    private String phone;
+
+    @Column(name = "city", length = 120)
+    private String city;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -46,10 +58,11 @@ public class User implements UserDetails {
     private FreelancerProfile profile;
 
     @CreationTimestamp
-    @Column(updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     // --- UserDetails Methods ---

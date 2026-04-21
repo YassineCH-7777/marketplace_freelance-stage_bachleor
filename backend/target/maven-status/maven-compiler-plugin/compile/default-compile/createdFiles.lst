@@ -19,6 +19,7 @@ com\marketplace\entity\Message$MessageBuilder.class
 com\marketplace\dto\user\FreelancerProfileDto$FreelancerProfileDtoBuilder.class
 com\marketplace\dto\auth\AuthResponse$AuthResponseBuilder.class
 com\marketplace\controller\AdminController.class
+com\marketplace\config\CorsConfig.class
 com\marketplace\security\JwtService.class
 com\marketplace\dto\user\NotificationDto$NotificationDtoBuilder.class
 com\marketplace\repository\OrderRequestRepository.class

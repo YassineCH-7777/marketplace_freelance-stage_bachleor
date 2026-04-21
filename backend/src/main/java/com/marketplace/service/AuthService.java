@@ -26,6 +26,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+        private final com.marketplace.security.TokenBlacklistService tokenBlacklistService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -80,4 +81,13 @@ public class AuthService {
                 .role(user.getRole())
                 .build();
     }
+
+        public void logout(String jwt) {
+                try {
+                        java.util.Date exp = jwtService.extractExpiration(jwt);
+                        tokenBlacklistService.blacklist(jwt, exp.getTime());
+                } catch (Exception ignored) {
+                        // ignore and return
+                }
+        }
 }

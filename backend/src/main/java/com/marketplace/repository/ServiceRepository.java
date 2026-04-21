@@ -17,6 +17,6 @@ public interface ServiceRepository extends JpaRepository<ServiceEntity, Long> {
     @Query("SELECT s FROM ServiceEntity s WHERE s.status = 'ACTIVE' " +
            "AND (:keyword IS NULL OR LOWER(s.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(s.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "AND (:categoryId IS NULL OR s.category.id = :categoryId) " +
-           "AND (:city IS NULL OR LOWER(s.freelancer.profile.city) LIKE LOWER(CONCAT('%', :city, '%')))")
+           "AND (:city IS NULL OR LOWER(s.freelancer.city) LIKE LOWER(CONCAT('%', :city, '%')))")
     List<ServiceEntity> searchServices(@Param("keyword") String keyword, @Param("categoryId") Long categoryId, @Param("city") String city);
 }

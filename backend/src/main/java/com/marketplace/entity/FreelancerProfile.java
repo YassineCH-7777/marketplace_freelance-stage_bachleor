@@ -24,22 +24,22 @@ public class FreelancerProfile {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    @Column(length = 2000)
+    @Column(name = "professional_bio", length = 2000)
     private String bio;
 
-    @Column(length = 100)
-    private String city;
+    // city moved to User entity (users.city)
 
-    @Column(length = 255)
+    @Column(name = "portfolio_url", length = 255)
     private String portfolioUrl;
 
-    @Column(length = 500)
+    @Column(name = "skills", length = 500)
     private String skills; // Stored as comma-separated or JSON
 
     @CreationTimestamp
-    @Column(updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }

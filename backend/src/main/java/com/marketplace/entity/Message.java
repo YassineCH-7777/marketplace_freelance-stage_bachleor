@@ -24,7 +24,7 @@ public class Message {
     private Conversation conversation;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sender_id", nullable = false)
+    @JoinColumn(name = "sender_user_id", nullable = false)
     private User sender;
 
     @Column(nullable = false, length = 2000)
@@ -34,6 +34,6 @@ public class Message {
     private boolean isRead = false;
 
     @CreationTimestamp
-    @Column(updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 }

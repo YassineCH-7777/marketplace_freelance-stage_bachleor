@@ -75,6 +75,7 @@ C:\Users\pc\Documents\Stage Bachelor\marketplace_freelance\backend\src\main\java
 C:\Users\pc\Documents\Stage Bachelor\marketplace_freelance\backend\src\main\java\com\marketplace\security\JwtService.java
 C:\Users\pc\Documents\Stage Bachelor\marketplace_freelance\backend\src\main\java\com\marketplace\security\PasswordConfig.java
 C:\Users\pc\Documents\Stage Bachelor\marketplace_freelance\backend\src\main\java\com\marketplace\security\SecurityConfig.java
+C:\Users\pc\Documents\Stage Bachelor\marketplace_freelance\backend\src\main\java\com\marketplace\security\TokenBlacklistService.java
 C:\Users\pc\Documents\Stage Bachelor\marketplace_freelance\backend\src\main\java\com\marketplace\service\AdminService.java
 C:\Users\pc\Documents\Stage Bachelor\marketplace_freelance\backend\src\main\java\com\marketplace\service\AuthService.java
 C:\Users\pc\Documents\Stage Bachelor\marketplace_freelance\backend\src\main\java\com\marketplace\service\CategoryService.java
