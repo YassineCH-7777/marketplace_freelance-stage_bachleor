@@ -11,6 +11,7 @@ import com.marketplace.repository.FreelancerProfileRepository;
 import com.marketplace.repository.UserRepository;
 import com.marketplace.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,6 +40,8 @@ public class AuthService {
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
+                .firstName("New")
+                .lastName("User")
                 .role(request.getRole() != null ? request.getRole() : UserRole.CLIENT)
                 .status(UserStatus.ACTIVE)
                 .build();
@@ -49,6 +52,10 @@ public class AuthService {
         if (user.getRole() == UserRole.FREELANCER) {
             FreelancerProfile profile = FreelancerProfile.builder()
                     .user(user)
+                    .skills(java.util.List.of())
+                    .averageRating(java.math.BigDecimal.ZERO)
+                    .totalReviews(0)
+                    .completedOrders(0)
                     .build();
             profileRepository.save(profile);
         }
@@ -64,12 +71,16 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
+            );
+        } catch (org.springframework.security.core.AuthenticationException ex) {
+            throw new BadCredentialsException("Identifiants invalides", ex);
+        }
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));

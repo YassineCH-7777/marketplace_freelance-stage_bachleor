@@ -27,7 +27,14 @@ public class Conversation {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "freelancer_id", nullable = false)
-    private User freelancer;
+    private FreelancerProfile freelancer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private Order order;
+
+    @Column(name = "last_message_at")
+    private LocalDateTime lastMessageAt;
 
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL)
     private List<Message> messages;

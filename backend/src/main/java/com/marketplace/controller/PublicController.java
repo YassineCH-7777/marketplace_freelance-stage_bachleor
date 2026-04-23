@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @RestController
@@ -39,10 +40,23 @@ public class PublicController {
         @RequestParam(required = false) String categoryName,
         @RequestParam(required = false) String city
     ) {
-    List<ServiceDto> services = serviceRepository.searchServices(keyword, categoryId, categoryName, city)
-        .stream()
-        .map(this::mapToServiceDto)
-        .collect(Collectors.toList());
+        String normalizedKeyword = normalize(keyword);
+        String normalizedCategoryName = normalize(categoryName);
+        String normalizedCity = normalize(city);
+
+        List<ServiceDto> services = serviceRepository.findByStatus(ServiceStatus.PUBLISHED)
+                .stream()
+                .filter(service -> normalizedKeyword == null
+                        || containsIgnoreCase(service.getTitle(), normalizedKeyword)
+                        || containsIgnoreCase(service.getDescription(), normalizedKeyword))
+                .filter(service -> (categoryId == null && normalizedCategoryName == null)
+                        || service.getCategory().getId().equals(categoryId)
+                        || containsIgnoreCase(service.getCategory().getName(), normalizedCategoryName))
+                .filter(service -> normalizedCity == null
+                        || containsIgnoreCase(service.getCity(), normalizedCity)
+                        || containsIgnoreCase(service.getFreelancer().getUser().getCity(), normalizedCity))
+                .map(this::mapToServiceDto)
+                .collect(Collectors.toList());
         return ResponseEntity.ok(services);
     }
 
@@ -62,9 +76,9 @@ public class PublicController {
                 .price(service.getPrice())
                 .categoryId(service.getCategory().getId())
                 .categoryName(service.getCategory().getName())
-                .freelancerId(service.getFreelancer().getId())
-                .freelancerEmail(service.getFreelancer().getEmail())
-                .freelancerCity(service.getFreelancer().getCity())
+                .freelancerId(service.getFreelancer().getUser().getId())
+                .freelancerEmail(service.getFreelancer().getUser().getEmail())
+                .freelancerCity(service.getFreelancer().getUser().getCity())
                 .status("ACTIVE")
                 .build();
     }
@@ -76,7 +90,19 @@ public class PublicController {
                 .bio(profile.getBio())
                 .city(profile.getUser().getCity())
                 .portfolioUrl(profile.getPortfolioUrl())
-                .skills(profile.getSkills())
+                .skills(String.join(",", profile.getSkills()))
                 .build();
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
+    }
+
+    private boolean containsIgnoreCase(String value, String expected) {
+        return expected == null || (value != null && value.toLowerCase(Locale.ROOT).contains(expected));
     }
 }

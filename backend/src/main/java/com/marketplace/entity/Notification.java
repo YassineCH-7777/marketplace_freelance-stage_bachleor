@@ -4,6 +4,8 @@ import com.marketplace.enums.NotificationType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -24,10 +26,14 @@ public class Notification {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, length = 500)
-    private String content;
+    @Column(nullable = false, length = 150)
+    private String title;
+
+    @Column(name = "body")
+    private String body;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "notification_type")
     private NotificationType type;
 

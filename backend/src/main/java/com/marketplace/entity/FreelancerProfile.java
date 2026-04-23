@@ -2,10 +2,14 @@ package com.marketplace.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "freelancer_profiles")
@@ -27,13 +31,29 @@ public class FreelancerProfile {
     @Column(name = "professional_bio", length = 2000)
     private String bio;
 
+    @Column(length = 150)
+    private String headline;
+
     // city moved to User entity (users.city)
 
     @Column(name = "portfolio_url", length = 255)
     private String portfolioUrl;
 
-    @Column(name = "skills", length = 500)
-    private String skills; // Stored as comma-separated or JSON
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "skills", columnDefinition = "text[]")
+    private List<String> skills = new ArrayList<>();
+
+    @OneToMany(mappedBy = "freelancer", fetch = FetchType.LAZY)
+    private List<ServiceEntity> services = new ArrayList<>();
+
+    @Column(name = "average_rating")
+    private java.math.BigDecimal averageRating;
+
+    @Column(name = "total_reviews")
+    private Integer totalReviews;
+
+    @Column(name = "completed_orders")
+    private Integer completedOrders;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

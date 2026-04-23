@@ -23,23 +23,28 @@ public class NotificationService {
     @Transactional
     public void createNotification(Long userId, NotificationType type, String content) {
         User user = userRepository.findById(userId).orElseThrow();
-        Notification notif = Notification.builder()
+        Notification notification = Notification.builder()
                 .user(user)
                 .type(type)
-                .content(content)
+                .title(type.name())
+                .body(content)
                 .isRead(false)
                 .build();
-        notificationRepository.save(notif);
+        notificationRepository.save(notification);
     }
 
     public List<NotificationDto> getUnreadNotifications(Long userId) {
         return notificationRepository.findByUser_IdAndIsReadFalseOrderByCreatedAtDesc(userId)
-                .stream().map(this::mapToDto).collect(Collectors.toList());
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
     }
-    
+
     public List<NotificationDto> getAllNotifications(Long userId) {
         return notificationRepository.findByUser_IdOrderByCreatedAtDesc(userId)
-                .stream().map(this::mapToDto).collect(Collectors.toList());
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -51,13 +56,13 @@ public class NotificationService {
         }
     }
 
-    private NotificationDto mapToDto(Notification n) {
+    private NotificationDto mapToDto(Notification notification) {
         return NotificationDto.builder()
-                .id(n.getId())
-                .type(n.getType())
-                .content(n.getContent())
-                .isRead(n.isRead())
-                .createdAt(n.getCreatedAt())
+                .id(notification.getId())
+                .type(notification.getType())
+                .content(notification.getBody() != null ? notification.getBody() : notification.getTitle())
+                .isRead(notification.isRead())
+                .createdAt(notification.getCreatedAt())
                 .build();
     }
 }

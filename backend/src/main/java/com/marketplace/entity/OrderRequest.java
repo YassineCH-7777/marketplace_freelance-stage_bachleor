@@ -4,9 +4,12 @@ import com.marketplace.enums.RequestStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,17 +33,17 @@ public class OrderRequest {
     @JoinColumn(name = "client_id", nullable = false)
     private User client;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "freelancer_id", nullable = false)
-    private User freelancer;
+    @Column(name = "message", nullable = false, length = 1000)
+    private String message;
 
-    @Column(nullable = false, length = 1000)
-    private String initialMessage;
+    @Column(name = "proposed_budget")
+    private BigDecimal proposedBudget;
 
-    @Column(nullable = false)
-    private BigDecimal proposedPrice;
+    @Column(name = "proposed_date")
+    private LocalDate proposedDate;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "request_status")
     private RequestStatus status = RequestStatus.PENDING;
 

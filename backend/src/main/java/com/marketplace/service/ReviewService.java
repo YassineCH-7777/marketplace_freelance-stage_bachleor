@@ -46,7 +46,7 @@ public class ReviewService {
     }
 
     public List<ReviewDto> getReviewsByFreelancer(Long freelancerId) {
-        return reviewRepository.findByFreelancer_Id(freelancerId)
+        return reviewRepository.findByFreelancer_User_Id(freelancerId)
                 .stream().map(this::mapToDto).collect(Collectors.toList());
     }
 
@@ -54,7 +54,7 @@ public class ReviewService {
         return ReviewDto.builder()
                 .id(r.getId())
                 .orderId(r.getOrder().getId())
-                .freelancerId(r.getFreelancer().getId())
+                .freelancerId(r.getFreelancer().getUser().getId())
                 .clientId(r.getClient().getId())
                 .clientEmail(r.getClient().getEmail())
                 .rating(r.getRating())

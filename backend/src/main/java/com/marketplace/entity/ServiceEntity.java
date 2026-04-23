@@ -4,7 +4,9 @@ import com.marketplace.enums.ServiceStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,6 +27,12 @@ public class ServiceEntity {
     @Column(nullable = false)
     private String title;
 
+    @Column(nullable = false, unique = true)
+    private String slug;
+
+    @Column(name = "short_description", length = 300)
+    private String shortDescription;
+
     @Column(nullable = false, length = 1000)
     private String description;
 
@@ -32,8 +40,18 @@ public class ServiceEntity {
     private BigDecimal price;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "service_status")
     private ServiceStatus status = ServiceStatus.DRAFT;
+
+    @Column(name = "delivery_time_days")
+    private Integer deliveryTimeDays;
+
+    @Column(nullable = false)
+    private String city;
+
+    @Column(name = "is_remote", nullable = false)
+    private boolean remote;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
@@ -41,7 +59,7 @@ public class ServiceEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "freelancer_id", nullable = false)
-    private User freelancer;
+    private FreelancerProfile freelancer;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

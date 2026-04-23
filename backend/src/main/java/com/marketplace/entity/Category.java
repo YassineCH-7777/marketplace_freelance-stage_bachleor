@@ -24,6 +24,9 @@ public class Category {
     @Column(nullable = false, unique = true)
     private String name;
 
+    @Column(nullable = false, unique = true)
+    private String slug;
+
     @Column(length = 500)
     private String description;
 

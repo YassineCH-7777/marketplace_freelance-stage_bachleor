@@ -5,7 +5,9 @@ import com.marketplace.enums.ReportTargetType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -27,6 +29,7 @@ public class Report {
     private User reporter;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "report_target_type")
     private ReportTargetType targetType; // USER, SERVICE, MESSAGE
 
@@ -37,10 +40,11 @@ public class Report {
     private String reason;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "report_status")
-    private ReportStatus status = ReportStatus.PENDING;
+    private ReportStatus status = ReportStatus.OPEN;
 
-    @Column(length = 1000)
+    @Column(name = "admin_note", length = 1000)
     private String adminNotes;
 
     @CreationTimestamp

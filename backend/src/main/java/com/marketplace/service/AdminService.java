@@ -83,6 +83,7 @@ public class AdminService {
     public CategoryDto createCategory(CategoryDto dto) {
         Category category = Category.builder()
                 .name(dto.getName())
+                .slug(slugify(dto.getName()))
                 .description(dto.getDescription())
                 .isActive(dto.isActive())
                 .build();
@@ -95,6 +96,7 @@ public class AdminService {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Categorie introuvable"));
         category.setName(dto.getName());
+        category.setSlug(slugify(dto.getName()));
         category.setDescription(dto.getDescription());
         category.setActive(dto.isActive());
         category = categoryRepository.save(category);
@@ -132,5 +134,15 @@ public class AdminService {
                 .description(category.getDescription())
                 .isActive(category.isActive())
                 .build();
+    }
+
+    private String slugify(String value) {
+        if (value == null || value.isBlank()) {
+            return "categorie";
+        }
+        String slug = value.toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+        return slug.isBlank() ? "categorie" : slug;
     }
 }

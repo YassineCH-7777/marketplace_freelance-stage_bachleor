@@ -1,7 +1,8 @@
 package com.marketplace.enums;
 
 public enum ReportStatus {
-    PENDING,
+    OPEN,
+    IN_REVIEW,
     RESOLVED,
-    DISMISSED
+    REJECTED
 }
