@@ -27,7 +27,7 @@ public class Report {
     private User reporter;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "report_target_type")
     private ReportTargetType targetType; // USER, SERVICE, MESSAGE
 
     @Column(nullable = false)
@@ -37,7 +37,7 @@ public class Report {
     private String reason;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "report_status")
     private ReportStatus status = ReportStatus.PENDING;
 
     @Column(length = 1000)

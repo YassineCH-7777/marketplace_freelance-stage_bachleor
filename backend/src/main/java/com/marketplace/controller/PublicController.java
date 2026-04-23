@@ -24,7 +24,8 @@ public class PublicController {
 
     @GetMapping("/services")
     public ResponseEntity<List<ServiceDto>> getAllActiveServices() {
-        List<ServiceDto> services = serviceRepository.findByStatus(ServiceStatus.ACTIVE)
+        // repository stores DB enum values (DRAFT, PUBLISHED...), map published to be shown as ACTIVE in UI
+        List<ServiceDto> services = serviceRepository.findByStatus(ServiceStatus.PUBLISHED)
                 .stream()
                 .map(this::mapToServiceDto)
                 .collect(Collectors.toList());
@@ -33,14 +34,15 @@ public class PublicController {
 
     @GetMapping("/services/search")
     public ResponseEntity<List<ServiceDto>> searchServices(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) String city
+        @RequestParam(required = false) String keyword,
+        @RequestParam(required = false) Long categoryId,
+        @RequestParam(required = false) String categoryName,
+        @RequestParam(required = false) String city
     ) {
-        List<ServiceDto> services = serviceRepository.searchServices(keyword, categoryId, city)
-                .stream()
-                .map(this::mapToServiceDto)
-                .collect(Collectors.toList());
+    List<ServiceDto> services = serviceRepository.searchServices(keyword, categoryId, categoryName, city)
+        .stream()
+        .map(this::mapToServiceDto)
+        .collect(Collectors.toList());
         return ResponseEntity.ok(services);
     }
 
@@ -63,6 +65,7 @@ public class PublicController {
                 .freelancerId(service.getFreelancer().getId())
                 .freelancerEmail(service.getFreelancer().getEmail())
                 .freelancerCity(service.getFreelancer().getCity())
+                .status("ACTIVE")
                 .build();
     }
 

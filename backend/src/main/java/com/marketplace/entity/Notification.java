@@ -28,7 +28,7 @@ public class Notification {
     private String content;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "notification_type")
     private NotificationType type;
 
     @Column(nullable = false)

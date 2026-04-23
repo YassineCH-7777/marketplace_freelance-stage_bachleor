@@ -11,9 +11,8 @@ import com.marketplace.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
+import com.marketplace.exception.UnauthorizedException;
+import com.marketplace.exception.ResourceNotFoundException;
 
 @Service
 @RequiredArgsConstructor
@@ -25,14 +24,14 @@ public class ServiceService {
 
     @Transactional
     public ServiceDto createService(Long freelancerId, ServiceDto dto) {
-        User freelancer = userRepository.findById(freelancerId).orElseThrow();
-        Category category = categoryRepository.findById(dto.getCategoryId()).orElseThrow();
+    User freelancer = userRepository.findById(freelancerId).orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
+    Category category = categoryRepository.findById(dto.getCategoryId()).orElseThrow(() -> new ResourceNotFoundException("Catégorie introuvable"));
 
         ServiceEntity service = ServiceEntity.builder()
                 .title(dto.getTitle())
                 .description(dto.getDescription())
                 .price(dto.getPrice())
-                .status(ServiceStatus.ACTIVE)
+                .status(ServiceStatus.PUBLISHED)
                 .category(category)
                 .freelancer(freelancer)
                 .build();
@@ -43,11 +42,11 @@ public class ServiceService {
 
     @Transactional
     public ServiceDto updateService(Long serviceId, Long freelancerId, ServiceDto dto) {
-        ServiceEntity service = serviceRepository.findById(serviceId).orElseThrow();
+        ServiceEntity service = serviceRepository.findById(serviceId).orElseThrow(() -> new ResourceNotFoundException("Service introuvable"));
         if (!service.getFreelancer().getId().equals(freelancerId)) {
-            throw new RuntimeException("Accès refusé");
+            throw new UnauthorizedException("Accès refusé");
         }
-        Category category = categoryRepository.findById(dto.getCategoryId()).orElseThrow();
+        Category category = categoryRepository.findById(dto.getCategoryId()).orElseThrow(() -> new ResourceNotFoundException("Catégorie introuvable"));
         
         service.setTitle(dto.getTitle());
         service.setDescription(dto.getDescription());
@@ -59,9 +58,9 @@ public class ServiceService {
 
     @Transactional
     public void deleteService(Long serviceId, Long freelancerId) {
-        ServiceEntity service = serviceRepository.findById(serviceId).orElseThrow();
+        ServiceEntity service = serviceRepository.findById(serviceId).orElseThrow(() -> new ResourceNotFoundException("Service introuvable"));
         if (!service.getFreelancer().getId().equals(freelancerId)) {
-            throw new RuntimeException("Accès refusé");
+            throw new UnauthorizedException("Accès refusé");
         }
         service.setStatus(ServiceStatus.ARCHIVED);
         serviceRepository.save(service);

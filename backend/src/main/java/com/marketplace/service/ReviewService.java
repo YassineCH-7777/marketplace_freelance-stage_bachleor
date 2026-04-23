@@ -7,6 +7,8 @@ import com.marketplace.enums.OrderStatus;
 import com.marketplace.repository.OrderRepository;
 import com.marketplace.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
+import com.marketplace.exception.BusinessException;
+import com.marketplace.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,14 +24,14 @@ public class ReviewService {
 
     @Transactional
     public ReviewDto leaveReview(Long clientId, ReviewDto dto) {
-        Order order = orderRepository.findById(dto.getOrderId()).orElseThrow();
+        Order order = orderRepository.findById(dto.getOrderId()).orElseThrow(() -> new ResourceNotFoundException("Commande introuvable"));
         
         if (!order.getClient().getId().equals(clientId)) {
-            throw new RuntimeException("Seul le client concerné peut laisser un avis.");
+            throw new BusinessException("Seul le client concerné peut laisser un avis.", org.springframework.http.HttpStatus.FORBIDDEN);
         }
 
         if (order.getStatus() != OrderStatus.COMPLETED) {
-            throw new RuntimeException("La commande doit être terminée pour laisser un avis.");
+            throw new BusinessException("La commande doit être terminée pour laisser un avis.", org.springframework.http.HttpStatus.BAD_REQUEST);
         }
 
         Review review = Review.builder()

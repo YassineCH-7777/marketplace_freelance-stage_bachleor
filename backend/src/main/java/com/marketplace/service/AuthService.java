@@ -16,6 +16,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.marketplace.exception.BusinessException;
+import com.marketplace.exception.ResourceNotFoundException;
 
 @Service
 @RequiredArgsConstructor
@@ -30,9 +32,9 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("Cet e-mail est déjà utilisé");
-        }
+                if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+                        throw new BusinessException("Cet e-mail est déjà utilisé", org.springframework.http.HttpStatus.CONFLICT);
+                }
 
         User user = User.builder()
                 .email(request.getEmail())
@@ -70,7 +72,7 @@ public class AuthService {
         );
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
 
         String jwtToken = jwtService.generateToken(user);
 

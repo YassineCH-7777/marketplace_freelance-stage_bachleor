@@ -8,14 +8,14 @@ export default function Services() {
   const [searchParams] = useSearchParams();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
+    const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
   const [city, setCity] = useState('');
-  const [categoryId, setCategoryId] = useState('');
+    const [categoryName, setCategoryName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
   const fetchServices = (params = {}) => {
     setLoading(true);
-    const hasFilters = params.keyword || params.city || params.categoryId;
+  const hasFilters = params.keyword || params.city || params.categoryName;
     const apiCall = hasFilters ? searchServices(params) : getActiveServices();
     apiCall
       .then(r => setServices(r.data))
@@ -37,7 +37,7 @@ export default function Services() {
     const params = {};
     if (keyword) params.keyword = keyword;
     if (city) params.city = city;
-    if (categoryId) params.categoryId = parseInt(categoryId);
+  if (categoryName) params.categoryName = categoryName;
     fetchServices(params);
   };
 
@@ -81,7 +81,8 @@ export default function Services() {
               </div>
               <div className="filter-group">
                 <label className="form-label">ID Catégorie</label>
-                <input className="form-input" type="number" min="1" value={categoryId} onChange={e => setCategoryId(e.target.value)} placeholder="1" />
+                  <label className="form-label">Catégorie (nom)</label>
+                  <input className="form-input" value={categoryName} onChange={e => setCategoryName(e.target.value)} placeholder="Ex: Design" />
               </div>
               <button type="button" className="btn btn-secondary btn-sm" onClick={clearFilters}>
                 <X size={14} /> Réinitialiser

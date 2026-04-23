@@ -32,8 +32,8 @@ public class ServiceEntity {
     private BigDecimal price;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private ServiceStatus status = ServiceStatus.ACTIVE;
+    @Column(nullable = false, columnDefinition = "service_status")
+    private ServiceStatus status = ServiceStatus.DRAFT;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)

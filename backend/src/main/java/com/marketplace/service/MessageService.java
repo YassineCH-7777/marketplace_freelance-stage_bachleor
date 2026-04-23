@@ -11,6 +11,8 @@ import com.marketplace.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.marketplace.exception.UnauthorizedException;
+import com.marketplace.exception.ResourceNotFoundException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -45,9 +47,9 @@ public class MessageService {
     }
 
     public List<MessageDto> getMessages(Long conversationId, Long userId) {
-        Conversation conversation = conversationRepository.findById(conversationId).orElseThrow();
+        Conversation conversation = conversationRepository.findById(conversationId).orElseThrow(() -> new ResourceNotFoundException("Conversation introuvable"));
         if (!conversation.getClient().getId().equals(userId) && !conversation.getFreelancer().getId().equals(userId)) {
-            throw new RuntimeException("Accès refusé");
+            throw new UnauthorizedException("Accès refusé");
         }
         return messageRepository.findByConversation_IdOrderByCreatedAtAsc(conversationId)
                 .stream().map(this::mapToMessageDto).collect(Collectors.toList());
@@ -55,11 +57,11 @@ public class MessageService {
 
     @Transactional
     public MessageDto sendMessage(Long conversationId, Long senderId, String content) {
-        Conversation conversation = conversationRepository.findById(conversationId).orElseThrow();
-        User sender = userRepository.findById(senderId).orElseThrow();
+        Conversation conversation = conversationRepository.findById(conversationId).orElseThrow(() -> new ResourceNotFoundException("Conversation introuvable"));
+        User sender = userRepository.findById(senderId).orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
         
         if (!conversation.getClient().getId().equals(senderId) && !conversation.getFreelancer().getId().equals(senderId)) {
-            throw new RuntimeException("Accès refusé");
+            throw new UnauthorizedException("Accès refusé");
         }
 
         Message message = Message.builder()

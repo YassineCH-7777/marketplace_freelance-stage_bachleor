@@ -20,4 +20,5 @@ public class ServiceDto {
     private Long freelancerId;
     private String freelancerEmail;
     private String freelancerCity;
+    private String status;
 }

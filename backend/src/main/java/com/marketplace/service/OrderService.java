@@ -15,6 +15,8 @@ import com.marketplace.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.marketplace.exception.UnauthorizedException;
+import com.marketplace.exception.ResourceNotFoundException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,9 +37,9 @@ public class OrderService {
 
     @Transactional
     public void acceptRequest(Long requestId, Long freelancerId) {
-        OrderRequest request = orderRequestRepository.findById(requestId).orElseThrow();
+        OrderRequest request = orderRequestRepository.findById(requestId).orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
         if (!request.getFreelancer().getId().equals(freelancerId)) {
-            throw new RuntimeException("Accès refusé");
+            throw new UnauthorizedException("Accès refusé");
         }
 
         request.setStatus(RequestStatus.ACCEPTED);
@@ -56,9 +58,9 @@ public class OrderService {
 
     @Transactional
     public void refuseRequest(Long requestId, Long freelancerId) {
-        OrderRequest request = orderRequestRepository.findById(requestId).orElseThrow();
+        OrderRequest request = orderRequestRepository.findById(requestId).orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
         if (!request.getFreelancer().getId().equals(freelancerId)) {
-            throw new RuntimeException("Accès refusé");
+            throw new UnauthorizedException("Accès refusé");
         }
         request.setStatus(RequestStatus.REJECTED);
         orderRequestRepository.save(request);
@@ -101,8 +103,8 @@ public class OrderService {
 
     @Transactional
     public OrderRequestDto createOrderRequest(Long clientId, OrderRequestDto dto) {
-        User client = userRepository.findById(clientId).orElseThrow();
-        ServiceEntity service = serviceRepository.findById(dto.getServiceId()).orElseThrow();
+    User client = userRepository.findById(clientId).orElseThrow(() -> new ResourceNotFoundException("Client introuvable"));
+    ServiceEntity service = serviceRepository.findById(dto.getServiceId()).orElseThrow(() -> new ResourceNotFoundException("Service introuvable"));
         
         OrderRequest request = OrderRequest.builder()
                 .service(service)

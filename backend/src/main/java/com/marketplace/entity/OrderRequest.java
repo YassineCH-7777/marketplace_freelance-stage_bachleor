@@ -41,7 +41,7 @@ public class OrderRequest {
     private BigDecimal proposedPrice;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "request_status")
     private RequestStatus status = RequestStatus.PENDING;
 
     @CreationTimestamp

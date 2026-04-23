@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getActiveServices } from '../api/serviceApi';
+import { getActiveServices, getCategories } from '../api/serviceApi';
 import { createFreelancerService, updateFreelancerService, deleteFreelancerService } from '../api/userApi';
 import { Plus, Edit3, Trash2, X, Loader2, Package, Briefcase } from 'lucide-react';
 import './Dashboard.css';
@@ -12,6 +12,7 @@ export default function MyServices() {
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ title: '', description: '', price: '', categoryId: '' });
+  const [categories, setCategories] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchServices = () => {
@@ -26,6 +27,12 @@ export default function MyServices() {
   };
 
   useEffect(() => { fetchServices(); }, []);
+
+  useEffect(() => {
+    getCategories()
+      .then(r => setCategories(r.data || []))
+      .catch(() => setCategories([]));
+  }, []);
 
   const openCreate = () => {
     setEditId(null);
@@ -144,8 +151,13 @@ export default function MyServices() {
                   <input className="form-input" type="number" min="0" step="0.01" value={form.price} onChange={e => setForm({...form, price: e.target.value})} required placeholder="500" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">ID Catégorie</label>
-                  <input className="form-input" type="number" min="1" value={form.categoryId} onChange={e => setForm({...form, categoryId: e.target.value})} required placeholder="1" />
+                  <label className="form-label">Catégorie</label>
+                  <select className="form-input" value={form.categoryId} onChange={e => setForm({...form, categoryId: e.target.value})} required>
+                    <option value="">Choisir une catégorie</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="modal-actions">
                   <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>

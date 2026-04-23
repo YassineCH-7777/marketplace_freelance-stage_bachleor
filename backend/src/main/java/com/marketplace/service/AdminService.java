@@ -37,7 +37,7 @@ public class AdminService {
         return AdminStatsDto.builder()
                 .totalUsers(userRepository.count())
                 .totalOrders(orderRepository.count())
-                .activeServices(serviceRepository.countByStatus(ServiceStatus.ACTIVE))
+                .activeServices(serviceRepository.countByStatus(ServiceStatus.PUBLISHED))
                 .build();
     }
 
