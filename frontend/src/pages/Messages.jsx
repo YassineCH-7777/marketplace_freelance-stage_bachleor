@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import useAuth from '../hooks/useAuth';
 import { getConversations, getMessages, sendMessage } from '../api/messageApi';
 import { MessageSquare, Send, Loader2, Inbox, ArrowLeft } from 'lucide-react';
 import './Dashboard.css';

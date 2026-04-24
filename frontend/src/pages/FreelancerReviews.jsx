@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import useAuth from '../hooks/useAuth';
 import { Star, Inbox, Loader2 } from 'lucide-react';
 import API from '../api/axiosConfig';
 import './Dashboard.css';

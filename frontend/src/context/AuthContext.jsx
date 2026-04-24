@@ -1,34 +1,59 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useState } from 'react';
+import AuthContext from './authContextValue';
 
-const AuthContext = createContext(null);
+function readStoredAuth() {
+  const storedToken = localStorage.getItem('token');
+  const storedUser = localStorage.getItem('user');
+
+  if (!storedToken || !storedUser) {
+    return {
+      loading: false,
+      token: null,
+      user: null,
+    };
+  }
+
+  try {
+    return {
+      loading: false,
+      token: storedToken,
+      user: JSON.parse(storedUser),
+    };
+  } catch {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
+    return {
+      loading: false,
+      token: null,
+      user: null,
+    };
+  }
+}
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
-  }, []);
+  const [{ loading, token, user }, setAuthState] = useState(readStoredAuth);
 
   const login = (userData, jwtToken) => {
-    setUser(userData);
-    setToken(jwtToken);
     localStorage.setItem('token', jwtToken);
     localStorage.setItem('user', JSON.stringify(userData));
+
+    setAuthState({
+      loading: false,
+      token: jwtToken,
+      user: userData,
+    });
   };
 
   const logout = () => {
-    setUser(null);
-    setToken(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+
+    setAuthState({
+      loading: false,
+      token: null,
+      user: null,
+    });
   };
 
   const isAuthenticated = !!token;
@@ -39,13 +64,3 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
-
-export default AuthContext;

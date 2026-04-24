@@ -337,6 +337,11 @@ img {
   to { opacity: 1; }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 @keyframes slideInFromLeft {
   from {
     opacity: 0;
@@ -366,6 +371,10 @@ img {
 .animate-fade-in {
   animation: fadeIn 0.5s var(--transition-base) forwards;
   opacity: 0;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
 }
 
 /* Stagger children animations */

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import useAuth from '../hooks/useAuth';
 import { updateFreelancerProfile } from '../api/userApi';
 import { getFreelancerProfile } from '../api/serviceApi';
 import { User, Save, Loader2, MapPin, Link as LinkIcon, Code, FileText } from 'lucide-react';

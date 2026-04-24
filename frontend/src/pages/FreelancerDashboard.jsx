@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import useAuth from '../hooks/useAuth';
 import { getFreelancerOrders, getIncomingRequests } from '../api/userApi';
 import { Briefcase, ClipboardList, Star, TrendingUp, ArrowRight, Package, UserCheck } from 'lucide-react';
 import './Dashboard.css';

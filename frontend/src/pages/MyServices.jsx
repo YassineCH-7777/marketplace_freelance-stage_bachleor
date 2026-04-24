@@ -1,9 +1,28 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { getActiveServices, getCategories } from '../api/serviceApi';
-import { createFreelancerService, updateFreelancerService, deleteFreelancerService } from '../api/userApi';
-import { Plus, Edit3, Trash2, X, Loader2, Package, Briefcase } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Edit3, Trash2, X, Loader2, Briefcase } from 'lucide-react';
+import useAuth from '../hooks/useAuth';
+import { getActiveServices } from '../api/serviceApi';
+import {
+  createFreelancerService,
+  updateFreelancerService,
+  deleteFreelancerService,
+} from '../api/userApi';
 import './Dashboard.css';
+
+function extractCategories(services) {
+  const categoryMap = new Map();
+
+  services.forEach((service) => {
+    if (service.categoryId) {
+      categoryMap.set(service.categoryId, {
+        id: service.categoryId,
+        name: service.categoryName || `Categorie ${service.categoryId}`,
+      });
+    }
+  });
+
+  return Array.from(categoryMap.values()).sort((left, right) => left.name.localeCompare(right.name));
+}
 
 export default function MyServices() {
   const { user } = useAuth();
@@ -15,24 +34,51 @@ export default function MyServices() {
   const [categories, setCategories] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchServices = () => {
-    setLoading(true);
+  useEffect(() => {
+    let isMounted = true;
+
     getActiveServices()
-      .then(res => {
-        const mine = res.data.filter(s => s.freelancerId === user?.id);
-        setServices(mine);
+      .then((response) => {
+        if (!isMounted) {
+          return;
+        }
+
+        const allServices = response.data || [];
+        setServices(allServices.filter((service) => service.freelancerId === user?.id));
+        setCategories(extractCategories(allServices));
       })
-      .catch(() => {})
+      .catch(() => {
+        if (isMounted) {
+          setServices([]);
+          setCategories([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  const refreshServices = () => {
+    setLoading(true);
+
+    getActiveServices()
+      .then((response) => {
+        const allServices = response.data || [];
+        setServices(allServices.filter((service) => service.freelancerId === user?.id));
+        setCategories(extractCategories(allServices));
+      })
+      .catch(() => {
+        setServices([]);
+        setCategories([]);
+      })
       .finally(() => setLoading(false));
   };
-
-  useEffect(() => { fetchServices(); }, []);
-
-  useEffect(() => {
-    getCategories()
-      .then(r => setCategories(r.data || []))
-      .catch(() => setCategories([]));
-  }, []);
 
   const openCreate = () => {
     setEditId(null);
@@ -42,35 +88,50 @@ export default function MyServices() {
 
   const openEdit = (service) => {
     setEditId(service.id);
-    setForm({ title: service.title, description: service.description, price: service.price, categoryId: service.categoryId });
+    setForm({
+      title: service.title,
+      description: service.description,
+      price: service.price,
+      categoryId: String(service.categoryId),
+    });
     setShowModal(true);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setSubmitting(true);
+
     try {
-      const payload = { ...form, price: parseFloat(form.price), categoryId: parseInt(form.categoryId) };
+      const payload = {
+        ...form,
+        price: parseFloat(form.price),
+        categoryId: parseInt(form.categoryId, 10),
+      };
+
       if (editId) {
         await updateFreelancerService(editId, payload);
       } else {
         await createFreelancerService(payload);
       }
+
       setShowModal(false);
-      fetchServices();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la sauvegarde');
+      refreshServices();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la sauvegarde');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Archiver ce service ? Il ne sera plus visible publiquement.')) return;
+    if (!window.confirm('Archiver ce service ? Il ne sera plus visible publiquement.')) {
+      return;
+    }
+
     try {
       await deleteFreelancerService(id);
-      fetchServices();
-    } catch (err) {
+      refreshServices();
+    } catch {
       alert('Erreur lors de la suppression');
     }
   };
@@ -79,10 +140,18 @@ export default function MyServices() {
     <div className="dashboard-page">
       <div className="container">
         <div className="dashboard-header animate-fade-in-up">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '1rem',
+            }}
+          >
             <div>
               <h1 className="dashboard-title">Mes Services</h1>
-              <p className="dashboard-subtitle">Gérez vos offres publiées sur la plateforme.</p>
+              <p className="dashboard-subtitle">Gerez vos offres publiees sur la plateforme.</p>
             </div>
             <button className="btn btn-primary" onClick={openCreate}>
               <Plus size={18} /> Nouveau service
@@ -91,13 +160,21 @@ export default function MyServices() {
         </div>
 
         {loading ? (
-          <div className="empty-state"><Loader2 size={32} className="spinner" /></div>
+          <div className="empty-state">
+            <Loader2 size={32} className="spinner" />
+          </div>
         ) : services.length === 0 ? (
           <div className="empty-state animate-fade-in-up">
-            <div className="empty-state-icon"><Briefcase size={48} /></div>
-            <h3 className="empty-state-title">Aucun service publié</h3>
-            <p className="empty-state-desc">Créez votre premier service pour commencer à recevoir des demandes de clients.</p>
-            <button className="btn btn-primary" onClick={openCreate}><Plus size={18} /> Publier un service</button>
+            <div className="empty-state-icon">
+              <Briefcase size={48} />
+            </div>
+            <h3 className="empty-state-title">Aucun service publie</h3>
+            <p className="empty-state-desc">
+              Creez votre premier service pour commencer a recevoir des demandes de clients.
+            </p>
+            <button className="btn btn-primary" onClick={openCreate}>
+              <Plus size={18} /> Publier un service
+            </button>
           </div>
         ) : (
           <div className="dash-table-wrapper animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
@@ -105,21 +182,33 @@ export default function MyServices() {
               <thead>
                 <tr>
                   <th>Titre</th>
-                  <th>Catégorie</th>
+                  <th>Categorie</th>
                   <th>Prix</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {services.map(s => (
-                  <tr key={s.id}>
-                    <td className="td-title">{s.title}</td>
-                    <td><span className="badge badge-primary">{s.categoryName || `Cat. ${s.categoryId}`}</span></td>
-                    <td><span style={{ color: 'var(--accent-400)', fontWeight: 700 }}>{s.price} MAD</span></td>
+                {services.map((service) => (
+                  <tr key={service.id}>
+                    <td className="td-title">{service.title}</td>
+                    <td>
+                      <span className="badge badge-primary">
+                        {service.categoryName || `Cat. ${service.categoryId}`}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ color: 'var(--accent-400)', fontWeight: 700 }}>
+                        {service.price} MAD
+                      </span>
+                    </td>
                     <td>
                       <div className="action-btns">
-                        <button className="btn btn-sm btn-edit" onClick={() => openEdit(s)}><Edit3 size={14} /> Modifier</button>
-                        <button className="btn btn-sm btn-delete" onClick={() => handleDelete(s.id)}><Trash2 size={14} /></button>
+                        <button className="btn btn-sm btn-edit" onClick={() => openEdit(service)}>
+                          <Edit3 size={14} /> Modifier
+                        </button>
+                        <button className="btn btn-sm btn-delete" onClick={() => handleDelete(service.id)}>
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -129,40 +218,79 @@ export default function MyServices() {
           </div>
         )}
 
-        {/* Create/Edit Modal */}
         {showModal && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-content" onClick={(event) => event.stopPropagation()}>
               <div className="modal-header">
                 <h2 className="modal-title">{editId ? 'Modifier le service' : 'Nouveau service'}</h2>
-                <button className="modal-close" onClick={() => setShowModal(false)}><X size={20} /></button>
+                <button className="modal-close" onClick={() => setShowModal(false)}>
+                  <X size={20} />
+                </button>
               </div>
               <form className="modal-form" onSubmit={handleSubmit}>
                 <div className="form-group">
                   <label className="form-label">Titre</label>
-                  <input className="form-input" value={form.title} onChange={e => setForm({...form, title: e.target.value})} required placeholder="Ex: Création de site web" />
+                  <input
+                    className="form-input"
+                    value={form.title}
+                    onChange={(event) => setForm({ ...form, title: event.target.value })}
+                    required
+                    placeholder="Ex: Creation de site web"
+                  />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Description</label>
-                  <textarea className="form-textarea" value={form.description} onChange={e => setForm({...form, description: e.target.value})} required placeholder="Décrivez votre service en détail..." />
+                  <textarea
+                    className="form-textarea"
+                    value={form.description}
+                    onChange={(event) => setForm({ ...form, description: event.target.value })}
+                    required
+                    placeholder="Decrivez votre service en detail..."
+                  />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Prix (MAD)</label>
-                  <input className="form-input" type="number" min="0" step="0.01" value={form.price} onChange={e => setForm({...form, price: e.target.value})} required placeholder="500" />
+                  <input
+                    className="form-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.price}
+                    onChange={(event) => setForm({ ...form, price: event.target.value })}
+                    required
+                    placeholder="500"
+                  />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Catégorie</label>
-                  <select className="form-input" value={form.categoryId} onChange={e => setForm({...form, categoryId: e.target.value})} required>
-                    <option value="">Choisir une catégorie</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                  <label className="form-label">Categorie</label>
+                  <select
+                    className="form-input"
+                    value={form.categoryId}
+                    onChange={(event) => setForm({ ...form, categoryId: event.target.value })}
+                    required
+                  >
+                    <option value="">Choisir une categorie</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div className="modal-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                    Annuler
+                  </button>
                   <button type="submit" className="btn btn-primary" disabled={submitting}>
-                    {submitting ? <><Loader2 size={16} className="spinner" /> Enregistrement...</> : editId ? 'Mettre à jour' : 'Publier'}
+                    {submitting ? (
+                      <>
+                        <Loader2 size={16} className="spinner" /> Enregistrement...
+                      </>
+                    ) : editId ? (
+                      'Mettre a jour'
+                    ) : (
+                      'Publier'
+                    )}
                   </button>
                 </div>
               </form>
