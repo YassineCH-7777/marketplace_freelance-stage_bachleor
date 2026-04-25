@@ -50,6 +50,3 @@ coverage/
 .cache/
 tmp/
 *.tmp
-
-
-/neighborhoods-hire-main/*

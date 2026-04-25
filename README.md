@@ -104,3 +104,13 @@ Les prochaines briques naturelles pour renforcer le positionnement hyper-local s
 - badges de confiance terrain plus fins
 - avis multi-axes pour les missions locales
 - relances automatiques via n8n
+
+
+
+
+
+
+
+
+
+git add . && git commit -m "refacto: change style" && git push origin main
