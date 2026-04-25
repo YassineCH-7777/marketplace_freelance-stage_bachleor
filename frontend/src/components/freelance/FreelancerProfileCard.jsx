@@ -11,6 +11,7 @@ export default function FreelancerProfileCard({ freelancerId, profile, fallbackE
   const displayEmail = profile?.email || fallbackEmail || `Freelance #${freelancerId}`;
   const displayName = displayEmail.includes('@') ? displayEmail.split('@')[0] : displayEmail;
   const skills = splitSkills(profile?.skills);
+  const isProfileDetailed = Boolean(profile?.bio || profile?.portfolioUrl || skills.length > 0);
 
   return (
     <section className="profile-card public-profile-card animate-fade-in-up">
@@ -25,27 +26,29 @@ export default function FreelancerProfileCard({ freelancerId, profile, fallbackE
       </div>
 
       <div className="public-profile-meta">
-        <div className="public-meta-item">
-          <UserRound size={16} />
-          <span>Freelance verifie sur la plateforme</span>
-        </div>
+        {isProfileDetailed && (
+          <div className="public-meta-item">
+            <UserRound size={16} />
+            <span>Profil public renseigne</span>
+          </div>
+        )}
         {profile?.city && (
           <div className="public-meta-item">
             <MapPin size={16} />
-            <span>{profile.city}</span>
+            <span>Ville visible : {profile.city}</span>
           </div>
         )}
         {profile?.portfolioUrl && (
           <div className="public-meta-item">
             <Globe size={16} />
-            <span>Portfolio disponible</span>
+            <span>Portfolio public disponible</span>
           </div>
         )}
       </div>
 
       <p className="public-profile-bio">
         {profile?.bio ||
-          'Ce freelance n’a pas encore complete sa presentation publique, mais ses services sont deja visibles.'}
+          'Ce freelance n a pas encore complete sa presentation publique, mais ses services sont deja visibles.'}
       </p>
 
       {skills.length > 0 && (

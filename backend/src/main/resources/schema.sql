@@ -402,6 +402,9 @@ CREATE TABLE IF NOT EXISTS reviews (
     client_id           BIGINT NOT NULL,
     freelancer_id       BIGINT NOT NULL,
     rating              INT NOT NULL,
+    quality_rating      INT NOT NULL,
+    punctuality_rating  INT NOT NULL,
+    communication_rating INT NOT NULL,
     comment             TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -415,8 +418,54 @@ CREATE TABLE IF NOT EXISTS reviews (
     CONSTRAINT fk_reviews_freelancer
         FOREIGN KEY (freelancer_id) REFERENCES freelancer_profiles(id) ON DELETE CASCADE,
 
-    CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 5)
+    CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 5),
+    CONSTRAINT chk_reviews_quality_rating CHECK (quality_rating BETWEEN 1 AND 5),
+    CONSTRAINT chk_reviews_punctuality_rating CHECK (punctuality_rating BETWEEN 1 AND 5),
+    CONSTRAINT chk_reviews_communication_rating CHECK (communication_rating BETWEEN 1 AND 5)
 );
+
+ALTER TABLE reviews
+    ADD COLUMN IF NOT EXISTS quality_rating INT,
+    ADD COLUMN IF NOT EXISTS punctuality_rating INT,
+    ADD COLUMN IF NOT EXISTS communication_rating INT;
+
+UPDATE reviews
+SET
+    quality_rating = COALESCE(quality_rating, rating),
+    punctuality_rating = COALESCE(punctuality_rating, rating),
+    communication_rating = COALESCE(communication_rating, rating)
+WHERE quality_rating IS NULL
+   OR punctuality_rating IS NULL
+   OR communication_rating IS NULL;
+
+ALTER TABLE reviews
+    ALTER COLUMN quality_rating SET NOT NULL,
+    ALTER COLUMN punctuality_rating SET NOT NULL,
+    ALTER COLUMN communication_rating SET NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_reviews_quality_rating') THEN
+        ALTER TABLE reviews
+            ADD CONSTRAINT chk_reviews_quality_rating CHECK (quality_rating BETWEEN 1 AND 5);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_reviews_punctuality_rating') THEN
+        ALTER TABLE reviews
+            ADD CONSTRAINT chk_reviews_punctuality_rating CHECK (punctuality_rating BETWEEN 1 AND 5);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_reviews_communication_rating') THEN
+        ALTER TABLE reviews
+            ADD CONSTRAINT chk_reviews_communication_rating CHECK (communication_rating BETWEEN 1 AND 5);
+    END IF;
+END $$;
 
 -- =========================================================
 -- 14) TABLE NOTIFICATIONS

@@ -29,7 +29,9 @@ export default function Navbar() {
     <nav className="navbar">
       <div className="navbar-container container">
         <Link to="/" className="navbar-brand" onClick={() => setMobileOpen(false)}>
-          <Briefcase size={24} className="brand-icon" />
+          <span className="brand-mark">
+            <Briefcase size={20} className="brand-icon" strokeWidth={2.5} />
+          </span>
           <span className="brand-text">Freelance<span className="brand-highlight">Hub</span></span>
         </Link>
 

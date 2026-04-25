@@ -45,9 +45,9 @@ public class ServiceService {
                 .status(ServiceStatus.PUBLISHED)
                 .category(category)
                 .freelancer(freelancer)
-                .city(freelancerUser.getCity() != null ? freelancerUser.getCity() : "Remote")
-                .deliveryTimeDays(7)
-                .remote(true)
+                .city(resolveServiceCity(dto.getServiceCity(), freelancerUser.getCity(), resolveRemote(dto.getRemote(), true)))
+                .deliveryTimeDays(resolveDeliveryTimeDays(dto.getDeliveryTimeDays(), 7))
+                .remote(resolveRemote(dto.getRemote(), true))
                 .build();
 
         return mapToDto(serviceRepository.save(service));
@@ -70,6 +70,11 @@ public class ServiceService {
         service.setDescription(dto.getDescription());
         service.setPrice(dto.getPrice());
         service.setCategory(category);
+        service.setDeliveryTimeDays(resolveDeliveryTimeDays(dto.getDeliveryTimeDays(), service.getDeliveryTimeDays()));
+
+        boolean remote = resolveRemote(dto.getRemote(), service.isRemote());
+        service.setRemote(remote);
+        service.setCity(resolveServiceCity(dto.getServiceCity(), service.getCity(), remote));
 
         return mapToDto(serviceRepository.save(service));
     }
@@ -96,8 +101,53 @@ public class ServiceService {
                 .freelancerId(service.getFreelancer().getUser().getId())
                 .freelancerEmail(service.getFreelancer().getUser().getEmail())
                 .freelancerCity(service.getFreelancer().getUser().getCity())
+                .serviceCity(service.getCity())
+                .remote(service.isRemote())
+                .deliveryTimeDays(service.getDeliveryTimeDays())
+                .executionMode(resolveExecutionMode(service.isRemote(), service.getCity()))
                 .status(service.getStatus() == ServiceStatus.PUBLISHED ? "ACTIVE" : service.getStatus().name())
                 .build();
+    }
+
+    private Integer resolveDeliveryTimeDays(Integer requestedDays, Integer fallbackDays) {
+        if (requestedDays != null && requestedDays >= 0) {
+            return requestedDays;
+        }
+
+        if (fallbackDays != null && fallbackDays >= 0) {
+            return fallbackDays;
+        }
+
+        return 7;
+    }
+
+    private boolean resolveRemote(Boolean requestedRemote, boolean fallbackRemote) {
+        return requestedRemote != null ? requestedRemote : fallbackRemote;
+    }
+
+    private String resolveServiceCity(String requestedCity, String fallbackCity, boolean remote) {
+        if (requestedCity != null && !requestedCity.isBlank()) {
+            return requestedCity.trim();
+        }
+
+        if (fallbackCity != null && !fallbackCity.isBlank()) {
+            return fallbackCity.trim();
+        }
+
+        return remote ? "Remote" : "A definir";
+    }
+
+    private String resolveExecutionMode(boolean remote, String city) {
+        if (!remote) {
+            return "ON_SITE";
+        }
+
+        String normalizedCity = city == null ? "" : city.trim();
+        if (!normalizedCity.isEmpty() && !"remote".equalsIgnoreCase(normalizedCity)) {
+            return "HYBRID";
+        }
+
+        return "REMOTE";
     }
 
     private String buildShortDescription(String description) {

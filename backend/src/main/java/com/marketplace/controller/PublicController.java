@@ -2,11 +2,13 @@ package com.marketplace.controller;
 
 import com.marketplace.dto.service.ServiceDto;
 import com.marketplace.dto.user.FreelancerProfileDto;
+import com.marketplace.dto.review.ReviewDto;
 import com.marketplace.entity.FreelancerProfile;
 import com.marketplace.entity.ServiceEntity;
 import com.marketplace.enums.ServiceStatus;
 import com.marketplace.repository.FreelancerProfileRepository;
 import com.marketplace.repository.ServiceRepository;
+import com.marketplace.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +24,7 @@ public class PublicController {
 
     private final ServiceRepository serviceRepository;
     private final FreelancerProfileRepository freelancerProfileRepository;
+    private final ReviewService reviewService;
 
     @GetMapping("/services")
     public ResponseEntity<List<ServiceDto>> getAllActiveServices() {
@@ -38,11 +41,14 @@ public class PublicController {
         @RequestParam(required = false) String keyword,
         @RequestParam(required = false) Long categoryId,
         @RequestParam(required = false) String categoryName,
-        @RequestParam(required = false) String city
+        @RequestParam(required = false) String city,
+        @RequestParam(required = false) String mode,
+        @RequestParam(required = false) Integer maxDeliveryDays
     ) {
         String normalizedKeyword = normalize(keyword);
         String normalizedCategoryName = normalize(categoryName);
         String normalizedCity = normalize(city);
+        String normalizedMode = normalize(mode);
 
         List<ServiceDto> services = serviceRepository.findByStatus(ServiceStatus.PUBLISHED)
                 .stream()
@@ -55,6 +61,9 @@ public class PublicController {
                 .filter(service -> normalizedCity == null
                         || containsIgnoreCase(service.getCity(), normalizedCity)
                         || containsIgnoreCase(service.getFreelancer().getUser().getCity(), normalizedCity))
+                .filter(service -> matchesMode(service, normalizedMode))
+                .filter(service -> maxDeliveryDays == null
+                        || (service.getDeliveryTimeDays() != null && service.getDeliveryTimeDays() <= maxDeliveryDays))
                 .map(this::mapToServiceDto)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(services);
@@ -68,6 +77,11 @@ public class PublicController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/freelancers/{userId}/reviews")
+    public ResponseEntity<List<ReviewDto>> getFreelancerReviews(@PathVariable Long userId) {
+        return ResponseEntity.ok(reviewService.getReviewsByFreelancer(userId));
+    }
+
     private ServiceDto mapToServiceDto(ServiceEntity service) {
         return ServiceDto.builder()
                 .id(service.getId())
@@ -79,6 +93,10 @@ public class PublicController {
                 .freelancerId(service.getFreelancer().getUser().getId())
                 .freelancerEmail(service.getFreelancer().getUser().getEmail())
                 .freelancerCity(service.getFreelancer().getUser().getCity())
+                .serviceCity(service.getCity())
+                .remote(service.isRemote())
+                .deliveryTimeDays(service.getDeliveryTimeDays())
+                .executionMode(resolveExecutionMode(service))
                 .status("ACTIVE")
                 .build();
     }
@@ -104,5 +122,26 @@ public class PublicController {
 
     private boolean containsIgnoreCase(String value, String expected) {
         return expected == null || (value != null && value.toLowerCase(Locale.ROOT).contains(expected));
+    }
+
+    private boolean matchesMode(ServiceEntity service, String expectedMode) {
+        if (expectedMode == null) {
+            return true;
+        }
+
+        return resolveExecutionMode(service).toLowerCase(Locale.ROOT).equals(expectedMode);
+    }
+
+    private String resolveExecutionMode(ServiceEntity service) {
+        if (!service.isRemote()) {
+            return "ON_SITE";
+        }
+
+        String normalizedCity = normalize(service.getCity());
+        if (normalizedCity != null && !"remote".equals(normalizedCity)) {
+            return "HYBRID";
+        }
+
+        return "REMOTE";
     }
 }

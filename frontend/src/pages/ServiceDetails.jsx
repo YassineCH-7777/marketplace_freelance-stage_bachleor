@@ -4,6 +4,12 @@ import { MapPin, User, ArrowLeft, Send, Loader2, CheckCircle } from 'lucide-reac
 import useAuth from '../hooks/useAuth';
 import { createOrderRequest } from '../api/orderApi';
 import { getActiveServices } from '../api/serviceApi';
+import {
+  getDeliveryTimeLabel,
+  getExecutionModeLabel,
+  getExecutionModeTone,
+  getServiceLocationLabel,
+} from '../utils/serviceMeta';
 import './Services.css';
 import './Dashboard.css';
 
@@ -116,6 +122,10 @@ export default function ServiceDetails() {
           <div className="service-detail-card animate-fade-in-up">
             <div className="service-detail-badge-row">
               <span className="badge badge-primary">{service.categoryName || 'Service'}</span>
+              <span className={`service-chip ${getExecutionModeTone(service.executionMode)}`}>
+                {getExecutionModeLabel(service.executionMode)}
+              </span>
+              <span className="service-chip">{getDeliveryTimeLabel(service.deliveryTimeDays)}</span>
             </div>
             <h1 className="service-detail-title">{service.title}</h1>
             <div className="service-detail-price">{service.price} MAD</div>
@@ -126,12 +136,10 @@ export default function ServiceDetails() {
                 <User size={16} />
                 <span>{service.freelancerEmail || `Freelance #${service.freelancerId}`}</span>
               </div>
-              {service.freelancerCity && (
-                <div className="meta-item">
-                  <MapPin size={16} />
-                  <span>{service.freelancerCity}</span>
-                </div>
-              )}
+              <div className="meta-item">
+                <MapPin size={16} />
+                <span>{getServiceLocationLabel(service)}</span>
+              </div>
             </div>
 
             <Link to={`/freelancers/${service.freelancerId}`} className="btn btn-secondary">

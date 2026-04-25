@@ -35,6 +35,15 @@ public class Review {
     @Column(nullable = false)
     private Integer rating; // 1 to 5
 
+    @Column(name = "quality_rating", nullable = false)
+    private Integer qualityRating;
+
+    @Column(name = "punctuality_rating", nullable = false)
+    private Integer punctualityRating;
+
+    @Column(name = "communication_rating", nullable = false)
+    private Integer communicationRating;
+
     @Column(length = 2000)
     private String comment;
 

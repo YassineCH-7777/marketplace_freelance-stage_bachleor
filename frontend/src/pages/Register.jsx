@@ -24,7 +24,7 @@ export default function Register() {
       return;
     }
     if (form.password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères.');
+      setError('Le mot de passe doit contenir au moins 6 caracteres.');
       return;
     }
     setLoading(true);
@@ -40,7 +40,11 @@ export default function Register() {
         default: navigate('/');
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Erreur lors de l'inscription. Cet e-mail existe peut-être déjà.");
+      if (!err.response) {
+        setError('Impossible de joindre le serveur. Verifiez que le backend est lance sur http://localhost:8080.');
+      } else {
+        setError(err.response?.data?.message || "Erreur lors de l'inscription. Cet e-mail existe peut-etre deja.");
+      }
     } finally {
       setLoading(false);
     }
@@ -48,19 +52,13 @@ export default function Register() {
 
   return (
     <div className="auth-page">
-      <div className="auth-bg-shapes">
-        <div className="auth-shape auth-shape-1"></div>
-        <div className="auth-shape auth-shape-2"></div>
-        <div className="auth-shape auth-shape-3"></div>
-      </div>
-
       <div className="auth-card animate-fade-in-up">
         <div className="auth-header">
           <div className="auth-icon-wrapper accent">
             <UserPlus size={28} />
           </div>
-          <h1 className="auth-title">Créer un compte</h1>
-          <p className="auth-subtitle">Rejoignez la communauté FreelanceHub</p>
+          <h1 className="auth-title">Creer un compte</h1>
+          <p className="auth-subtitle">Rejoignez la communaute FreelanceHub</p>
         </div>
 
         {error && (
@@ -98,7 +96,7 @@ export default function Register() {
                 type="password"
                 name="password"
                 className="form-input input-with-icon"
-                placeholder="Au moins 6 caractères"
+                placeholder="Au moins 6 caracteres"
                 value={form.password}
                 onChange={handleChange}
                 required
@@ -116,7 +114,7 @@ export default function Register() {
                 type="password"
                 name="confirmPassword"
                 className="form-input input-with-icon"
-                placeholder="••••••••"
+                placeholder="Confirmez votre mot de passe"
                 value={form.confirmPassword}
                 onChange={handleChange}
                 required
@@ -165,7 +163,7 @@ export default function Register() {
         </form>
 
         <div className="auth-footer">
-          <p>Déjà un compte ? <Link to="/login" className="auth-link">Se connecter</Link></p>
+          <p>Deja un compte ? <Link to="/login" className="auth-link">Se connecter</Link></p>
         </div>
       </div>
     </div>

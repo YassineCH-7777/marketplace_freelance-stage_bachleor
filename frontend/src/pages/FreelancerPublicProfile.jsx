@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Briefcase, Loader2 } from 'lucide-react';
+import { ArrowLeft, Briefcase, Loader2, MapPin } from 'lucide-react';
 import FreelancerProfileCard from '../components/freelance/FreelancerProfileCard';
+import LocalTrustSection from '../components/freelance/LocalTrustSection';
 import PortfolioSection from '../components/freelance/PortfolioSection';
 import { getActiveServices, getFreelancerProfile } from '../api/serviceApi';
+import { getFreelancerReviews } from '../api/reviewApi';
+import {
+  getDeliveryTimeLabel,
+  getExecutionModeLabel,
+  getExecutionModeTone,
+  getServiceLocationLabel,
+} from '../utils/serviceMeta';
 import './Dashboard.css';
 import './FreelancerPublicProfile.css';
 
@@ -11,13 +19,14 @@ export default function FreelancerPublicProfile() {
   const { id } = useParams();
   const [profile, setProfile] = useState(null);
   const [services, setServices] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
-    Promise.allSettled([getFreelancerProfile(id), getActiveServices()])
-      .then(([profileResult, servicesResult]) => {
+    Promise.allSettled([getFreelancerProfile(id), getActiveServices(), getFreelancerReviews(id)])
+      .then(([profileResult, servicesResult, reviewsResult]) => {
         if (!isMounted) {
           return;
         }
@@ -28,6 +37,7 @@ export default function FreelancerPublicProfile() {
         setServices(
           activeServices.filter((service) => String(service.freelancerId) === String(id)),
         );
+        setReviews(reviewsResult.status === 'fulfilled' ? reviewsResult.value.data : []);
       })
       .finally(() => {
         if (isMounted) {
@@ -83,6 +93,8 @@ export default function FreelancerPublicProfile() {
           fallbackEmail={services[0]?.freelancerEmail}
         />
 
+        <LocalTrustSection profile={profile} services={services} reviews={reviews} />
+
         <PortfolioSection portfolioUrl={profile?.portfolioUrl} />
 
         <section className="card animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
@@ -107,6 +119,16 @@ export default function FreelancerPublicProfile() {
                     {service.description?.slice(0, 160)}
                     {service.description?.length > 160 ? '...' : ''}
                   </p>
+                  <div className="service-meta-chips">
+                    <span className="service-chip">
+                      <MapPin size={12} />
+                      {getServiceLocationLabel(service)}
+                    </span>
+                    <span className={`service-chip ${getExecutionModeTone(service.executionMode)}`}>
+                      {getExecutionModeLabel(service.executionMode)}
+                    </span>
+                    <span className="service-chip">{getDeliveryTimeLabel(service.deliveryTimeDays)}</span>
+                  </div>
                   <Link
                     to={`/services/${service.id}`}
                     className="btn btn-secondary btn-sm"

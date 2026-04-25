@@ -18,6 +18,10 @@ public class ReviewDto {
     private Long clientId;
     private String clientEmail;
     private Integer rating;
+    private Integer qualityRating;
+    private Integer punctualityRating;
+    private Integer communicationRating;
     private String comment;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

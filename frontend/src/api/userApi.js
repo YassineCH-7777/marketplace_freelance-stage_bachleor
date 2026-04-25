@@ -15,3 +15,4 @@ export const refuseRequest = (id) => API.put(`/freelancer/requests/${id}/refuse`
 
 // Orders
 export const getFreelancerOrders = () => API.get('/freelancer/orders');
+export const updateFreelancerOrderExecution = (id, data) => API.put(`/freelancer/orders/${id}`, data);

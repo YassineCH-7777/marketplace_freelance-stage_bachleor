@@ -1,8 +1,7 @@
 .site-footer {
   border-top: 1px solid var(--surface-border);
   padding: var(--space-8) 0;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(20px);
+  background: var(--surface);
 }
 
 .footer-content {
@@ -16,6 +15,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  font-family: var(--font-display);
   font-weight: 800;
   font-size: var(--text-lg);
   color: var(--text-primary);

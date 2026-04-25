@@ -1,10 +1,12 @@
 package com.marketplace.service;
 
 import com.marketplace.dto.order.OrderDto;
+import com.marketplace.dto.order.OrderExecutionUpdateDto;
 import com.marketplace.dto.order.OrderRequestDto;
 import com.marketplace.entity.FreelancerProfile;
 import com.marketplace.entity.Order;
 import com.marketplace.entity.OrderRequest;
+import com.marketplace.entity.Review;
 import com.marketplace.entity.ServiceEntity;
 import com.marketplace.entity.User;
 import com.marketplace.enums.OrderStatus;
@@ -15,6 +17,7 @@ import com.marketplace.exception.UnauthorizedException;
 import com.marketplace.repository.FreelancerProfileRepository;
 import com.marketplace.repository.OrderRepository;
 import com.marketplace.repository.OrderRequestRepository;
+import com.marketplace.repository.ReviewRepository;
 import com.marketplace.repository.ServiceRepository;
 import com.marketplace.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,6 +38,7 @@ public class OrderService {
     private final UserRepository userRepository;
     private final ServiceRepository serviceRepository;
     private final FreelancerProfileRepository freelancerProfileRepository;
+    private final ReviewRepository reviewRepository;
 
     public List<OrderRequestDto> getIncomingRequests(Long freelancerId) {
         return orderRequestRepository.findByService_Freelancer_User_Id(freelancerId)
@@ -86,6 +91,47 @@ public class OrderService {
     }
 
     @Transactional
+    public OrderDto updateFreelancerOrder(Long orderId, Long freelancerId, OrderExecutionUpdateDto dto) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Commande introuvable"));
+
+        if (!order.getFreelancer().getUser().getId().equals(freelancerId)) {
+            throw new UnauthorizedException("Acces refuse");
+        }
+
+        OrderStatus nextStatus = dto.getStatus() != null ? dto.getStatus() : order.getStatus();
+        if (nextStatus == OrderStatus.PENDING) {
+            throw new BusinessException("Le suivi de mission ne peut pas repasser en attente.", HttpStatus.BAD_REQUEST);
+        }
+
+        LocalDate nextStartDate = dto.getStartDate() != null ? dto.getStartDate() : order.getStartDate();
+        LocalDate nextEndDate = dto.getEndDate() != null ? dto.getEndDate() : order.getEndDate();
+
+        if (nextStatus == OrderStatus.IN_PROGRESS && nextStartDate == null) {
+            nextStartDate = LocalDate.now();
+        }
+
+        if (nextStatus == OrderStatus.COMPLETED && nextEndDate == null) {
+            nextEndDate = LocalDate.now();
+        }
+
+        if (nextStartDate != null && nextEndDate != null && nextEndDate.isBefore(nextStartDate)) {
+            throw new BusinessException("La date de fin doit etre posterieure a la date de debut.", HttpStatus.BAD_REQUEST);
+        }
+
+        order.setStatus(nextStatus);
+        order.setStartDate(nextStartDate);
+        order.setEndDate(nextEndDate);
+
+        if (dto.getNotes() != null) {
+            String normalizedNotes = dto.getNotes().trim();
+            order.setNotes(normalizedNotes.isEmpty() ? null : normalizedNotes);
+        }
+
+        return mapToOrderDto(orderRepository.save(order));
+    }
+
+    @Transactional
     public OrderRequestDto createOrderRequest(Long clientId, OrderRequestDto dto) {
         User client = userRepository.findById(clientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Client introuvable"));
@@ -130,6 +176,8 @@ public class OrderService {
     }
 
     private OrderDto mapToOrderDto(Order order) {
+        Review review = reviewRepository.findByOrder_Id(order.getId()).orElse(null);
+
         return OrderDto.builder()
                 .id(order.getId())
                 .serviceId(order.getService().getId())
@@ -137,9 +185,26 @@ public class OrderService {
                 .clientId(order.getClient().getId())
                 .clientEmail(order.getClient().getEmail())
                 .freelancerId(order.getFreelancer().getUser().getId())
+                .freelancerEmail(order.getFreelancer().getUser().getEmail())
                 .amount(order.getAgreedPrice())
                 .status(order.getStatus())
+                .requestMessage(order.getRequest() != null ? order.getRequest().getMessage() : null)
+                .startDate(order.getStartDate())
+                .endDate(order.getEndDate())
+                .notes(order.getNotes())
+                .reviewId(review != null ? review.getId() : null)
+                .reviewRating(review != null ? review.getRating() : null)
+                .reviewQualityRating(review != null ? firstNonNull(review.getQualityRating(), review.getRating()) : null)
+                .reviewPunctualityRating(review != null ? firstNonNull(review.getPunctualityRating(), review.getRating()) : null)
+                .reviewCommunicationRating(review != null ? firstNonNull(review.getCommunicationRating(), review.getRating()) : null)
+                .reviewComment(review != null ? review.getComment() : null)
+                .reviewUpdatedAt(review != null ? review.getUpdatedAt() : null)
                 .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
                 .build();
+    }
+
+    private Integer firstNonNull(Integer primaryValue, Integer fallbackValue) {
+        return primaryValue != null ? primaryValue : fallbackValue;
     }
 }

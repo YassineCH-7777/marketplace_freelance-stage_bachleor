@@ -25,7 +25,7 @@ export default function Login() {
       const res = await loginUser(form);
       const { token, id, email, role } = res.data;
       login({ id, email, role }, token);
-      
+
       switch (role) {
         case 'ADMIN': navigate('/admin'); break;
         case 'FREELANCER': navigate('/freelancer/dashboard'); break;
@@ -33,7 +33,11 @@ export default function Login() {
         default: navigate('/');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Email ou mot de passe incorrect.');
+      if (!err.response) {
+        setError('Impossible de joindre le serveur. Verifiez que le backend est lance sur http://localhost:8080.');
+      } else {
+        setError(err.response?.data?.message || 'Email ou mot de passe incorrect.');
+      }
     } finally {
       setLoading(false);
     }
@@ -41,19 +45,13 @@ export default function Login() {
 
   return (
     <div className="auth-page">
-      <div className="auth-bg-shapes">
-        <div className="auth-shape auth-shape-1"></div>
-        <div className="auth-shape auth-shape-2"></div>
-        <div className="auth-shape auth-shape-3"></div>
-      </div>
-
       <div className="auth-card animate-fade-in-up">
         <div className="auth-header">
           <div className="auth-icon-wrapper">
             <LogIn size={28} />
           </div>
           <h1 className="auth-title">Bon retour !</h1>
-          <p className="auth-subtitle">Connectez-vous pour accéder à votre espace</p>
+          <p className="auth-subtitle">Connectez-vous pour acceder a votre espace</p>
         </div>
 
         {error && (
@@ -91,7 +89,7 @@ export default function Login() {
                 type="password"
                 name="password"
                 className="form-input input-with-icon"
-                placeholder="••••••••"
+                placeholder="Votre mot de passe"
                 value={form.password}
                 onChange={handleChange}
                 required
@@ -116,7 +114,7 @@ export default function Login() {
         </form>
 
         <div className="auth-footer">
-          <p>Pas encore de compte ? <Link to="/register" className="auth-link">Créer un compte</Link></p>
+          <p>Pas encore de compte ? <Link to="/register" className="auth-link">Creer un compte</Link></p>
         </div>
       </div>
     </div>

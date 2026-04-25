@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -20,7 +21,20 @@ public class OrderDto {
     private Long clientId;
     private String clientEmail;
     private Long freelancerId;
+    private String freelancerEmail;
     private BigDecimal amount;
     private OrderStatus status;
+    private String requestMessage;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private String notes;
+    private Long reviewId;
+    private Integer reviewRating;
+    private Integer reviewQualityRating;
+    private Integer reviewPunctualityRating;
+    private Integer reviewCommunicationRating;
+    private String reviewComment;
+    private LocalDateTime reviewUpdatedAt;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }
