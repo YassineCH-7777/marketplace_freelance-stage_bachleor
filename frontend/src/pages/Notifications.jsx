@@ -1,23 +1,31 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Bell,
-  Check,
+  ClipboardList,
   Inbox,
   Loader2,
   MessageSquareMore,
   Package,
   ShieldAlert,
+  Star,
 } from 'lucide-react';
-import API from '../api/axiosConfig';
+import { getNotifications } from '../api/notificationApi';
 import './Dashboard.css';
 
 function NotificationTypeIcon({ type }) {
   switch (type) {
-    case 'MESSAGE_RECEIVED':
+    case 'NEW_MESSAGE':
       return <MessageSquareMore size={20} />;
-    case 'ORDER_UPDATE':
+    case 'NEW_REQUEST':
+      return <ClipboardList size={20} />;
+    case 'REQUEST_ACCEPTED':
+    case 'REQUEST_REJECTED':
+    case 'ORDER_UPDATED':
       return <Package size={20} />;
-    case 'SYSTEM_ALERT':
+    case 'NEW_REVIEW':
+      return <Star size={20} />;
+    case 'SYSTEM':
       return <ShieldAlert size={20} />;
     default:
       return <Bell size={20} />;
@@ -25,13 +33,14 @@ function NotificationTypeIcon({ type }) {
 }
 
 export default function Notifications() {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
-    API.get('/notifications')
+    getNotifications()
       .then((response) => {
         if (isMounted) {
           setNotifications(response.data);
@@ -53,19 +62,11 @@ export default function Notifications() {
     };
   }, []);
 
-  const unreadNotifications = notifications.filter((notification) => !notification.isRead).length;
-
-  const markAsRead = async (id) => {
-    try {
-      await API.put(`/notifications/${id}/read`);
-      setNotifications((currentNotifications) =>
-        currentNotifications.map((notification) =>
-          notification.id === id ? { ...notification, isRead: true } : notification,
-        ),
-      );
-    } catch {
-      alert('Impossible de mettre a jour cette notification pour le moment.');
-    }
+  const openConversation = (notification) => {
+    const options = notification.relatedEntityId
+      ? { state: { conversationId: notification.relatedEntityId } }
+      : undefined;
+    navigate('/messages', options);
   };
 
   return (
@@ -76,7 +77,7 @@ export default function Notifications() {
             <Bell size={28} style={{ display: 'inline', verticalAlign: 'middle' }} /> Notifications
           </h1>
           <p className="dashboard-subtitle">
-            {unreadNotifications} non lue{unreadNotifications > 1 ? 's' : ''}
+            {notifications.length} alerte{notifications.length > 1 ? 's' : ''} importante{notifications.length > 1 ? 's' : ''}
           </p>
         </div>
 
@@ -106,23 +107,21 @@ export default function Notifications() {
                   alignItems: 'center',
                   gap: 'var(--space-4)',
                   padding: 'var(--space-4) var(--space-5)',
-                  background: notification.isRead ? 'var(--bg-card)' : 'rgba(99, 102, 241, 0.06)',
-                  border: `1px solid ${
-                    notification.isRead ? 'var(--surface-border)' : 'rgba(99, 102, 241, 0.2)'
-                  }`,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--surface-border)',
                   borderRadius: 'var(--radius-xl)',
                   transition: 'all 0.2s ease',
                 }}
               >
-                <span style={{ color: notification.isRead ? 'var(--text-muted)' : 'var(--primary-400)' }}>
+                <span style={{ color: 'var(--primary-400)' }}>
                   <NotificationTypeIcon type={notification.type} />
                 </span>
                 <div style={{ flex: 1 }}>
                   <p
                     style={{
                       fontSize: 'var(--text-sm)',
-                      color: notification.isRead ? 'var(--text-secondary)' : 'var(--text-primary)',
-                      fontWeight: notification.isRead ? 400 : 600,
+                      color: 'var(--text-primary)',
+                      fontWeight: 600,
                     }}
                   >
                     {notification.content}
@@ -142,9 +141,13 @@ export default function Notifications() {
                     })}
                   </p>
                 </div>
-                {!notification.isRead && (
-                  <button className="btn btn-sm btn-accept" onClick={() => markAsRead(notification.id)}>
-                    <Check size={14} /> Lu
+                {notification.type === 'NEW_MESSAGE' && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => openConversation(notification)}
+                  >
+                    <MessageSquareMore size={14} /> Conversation
                   </button>
                 )}
               </div>

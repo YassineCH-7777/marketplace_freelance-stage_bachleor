@@ -23,10 +23,10 @@ export default function Login() {
     setError('');
     try {
       const res = await loginUser(form);
-      const { token, id, email, role } = res.data;
-      login({ id, email, role }, token);
+      const { token, ...authUser } = res.data;
+      login(authUser, token);
 
-      switch (role) {
+      switch (authUser.role) {
         case 'ADMIN': navigate('/admin'); break;
         case 'FREELANCER': navigate('/freelancer/dashboard'); break;
         case 'CLIENT': navigate('/client/dashboard'); break;

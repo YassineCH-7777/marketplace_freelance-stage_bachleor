@@ -32,13 +32,16 @@ public class Notification {
     @Column(name = "body")
     private String body;
 
+    @Column(name = "related_entity_type", length = 50)
+    private String relatedEntityType;
+
+    @Column(name = "related_entity_id")
+    private Long relatedEntityId;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "notification_type")
     private NotificationType type;
-
-    @Column(nullable = false)
-    private boolean isRead = false;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

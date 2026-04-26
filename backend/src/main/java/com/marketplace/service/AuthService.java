@@ -40,8 +40,8 @@ public class AuthService {
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .firstName("New")
-                .lastName("User")
+                .firstName(normalizeRegistrationName(request.getFirstName(), "New"))
+                .lastName(normalizeRegistrationName(request.getLastName(), "User"))
                 .role(request.getRole() != null ? request.getRole() : UserRole.CLIENT)
                 .status(UserStatus.ACTIVE)
                 .build();
@@ -66,6 +66,10 @@ public class AuthService {
                 .token(jwtToken)
                 .id(user.getId())
                 .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .phone(user.getPhone())
+                .city(user.getCity())
                 .role(user.getRole())
                 .build();
     }
@@ -91,6 +95,10 @@ public class AuthService {
                 .token(jwtToken)
                 .id(user.getId())
                 .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .phone(user.getPhone())
+                .city(user.getCity())
                 .role(user.getRole())
                 .build();
     }
@@ -101,6 +109,11 @@ public class AuthService {
                         tokenBlacklistService.blacklist(jwt, exp.getTime());
                 } catch (Exception ignored) {
                         // ignore and return
-                }
         }
+        }
+
+    private String normalizeRegistrationName(String value, String fallback) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.length() >= 2 ? normalized : fallback;
+    }
 }

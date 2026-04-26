@@ -39,6 +39,7 @@ public class OrderService {
     private final ServiceRepository serviceRepository;
     private final FreelancerProfileRepository freelancerProfileRepository;
     private final ReviewRepository reviewRepository;
+    private final MessageService messageService;
 
     public List<OrderRequestDto> getIncomingRequests(Long freelancerId) {
         return orderRequestRepository.findByService_Freelancer_User_Id(freelancerId)
@@ -67,7 +68,8 @@ public class OrderService {
                 .startDate(request.getProposedDate())
                 .status(OrderStatus.IN_PROGRESS)
                 .build();
-        orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
+        messageService.ensureOrderConversation(savedOrder);
     }
 
     @Transactional
@@ -151,7 +153,9 @@ public class OrderService {
                 .status(RequestStatus.PENDING)
                 .build();
 
-        return mapToRequestDto(orderRequestRepository.save(request));
+        OrderRequest savedRequest = orderRequestRepository.save(request);
+        messageService.addOrderRequestOpeningMessage(savedRequest);
+        return mapToRequestDto(savedRequest);
     }
 
     public List<OrderDto> getClientOrders(Long clientId) {

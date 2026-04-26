@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Briefcase, Loader2, MapPin } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Briefcase, Loader2, MapPin, MessageSquare } from 'lucide-react';
 import FreelancerProfileCard from '../components/freelance/FreelancerProfileCard';
 import LocalTrustSection from '../components/freelance/LocalTrustSection';
 import PortfolioSection from '../components/freelance/PortfolioSection';
+import useAuth from '../hooks/useAuth';
+import { createConversation } from '../api/messageApi';
 import { getActiveServices, getFreelancerProfile } from '../api/serviceApi';
 import { getFreelancerReviews } from '../api/reviewApi';
 import {
@@ -21,10 +23,13 @@ import './FreelancerPublicProfile.css';
 
 export default function FreelancerPublicProfile() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const [profile, setProfile] = useState(null);
   const [services, setServices] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [contacting, setContacting] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,6 +58,28 @@ export default function FreelancerPublicProfile() {
       isMounted = false;
     };
   }, [id]);
+
+  const handleContactFreelancer = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    if (user?.role !== 'CLIENT') {
+      alert('Seuls les clients peuvent contacter un freelance depuis son profil.');
+      return;
+    }
+
+    setContacting(true);
+    try {
+      const response = await createConversation(id, 'FREELANCER');
+      navigate('/messages', { state: { conversationId: response.data.id } });
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
+    } finally {
+      setContacting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -96,6 +123,22 @@ export default function FreelancerPublicProfile() {
           profile={profile}
           fallbackEmail={services[0]?.freelancerEmail}
         />
+
+        <div className="public-profile-actions">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleContactFreelancer}
+            disabled={contacting}
+          >
+            {contacting ? (
+              <Loader2 size={16} className="spinner" />
+            ) : (
+              <MessageSquare size={16} />
+            )}
+            Contacter ce freelance
+          </button>
+        </div>
 
         <LocalTrustSection profile={profile} services={services} reviews={reviews} />
 

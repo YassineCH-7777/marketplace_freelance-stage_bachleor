@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getIncomingRequests, acceptRequest, refuseRequest } from '../api/userApi';
-import { ClipboardList, Check, X, Loader2, Inbox } from 'lucide-react';
+import { createConversation } from '../api/messageApi';
+import { ClipboardList, Check, X, Loader2, Inbox, MessageSquare } from 'lucide-react';
 import './Dashboard.css';
 
 export default function FreelancerRequests() {
+  const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
+  const [messageLoading, setMessageLoading] = useState(null);
 
   const fetchRequests = () => {
     setLoading(true);
@@ -35,6 +39,18 @@ export default function FreelancerRequests() {
       fetchRequests();
     } catch { alert('Erreur'); }
     finally { setActionLoading(null); }
+  };
+
+  const handleMessageClient = async (request) => {
+    setMessageLoading(request.id);
+    try {
+      const response = await createConversation(request.clientId, 'CLIENT');
+      navigate('/messages', { state: { conversationId: response.data.id } });
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
+    } finally {
+      setMessageLoading(null);
+    }
   };
 
   const statusBadge = (status) => {
@@ -89,6 +105,18 @@ export default function FreelancerRequests() {
                     <td>
                       {req.status === 'PENDING' ? (
                         <div className="action-btns">
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            onClick={() => handleMessageClient(req)}
+                            disabled={messageLoading === req.id}
+                          >
+                            {messageLoading === req.id ? (
+                              <Loader2 size={14} className="spinner" />
+                            ) : (
+                              <MessageSquare size={14} />
+                            )}
+                            Message
+                          </button>
                           <button className="btn btn-sm btn-accept" onClick={() => handleAccept(req.id)} disabled={actionLoading === req.id}>
                             {actionLoading === req.id ? <Loader2 size={14} className="spinner" /> : <><Check size={14} /> Accepter</>}
                           </button>
@@ -97,7 +125,18 @@ export default function FreelancerRequests() {
                           </button>
                         </div>
                       ) : (
-                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Traité</span>
+                        <button
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => handleMessageClient(req)}
+                          disabled={messageLoading === req.id}
+                        >
+                          {messageLoading === req.id ? (
+                            <Loader2 size={14} className="spinner" />
+                          ) : (
+                            <MessageSquare size={14} />
+                          )}
+                          Message
+                        </button>
                       )}
                     </td>
                   </tr>

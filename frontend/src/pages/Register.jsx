@@ -2,11 +2,18 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import { registerUser } from '../api/authApi';
-import { UserPlus, Mail, Lock, AlertCircle, Loader2, Users } from 'lucide-react';
+import { UserPlus, Mail, Lock, AlertCircle, Loader2, Users, UserRound } from 'lucide-react';
 import './Auth.css';
 
 export default function Register() {
-  const [form, setForm] = useState({ email: '', password: '', confirmPassword: '', role: 'CLIENT' });
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: 'CLIENT',
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -27,14 +34,24 @@ export default function Register() {
       setError('Le mot de passe doit contenir au moins 6 caracteres.');
       return;
     }
+    if (form.firstName.trim().length < 2 || form.lastName.trim().length < 2) {
+      setError('Le prenom et le nom doivent contenir au moins 2 caracteres.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      const res = await registerUser({ email: form.email, password: form.password, role: form.role });
-      const { token, id, email, role } = res.data;
-      login({ id, email, role }, token);
+      const res = await registerUser({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email,
+        password: form.password,
+        role: form.role,
+      });
+      const { token, ...authUser } = res.data;
+      login(authUser, token);
 
-      switch (role) {
+      switch (authUser.role) {
         case 'FREELANCER': navigate('/freelancer/dashboard'); break;
         case 'CLIENT': navigate('/client/dashboard'); break;
         default: navigate('/');
@@ -69,6 +86,46 @@ export default function Register() {
         )}
 
         <form onSubmit={handleSubmit} className="auth-form">
+          <div className="auth-name-grid">
+            <div className="form-group">
+              <label className="form-label" htmlFor="register-first-name">Prenom</label>
+              <div className="input-icon-wrapper">
+                <UserRound size={18} className="input-icon" />
+                <input
+                  id="register-first-name"
+                  type="text"
+                  name="firstName"
+                  className="form-input input-with-icon"
+                  placeholder="Votre prenom"
+                  value={form.firstName}
+                  onChange={handleChange}
+                  required
+                  minLength={2}
+                  autoComplete="given-name"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="register-last-name">Nom</label>
+              <div className="input-icon-wrapper">
+                <UserRound size={18} className="input-icon" />
+                <input
+                  id="register-last-name"
+                  type="text"
+                  name="lastName"
+                  className="form-input input-with-icon"
+                  placeholder="Votre nom"
+                  value={form.lastName}
+                  onChange={handleChange}
+                  required
+                  minLength={2}
+                  autoComplete="family-name"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="form-group">
             <label className="form-label" htmlFor="register-email">Adresse e-mail</label>
             <div className="input-icon-wrapper">

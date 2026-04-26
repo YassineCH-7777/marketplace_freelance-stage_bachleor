@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getFreelancerOrders, updateFreelancerOrderExecution } from '../api/userApi';
+import { createOrderConversation } from '../api/messageApi';
 import MissionExecutionCard from '../components/orders/MissionExecutionCard';
 import MissionUpdateModal from '../components/orders/MissionUpdateModal';
 import { ClipboardCheck, FileText, Loader2, Package, Rocket } from 'lucide-react';
 import './Dashboard.css';
 
 export default function FreelancerOrders() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeMission, setActiveMission] = useState(null);
@@ -57,6 +60,15 @@ export default function FreelancerOrders() {
     }
   };
 
+  const handleMessageClient = async (order) => {
+    try {
+      const response = await createOrderConversation(order.id);
+      navigate('/messages', { state: { conversationId: response.data.id } });
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
+    }
+  };
+
   return (
     <div className="dashboard-page">
       <div className="container">
@@ -105,6 +117,7 @@ export default function FreelancerOrders() {
                 order={order}
                 role="freelancer"
                 onManage={setActiveMission}
+                onMessage={handleMessageClient}
               />
             ))}
           </div>

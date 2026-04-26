@@ -1,6 +1,9 @@
 import API from './axiosConfig';
 
 // Profile
+export const getClientProfile = () => API.get('/client/profile');
+export const updateClientProfile = (data) => API.put('/client/profile', data);
+export const getFreelancerOwnProfile = () => API.get('/freelancer/profile');
 export const updateFreelancerProfile = (data) => API.put('/freelancer/profile', data);
 
 // Services

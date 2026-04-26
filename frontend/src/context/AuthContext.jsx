@@ -56,10 +56,22 @@ export function AuthProvider({ children }) {
     });
   };
 
+  const updateUser = (nextUserData) => {
+    setAuthState((currentState) => {
+      const mergedUser = { ...currentState.user, ...nextUserData };
+      localStorage.setItem('user', JSON.stringify(mergedUser));
+
+      return {
+        ...currentState,
+        user: mergedUser,
+      };
+    });
+  };
+
   const isAuthenticated = !!token;
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, updateUser, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,6 +7,11 @@
   gap: var(--space-6);
 }
 
+.public-profile-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .public-profile-card {
   overflow: hidden;
 }
@@ -288,5 +293,13 @@
 
   .public-trust-stats {
     grid-template-columns: 1fr;
+  }
+
+  .public-profile-actions {
+    justify-content: stretch;
+  }
+
+  .public-profile-actions .btn {
+    width: 100%;
   }
 }

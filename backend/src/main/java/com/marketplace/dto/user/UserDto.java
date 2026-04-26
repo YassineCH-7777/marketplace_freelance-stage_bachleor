@@ -16,7 +16,12 @@ import java.time.LocalDateTime;
 public class UserDto {
     private Long id;
     private String email;
+    private String firstName;
+    private String lastName;
+    private String phone;
+    private String city;
     private UserRole role;
     private UserStatus status;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

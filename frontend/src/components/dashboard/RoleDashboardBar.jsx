@@ -150,8 +150,10 @@ export default function RoleDashboardBar() {
           { icon: <Briefcase size={16} />, label: 'Mes Services', to: '/freelancer/services' },
           { icon: <ClipboardList size={16} />, label: 'Demandes Reçues', to: '/freelancer/requests' },
           { icon: <Package size={16} />, label: 'Commandes', to: '/freelancer/orders' },
+          { icon: <MessageSquare size={16} />, label: 'Messages', to: '/messages' },
           { icon: <UserCheck size={16} />, label: 'Mon Profil', to: '/freelancer/profile' },
           { icon: <Star size={16} />, label: 'Avis Reçus', to: '/freelancer/reviews' },
+          { icon: <Bell size={16} />, label: 'Notifications', to: '/notifications' },
         ],
       };
     }
@@ -190,6 +192,7 @@ export default function RoleDashboardBar() {
         navItems: [
           { icon: <Search size={16} />, label: 'Explorer les services', matchPrefix: true, to: '/services' },
           { icon: <Package size={16} />, label: 'Mes Commandes', to: '/client/orders' },
+          { icon: <UserCheck size={16} />, label: 'Mon Profil', to: '/client/profile' },
           { icon: <MessageSquare size={16} />, label: 'Messages', to: '/messages' },
           { icon: <Bell size={16} />, label: 'Notifications', to: '/notifications' },
         ],
@@ -201,7 +204,7 @@ export default function RoleDashboardBar() {
 
       return {
         title: 'Pilotage de la plateforme',
-        subtitle: "Vue rapide sur l'activité, les utilisateurs, les catégories et les signalements.",
+        subtitle: "Vue rapide sur l'activite, les utilisateurs, les services, les commandes et les signalements.",
         stats: [
           {
             color: 'purple',
@@ -230,10 +233,12 @@ export default function RoleDashboardBar() {
         ],
         navItems: [
           { icon: <LayoutDashboard size={16} />, label: 'Vue admin', to: '/admin' },
-          { icon: <FolderKanban size={16} />, label: 'Catégories', to: '/admin#admin-categories' },
+          { icon: <Bell size={16} />, label: 'Notification systeme', to: '/admin#admin-notifications' },
+          { icon: <FolderKanban size={16} />, label: 'Categories', to: '/admin#admin-categories' },
           { icon: <Users size={16} />, label: 'Utilisateurs', to: '/admin#admin-users' },
+          { icon: <Briefcase size={16} />, label: 'Services', to: '/admin#admin-services' },
+          { icon: <ClipboardList size={16} />, label: 'Commandes', to: '/admin#admin-orders' },
           { icon: <AlertTriangle size={16} />, label: 'Signalements', to: '/admin#admin-reports' },
-          { icon: <Bell size={16} />, label: 'Notifications', to: '/notifications' },
         ],
       };
     }

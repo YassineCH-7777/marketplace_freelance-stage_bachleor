@@ -1,20 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import useAuth from '../hooks/useAuth';
-import { getFreelancerOwnProfile, updateFreelancerProfile } from '../api/userApi';
-import {
-  BadgeCheck,
-  BriefcaseBusiness,
-  Code,
-  FileText,
-  Link as LinkIcon,
-  Loader2,
-  Mail,
-  MapPin,
-  Phone,
-  Save,
-  ShieldCheck,
-  UserRound,
-} from 'lucide-react';
+import { getClientProfile, updateClientProfile } from '../api/userApi';
+import { BadgeCheck, Loader2, Mail, MapPin, Phone, Save, ShieldCheck, UserRound } from 'lucide-react';
 import './Dashboard.css';
 
 const emptyProfile = {
@@ -22,16 +9,12 @@ const emptyProfile = {
   lastName: '',
   phone: '',
   city: '',
-  headline: '',
-  portfolioUrl: '',
-  skills: '',
-  bio: '',
 };
 
 const readProfileValue = (profile, camelKey, snakeKey, fallback = '') =>
   profile?.[camelKey] ?? profile?.[snakeKey] ?? fallback ?? '';
 
-export default function FreelancerProfileEdit() {
+export default function ClientProfile() {
   const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState(emptyProfile);
@@ -42,7 +25,7 @@ export default function FreelancerProfileEdit() {
   useEffect(() => {
     let isMounted = true;
 
-    getFreelancerOwnProfile()
+    getClientProfile()
       .then((response) => {
         if (!isMounted) return;
 
@@ -53,17 +36,12 @@ export default function FreelancerProfileEdit() {
           lastName: readProfileValue(nextProfile, 'lastName', 'last_name', user?.lastName),
           phone: readProfileValue(nextProfile, 'phone', 'phone', user?.phone),
           city: readProfileValue(nextProfile, 'city', 'city', user?.city),
-          headline: readProfileValue(nextProfile, 'headline', 'headline'),
-          portfolioUrl: readProfileValue(nextProfile, 'portfolioUrl', 'portfolio_url'),
-          skills: readProfileValue(nextProfile, 'skills', 'skills'),
-          bio: readProfileValue(nextProfile, 'bio', 'bio'),
         });
       })
       .catch(() => {
         if (isMounted) {
           setProfile(null);
           setForm({
-            ...emptyProfile,
             firstName: user?.firstName || '',
             lastName: user?.lastName || '',
             phone: user?.phone || '',
@@ -82,31 +60,13 @@ export default function FreelancerProfileEdit() {
     };
   }, [user]);
 
-  const skillList = useMemo(
-    () =>
-      form.skills
-        .split(',')
-        .map((skill) => skill.trim())
-        .filter(Boolean),
-    [form.skills],
-  );
-
   const completion = useMemo(() => {
-    const fields = [
-      form.firstName,
-      form.lastName,
-      form.phone,
-      form.city,
-      form.headline,
-      form.portfolioUrl,
-      form.skills,
-      form.bio,
-    ];
+    const fields = [form.firstName, form.lastName, form.phone, form.city];
     return Math.round((fields.filter((value) => value.trim()).length / fields.length) * 100);
   }, [form]);
 
   const fullName = `${form.firstName || user?.firstName || ''} ${form.lastName || user?.lastName || ''}`.trim();
-  const displayName = fullName || user?.email?.split('@')[0] || 'Freelance';
+  const displayName = fullName || user?.email?.split('@')[0] || 'Client';
 
   const updateField = (field, value) => {
     setForm((currentForm) => ({
@@ -121,14 +81,9 @@ export default function FreelancerProfileEdit() {
     setSaved(false);
 
     try {
-      const response = await updateFreelancerProfile(form);
+      const response = await updateClientProfile(form);
       setProfile(response.data);
-      updateUser({
-        firstName: response.data.firstName,
-        lastName: response.data.lastName,
-        phone: response.data.phone,
-        city: response.data.city,
-      });
+      updateUser(response.data);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (error) {
@@ -154,20 +109,18 @@ export default function FreelancerProfileEdit() {
     <div className="dashboard-page">
       <div className="container">
         <div className="dashboard-header animate-fade-in-up">
-          <h1 className="dashboard-title">Mon Profil Freelance</h1>
-          <p className="dashboard-subtitle">
-            Mettez a jour vos informations personnelles et votre vitrine professionnelle.
-          </p>
+          <h1 className="dashboard-title">Mon Profil Client</h1>
+          <p className="dashboard-subtitle">Gerez vos informations personnelles et vos coordonnees.</p>
         </div>
 
-        <div className="client-profile-layout freelancer-profile-layout animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <aside className="client-profile-summary freelancer-profile-summary">
+        <div className="client-profile-layout animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          <aside className="client-profile-summary">
             <div className="client-profile-avatar">{displayName.charAt(0).toUpperCase()}</div>
             <h2>{displayName}</h2>
             <p>{profile?.email || user?.email}</p>
             <span className="badge badge-primary">
               <ShieldCheck size={12} />
-              FREELANCER
+              CLIENT
             </span>
 
             <div className="client-profile-progress">
@@ -182,8 +135,8 @@ export default function FreelancerProfileEdit() {
 
             <div className="client-profile-facts">
               <div>
-                <BriefcaseBusiness size={16} />
-                <span>{form.headline || 'Titre professionnel non renseigne'}</span>
+                <Mail size={16} />
+                <span>{profile?.email || user?.email}</span>
               </div>
               <div>
                 <Phone size={16} />
@@ -193,29 +146,17 @@ export default function FreelancerProfileEdit() {
                 <MapPin size={16} />
                 <span>{form.city || 'Ville non renseignee'}</span>
               </div>
-              <div>
-                <LinkIcon size={16} />
-                <span>{form.portfolioUrl || 'Portfolio non renseigne'}</span>
-              </div>
             </div>
-
-            {skillList.length > 0 && (
-              <div className="freelancer-profile-skills">
-                {skillList.slice(0, 8).map((skill) => (
-                  <span key={skill}>{skill}</span>
-                ))}
-              </div>
-            )}
           </aside>
 
-          <section className="profile-card client-profile-editor freelancer-profile-editor">
+          <section className="profile-card client-profile-editor">
             <div className="client-profile-editor-head">
               <div>
                 <span className="client-profile-kicker">
                   <BadgeCheck size={14} />
-                  Profil public freelance
+                  Identite client
                 </span>
-                <h2>Informations a afficher aux clients</h2>
+                <h2>Informations du compte</h2>
               </div>
               {saved && <span className="client-profile-saved">Profil mis a jour</span>}
             </div>
@@ -229,7 +170,7 @@ export default function FreelancerProfileEdit() {
                   className="form-input"
                   value={form.firstName}
                   onChange={(event) => updateField('firstName', event.target.value)}
-                  placeholder="Ex: Yassine"
+                  placeholder="Ex: Ilyas"
                   required
                   minLength={2}
                 />
@@ -243,7 +184,7 @@ export default function FreelancerProfileEdit() {
                   className="form-input"
                   value={form.lastName}
                   onChange={(event) => updateField('lastName', event.target.value)}
-                  placeholder="Ex: Alaoui"
+                  placeholder="Ex: Benali"
                   required
                   minLength={2}
                 />
@@ -270,56 +211,6 @@ export default function FreelancerProfileEdit() {
                   value={form.city}
                   onChange={(event) => updateField('city', event.target.value)}
                   placeholder="Ex: Casablanca"
-                />
-              </div>
-
-              <div className="form-group full-width">
-                <label className="form-label">
-                  <BriefcaseBusiness size={14} style={{ display: 'inline' }} /> Titre professionnel
-                </label>
-                <input
-                  className="form-input"
-                  value={form.headline}
-                  onChange={(event) => updateField('headline', event.target.value)}
-                  placeholder="Ex: Developpeur fullstack Java / React"
-                  maxLength={150}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">
-                  <LinkIcon size={14} style={{ display: 'inline' }} /> Portfolio URL
-                </label>
-                <input
-                  className="form-input"
-                  value={form.portfolioUrl}
-                  onChange={(event) => updateField('portfolioUrl', event.target.value)}
-                  placeholder="https://monportfolio.com"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">
-                  <Code size={14} style={{ display: 'inline' }} /> Competences
-                </label>
-                <input
-                  className="form-input"
-                  value={form.skills}
-                  onChange={(event) => updateField('skills', event.target.value)}
-                  placeholder="React, Java, Design, Marketing"
-                />
-              </div>
-
-              <div className="form-group full-width">
-                <label className="form-label">
-                  <FileText size={14} style={{ display: 'inline' }} /> Bio professionnelle
-                </label>
-                <textarea
-                  className="form-textarea"
-                  value={form.bio}
-                  onChange={(event) => updateField('bio', event.target.value)}
-                  placeholder="Expliquez votre experience, vos specialites et votre methode de travail."
-                  rows={5}
                 />
               </div>
 

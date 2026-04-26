@@ -135,10 +135,14 @@ public class PublicController {
         return FreelancerProfileDto.builder()
                 .id(profile.getId())
                 .email(profile.getUser().getEmail())
+                .firstName(profile.getUser().getFirstName())
+                .lastName(profile.getUser().getLastName())
+                .phone(profile.getUser().getPhone())
+                .headline(profile.getHeadline())
                 .bio(profile.getBio())
                 .city(profile.getUser().getCity())
                 .portfolioUrl(profile.getPortfolioUrl())
-                .skills(String.join(",", profile.getSkills()))
+                .skills(profile.getSkills() == null ? "" : String.join(",", profile.getSkills()))
                 .build();
     }
 

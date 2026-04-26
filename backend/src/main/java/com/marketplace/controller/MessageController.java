@@ -27,13 +27,15 @@ public class MessageController {
     public ResponseEntity<ConversationDto> createConversation(
             @AuthenticationPrincipal User user, 
             @RequestParam Long targetUserId, 
-            @RequestParam String targetRole) {
-        // Simple mapping: the connected user should safely put his ID in the right slot based on his role.
-        if ("FREELANCER".equals(targetRole)) {
-            return ResponseEntity.ok(messageService.createConversation(user.getId(), targetUserId));
-        } else {
-            return ResponseEntity.ok(messageService.createConversation(targetUserId, user.getId()));
-        }
+            @RequestParam(required = false) String targetRole) {
+        return ResponseEntity.ok(messageService.createConversationForUser(user.getId(), targetUserId));
+    }
+
+    @PostMapping("/conversations/orders/{orderId}")
+    public ResponseEntity<ConversationDto> createOrderConversation(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long orderId) {
+        return ResponseEntity.ok(messageService.createConversationForOrder(user.getId(), orderId));
     }
 
     @GetMapping("/conversations/{id}")

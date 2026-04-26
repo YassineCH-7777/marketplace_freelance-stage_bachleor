@@ -22,22 +22,26 @@ public class NotificationService {
 
     @Transactional
     public void createNotification(Long userId, NotificationType type, String content) {
+        createNotification(userId, type, content, null, null);
+    }
+
+    @Transactional
+    public void createNotification(
+            Long userId,
+            NotificationType type,
+            String content,
+            String relatedEntityType,
+            Long relatedEntityId) {
         User user = userRepository.findById(userId).orElseThrow();
         Notification notification = Notification.builder()
                 .user(user)
                 .type(type)
                 .title(type.name())
                 .body(content)
-                .isRead(false)
+                .relatedEntityType(relatedEntityType)
+                .relatedEntityId(relatedEntityId)
                 .build();
         notificationRepository.save(notification);
-    }
-
-    public List<NotificationDto> getUnreadNotifications(Long userId) {
-        return notificationRepository.findByUser_IdAndIsReadFalseOrderByCreatedAtDesc(userId)
-                .stream()
-                .map(this::mapToDto)
-                .collect(Collectors.toList());
     }
 
     public List<NotificationDto> getAllNotifications(Long userId) {
@@ -47,21 +51,13 @@ public class NotificationService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional
-    public void markAsRead(Long notificationId, Long userId) {
-        Notification notification = notificationRepository.findById(notificationId).orElseThrow();
-        if (notification.getUser().getId().equals(userId)) {
-            notification.setRead(true);
-            notificationRepository.save(notification);
-        }
-    }
-
     private NotificationDto mapToDto(Notification notification) {
         return NotificationDto.builder()
                 .id(notification.getId())
                 .type(notification.getType())
                 .content(notification.getBody() != null ? notification.getBody() : notification.getTitle())
-                .isRead(notification.isRead())
+                .relatedEntityType(notification.getRelatedEntityType())
+                .relatedEntityId(notification.getRelatedEntityId())
                 .createdAt(notification.getCreatedAt())
                 .build();
     }

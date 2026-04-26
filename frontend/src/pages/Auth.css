@@ -79,6 +79,12 @@
   gap: var(--space-5);
 }
 
+.auth-name-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
 .input-icon-wrapper {
   position: relative;
 }
@@ -193,6 +199,10 @@
     border-radius: var(--radius-xl);
   }
   .role-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-name-grid {
     grid-template-columns: 1fr;
   }
 }

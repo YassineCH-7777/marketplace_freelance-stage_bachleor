@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { MapPin, User, ArrowLeft, Send, Loader2, CheckCircle } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { MapPin, User, ArrowLeft, Send, Loader2, CheckCircle, MessageSquare } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import { createOrderRequest } from '../api/orderApi';
+import { createConversation } from '../api/messageApi';
 import { getActiveServices } from '../api/serviceApi';
 import {
   getDeliveryTimeLabel,
@@ -20,12 +21,14 @@ import './Dashboard.css';
 
 export default function ServiceDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [price, setPrice] = useState('');
   const [sending, setSending] = useState(false);
+  const [contacting, setContacting] = useState(false);
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
@@ -75,6 +78,28 @@ export default function ServiceDetails() {
       alert(error.response?.data?.message || "Erreur lors de l'envoi de la demande");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleContactFreelancer = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    if (user?.role !== 'CLIENT') {
+      alert('Seuls les clients peuvent contacter un freelance depuis un service.');
+      return;
+    }
+
+    setContacting(true);
+    try {
+      const response = await createConversation(service.freelancerId, 'FREELANCER');
+      navigate('/messages', { state: { conversationId: response.data.id } });
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
+    } finally {
+      setContacting(false);
     }
   };
 
@@ -161,9 +186,24 @@ export default function ServiceDetails() {
               </div>
             </div>
 
-            <Link to={`/freelancers/${service.freelancerId}`} className="btn btn-secondary">
-              <User size={16} /> Voir le profil du freelance
-            </Link>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <Link to={`/freelancers/${service.freelancerId}`} className="btn btn-secondary">
+                <User size={16} /> Voir le profil du freelance
+              </Link>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleContactFreelancer}
+                disabled={contacting}
+              >
+                {contacting ? (
+                  <Loader2 size={16} className="spinner" />
+                ) : (
+                  <MessageSquare size={16} />
+                )}
+                Contacter
+              </button>
+            </div>
           </div>
 
           <div className="request-form-card animate-fade-in-up" style={{ animationDelay: '0.2s' }}>

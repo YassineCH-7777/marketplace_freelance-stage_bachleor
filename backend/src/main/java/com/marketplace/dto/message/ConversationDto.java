@@ -18,6 +18,10 @@ public class ConversationDto {
     private String clientEmail;
     private Long freelancerId;
     private String freelancerEmail;
+    private Long orderId;
+    private LocalDateTime lastMessageAt;
+    private String lastMessageContent;
+    private long unreadCount;
     private LocalDateTime updatedAt;
     private List<MessageDto> messages; // Optional
 }

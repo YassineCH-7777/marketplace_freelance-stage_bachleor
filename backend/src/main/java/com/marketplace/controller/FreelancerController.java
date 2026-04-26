@@ -27,6 +27,11 @@ public class FreelancerController {
     private final FreelancerProfileService profileService;
 
     // --- Profile Management ---
+    @GetMapping("/profile")
+    public ResponseEntity<FreelancerProfileDto> getProfile(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(profileService.getProfile(user.getId()));
+    }
+
     @PutMapping("/profile")
     public ResponseEntity<FreelancerProfileDto> updateProfile(@AuthenticationPrincipal User user, @RequestBody FreelancerProfileDto dto) {
         return ResponseEntity.ok(profileService.updateProfile(user.getId(), dto));

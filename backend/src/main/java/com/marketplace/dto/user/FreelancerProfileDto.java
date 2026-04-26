@@ -14,6 +14,10 @@ import java.util.List;
 public class FreelancerProfileDto {
     private Long id;
     private String email;
+    private String firstName;
+    private String lastName;
+    private String phone;
+    private String headline;
     private String bio;
     private String city;
     private String portfolioUrl;

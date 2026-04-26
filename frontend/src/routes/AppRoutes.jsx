@@ -13,6 +13,7 @@ import FreelancerProfile from '../pages/FreelancerProfile';
 import FreelancerReviews from '../pages/FreelancerReviews';
 import ClientDashboard from '../pages/ClientDashboard';
 import MyOrders from '../pages/MyOrders';
+import ClientProfile from '../pages/ClientProfile';
 import Messages from '../pages/Messages';
 import Notifications from '../pages/Notifications';
 import AdminDashboard from '../pages/AdminDashboard';
@@ -49,6 +50,7 @@ export default function AppRoutes() {
       <Route element={<ClientRoute />}>
         <Route path="/client/dashboard" element={<ClientDashboard />} />
         <Route path="/client/orders" element={<MyOrders />} />
+        <Route path="/client/profile" element={<ClientProfile />} />
       </Route>
 
       <Route element={<AdminRoute />}>

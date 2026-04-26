@@ -9,7 +9,8 @@ function splitSkills(skills = '') {
 
 export default function FreelancerProfileCard({ freelancerId, profile, fallbackEmail }) {
   const displayEmail = profile?.email || fallbackEmail || `Freelance #${freelancerId}`;
-  const displayName = displayEmail.includes('@') ? displayEmail.split('@')[0] : displayEmail;
+  const fullName = `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim();
+  const displayName = fullName || (displayEmail.includes('@') ? displayEmail.split('@')[0] : displayEmail);
   const skills = splitSkills(profile?.skills);
   const isProfileDetailed = Boolean(profile?.bio || profile?.portfolioUrl || skills.length > 0);
 
@@ -19,6 +20,7 @@ export default function FreelancerProfileCard({ freelancerId, profile, fallbackE
         <div className="profile-avatar">{displayName.charAt(0).toUpperCase()}</div>
         <div className="profile-info">
           <h1>{displayName}</h1>
+          {profile?.headline && <p>{profile.headline}</p>}
           <p className="public-profile-email">
             <Mail size={14} /> {displayEmail}
           </p>

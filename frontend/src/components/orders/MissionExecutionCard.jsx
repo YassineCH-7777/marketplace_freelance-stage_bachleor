@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2, ClipboardList, Download, FileText, PackageCheck, UserRound } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ClipboardList, Download, FileText, MessageSquare, PackageCheck, UserRound } from 'lucide-react';
 import {
   downloadMissionReport,
   formatOrderDate,
@@ -7,7 +7,7 @@ import {
   getOrderStatusMeta,
 } from '../../utils/orderExecution';
 
-export default function MissionExecutionCard({ order, role, onManage, onReview }) {
+export default function MissionExecutionCard({ order, role, onManage, onMessage, onReview }) {
   const statusMeta = getOrderStatusMeta(order.status);
   const checklist = getMissionChecklist(order);
   const counterpartLabel = role === 'freelancer' ? 'Client' : 'Freelance';
@@ -82,6 +82,12 @@ export default function MissionExecutionCard({ order, role, onManage, onReview }
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => downloadMissionReport(order, role)}>
           <Download size={14} /> Telecharger le compte-rendu
         </button>
+
+        {onMessage && (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => onMessage(order)}>
+            <MessageSquare size={14} /> {role === 'freelancer' ? 'Message client' : 'Message freelance'}
+          </button>
+        )}
 
         {role === 'freelancer' && (
           <button type="button" className="btn btn-primary btn-sm" onClick={() => onManage(order)}>
