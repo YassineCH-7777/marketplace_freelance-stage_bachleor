@@ -1,26 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
 import { getClientOrders } from '../api/orderApi';
-import { ShoppingBag, Package, MessageSquare, Bell, ArrowRight, Search } from 'lucide-react';
+import { ArrowRight, Package } from 'lucide-react';
 import './Dashboard.css';
 
 export default function ClientDashboard() {
-  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
     getClientOrders().then(r => setOrders(r.data)).catch(() => {});
   }, []);
-
-  const activeOrders = orders.filter(o => o.status === 'IN_PROGRESS');
-  const completedOrders = orders.filter(o => o.status === 'COMPLETED');
-
-  const stats = [
-    { icon: <Package size={22} />, value: activeOrders.length, label: 'Commandes en cours', color: 'blue' },
-    { icon: <ShoppingBag size={22} />, value: completedOrders.length, label: 'Commandes terminées', color: 'green' },
-    { icon: <ShoppingBag size={22} />, value: orders.length, label: 'Total commandes', color: 'purple' },
-  ];
 
   const statusBadge = (status) => {
     const map = {
@@ -36,33 +25,7 @@ export default function ClientDashboard() {
   return (
     <div className="dashboard-page">
       <div className="container">
-        <div className="dashboard-header animate-fade-in-up">
-          <h1 className="dashboard-title">
-            Bonjour, <span className="gradient-text">{user?.email?.split('@')[0]}</span> 👋
-          </h1>
-          <p className="dashboard-subtitle">Explorez les services, suivez vos commandes et communiquez avec vos freelances.</p>
-        </div>
-
-        <div className="dashboard-stats stagger">
-          {stats.map((s, i) => (
-            <div className="dash-stat-card animate-fade-in-up" key={i}>
-              <div className={`dash-stat-icon ${s.color}`}>{s.icon}</div>
-              <div className="dash-stat-info">
-                <span className="dash-stat-value">{s.value}</span>
-                <span className="dash-stat-label">{s.label}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="dashboard-nav animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-          <Link to="/services" className="nav-tab"><Search size={16} /> Explorer les services</Link>
-          <Link to="/client/orders" className="nav-tab"><Package size={16} /> Mes Commandes</Link>
-          <Link to="/messages" className="nav-tab"><MessageSquare size={16} /> Messages</Link>
-          <Link to="/notifications" className="nav-tab"><Bell size={16} /> Notifications</Link>
-        </div>
-
-        {orders.length > 0 && (
+        {orders.length > 0 ? (
           <div className="animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700 }}>Dernières commandes</h2>
@@ -92,6 +55,14 @@ export default function ClientDashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        ) : (
+          <div className="empty-state animate-fade-in-up">
+            <div className="empty-state-icon">
+              <Package size={48} />
+            </div>
+            <h3 className="empty-state-title">Aucune commande pour le moment</h3>
+            <p className="empty-state-desc">Vos commandes recentes apparaitront ici.</p>
           </div>
         )}
       </div>

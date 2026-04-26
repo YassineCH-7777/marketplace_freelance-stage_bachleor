@@ -32,6 +32,7 @@ pnpm-debug.log*
 # Backend build output
 /backend/target/
 /target/
+/backend/uploads/
 
 # Java / Maven
 .mvn/

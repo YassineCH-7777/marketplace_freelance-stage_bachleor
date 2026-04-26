@@ -4,9 +4,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -73,6 +76,27 @@ public class GlobalExceptionHandler {
 		body.put("error", HttpStatus.FORBIDDEN.getReasonPhrase());
 		body.put("message", ex.getMessage());
 		return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+	}
+
+	@ExceptionHandler(ResponseStatusException.class)
+	public ResponseEntity<Object> handleResponseStatus(ResponseStatusException ex) {
+		Map<String, Object> body = new HashMap<>();
+		body.put("timestamp", Instant.now().toString());
+		body.put("status", ex.getStatusCode().value());
+		body.put("error", ex.getStatusCode().toString());
+		body.put("message", ex.getReason() != null ? ex.getReason() : "Erreur de requete");
+		return new ResponseEntity<>(body, ex.getStatusCode());
+	}
+
+	@ExceptionHandler({MultipartException.class, MissingServletRequestParameterException.class})
+	public ResponseEntity<Object> handleMultipart(Exception ex) {
+		Map<String, Object> body = new HashMap<>();
+		body.put("timestamp", Instant.now().toString());
+		body.put("status", HttpStatus.BAD_REQUEST.value());
+		body.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
+		body.put("message", "Image invalide ou formulaire incomplet");
+		body.put("details", ex.getMessage());
+		return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
 	}
 
 	@ExceptionHandler(Exception.class)

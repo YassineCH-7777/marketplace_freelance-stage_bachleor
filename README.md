@@ -1,11 +1,11 @@
-# FreelanceHub
+# ProxiSkills
 
-FreelanceHub est une marketplace de services freelance avec un positionnement hyper-local.
+ProxiSkills est une marketplace de services freelance avec un positionnement hyper-local.
 L'objectif n'est pas seulement de mettre en relation des clients et des freelances, mais de faciliter des missions proches, concretes et parfois urgentes.
 
 ## Positionnement produit
 
-La difference principale de FreelanceHub est la proximite operationnelle :
+La difference principale de ProxiSkills est la proximite operationnelle :
 
 - recherche par ville pour trouver un prestataire proche
 - filtres par mode d'intervention : sur place, hybride ou a distance
@@ -16,7 +16,7 @@ Ce positionnement permet de se distinguer des plateformes freelance generalistes
 
 ## Confiance locale forte
 
-FreelanceHub ne cherche pas a ajouter des badges generiques de plus.
+ProxiSkills ne cherche pas a ajouter des badges generiques de plus.
 La logique produit est de montrer des preuves utiles pour une relation locale reelle :
 
 - ville visible et confirmee sur le profil
@@ -34,7 +34,7 @@ Les prochains badges a forte valeur locale seraient :
 
 ## Marketplace orientee execution
 
-FreelanceHub ne s'arrete pas au matching entre client et freelance.
+ProxiSkills ne s'arrete pas au matching entre client et freelance.
 Le produit peut aller jusqu'au pilotage simple de la mission :
 
 - checklist de mission visible
@@ -113,4 +113,4 @@ Les prochaines briques naturelles pour renforcer le positionnement hyper-local s
 
 
 
-git add . && git commit -m "refacto: change style" && git push origin main
+git add . && git commit -m "feat: dashboard form added" && git push origin main

@@ -15,6 +15,14 @@ export default function Navbar() {
     setMobileOpen(false);
   };
 
+  const handleHomeSectionClick = (sectionId) => {
+    setMobileOpen(false);
+
+    if (window.location.pathname === '/' && window.location.hash === `#${sectionId}`) {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const getDashboardLink = () => {
     if (!user) return '/';
     switch (user.role) {
@@ -32,12 +40,14 @@ export default function Navbar() {
           <span className="brand-mark">
             <Briefcase size={20} className="brand-icon" strokeWidth={2.5} />
           </span>
-          <span className="brand-text">Freelance<span className="brand-highlight">Hub</span></span>
+          <span className="brand-text">Proxi<span className="brand-highlight">Skills</span></span>
         </Link>
 
         <div className={`navbar-links ${mobileOpen ? 'active' : ''}`}>
-          <Link to="/" className="nav-link" onClick={() => setMobileOpen(false)}>Accueil</Link>
           <Link to="/services" className="nav-link" onClick={() => setMobileOpen(false)}>Services</Link>
+          <Link to="/#categories" className="nav-link" onClick={() => handleHomeSectionClick('categories')}>Categories</Link>
+          <Link to="/#comment-ca-marche" className="nav-link" onClick={() => handleHomeSectionClick('comment-ca-marche')}>Comment ca marche</Link>
+          <Link to="/#freelances" className="nav-link" onClick={() => handleHomeSectionClick('freelances')}>Freelances</Link>
 
           {isAuthenticated ? (
             <>

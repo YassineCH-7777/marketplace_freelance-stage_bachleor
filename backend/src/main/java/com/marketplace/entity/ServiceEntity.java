@@ -47,6 +47,9 @@ public class ServiceEntity {
     @Column(name = "delivery_time_days")
     private Integer deliveryTimeDays;
 
+    @Column(name = "cover_image_url")
+    private String coverImageUrl;
+
     @Column(nullable = false)
     private String city;
 

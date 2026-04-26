@@ -10,6 +10,11 @@ import {
   getExecutionModeTone,
   getServiceLocationLabel,
 } from '../utils/serviceMeta';
+import {
+  getServiceCoverImageUrl,
+  getServiceGalleryImageUrls,
+  stripServiceMediaSection,
+} from '../utils/serviceDescription';
 import './Services.css';
 import './Dashboard.css';
 
@@ -100,6 +105,10 @@ export default function ServiceDetails() {
     );
   }
 
+  const coverImageUrl = getServiceCoverImageUrl(service);
+  const galleryImageUrls = getServiceGalleryImageUrls(service).filter((imageUrl) => imageUrl !== coverImageUrl);
+  const serviceDescription = stripServiceMediaSection(service.description);
+
   return (
     <div className="service-detail-page">
       <div className="container">
@@ -128,8 +137,18 @@ export default function ServiceDetails() {
               <span className="service-chip">{getDeliveryTimeLabel(service.deliveryTimeDays)}</span>
             </div>
             <h1 className="service-detail-title">{service.title}</h1>
+            {coverImageUrl && (
+              <img src={coverImageUrl} alt="" className="service-detail-cover" />
+            )}
+            {galleryImageUrls.length > 0 && (
+              <div className="service-detail-gallery">
+                {galleryImageUrls.map((imageUrl) => (
+                  <img src={imageUrl} alt="" key={imageUrl} />
+                ))}
+              </div>
+            )}
             <div className="service-detail-price">{service.price} MAD</div>
-            <p className="service-detail-desc">{service.description}</p>
+            <p className="service-detail-desc">{serviceDescription}</p>
 
             <div className="service-detail-meta">
               <div className="meta-item">

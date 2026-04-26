@@ -267,6 +267,7 @@
 .home-page .how-section,
 .home-page .cta-section {
   padding: var(--space-16) 0;
+  scroll-margin-top: 5rem;
 }
 
 .home-page .featured-section {
@@ -394,6 +395,8 @@
   padding: var(--space-4);
   overflow: hidden;
   background: var(--gradient-hero);
+  background-position: center;
+  background-size: cover;
 }
 
 .home-page .service-card-media::before {
@@ -402,6 +405,11 @@
   content: "";
   background: radial-gradient(circle at 30% 20%, oklch(1 0 0 / 0.55), transparent 55%);
   mix-blend-mode: overlay;
+}
+
+.home-page .service-card-media.has-cover::before {
+  background: linear-gradient(180deg, oklch(0.18 0.04 245 / 0.08), oklch(0.18 0.04 245 / 0.78));
+  mix-blend-mode: normal;
 }
 
 .home-page .service-card-category {

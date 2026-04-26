@@ -12,6 +12,10 @@ import {
   getExecutionModeTone,
   getServiceLocationLabel,
 } from '../utils/serviceMeta';
+import {
+  getServiceCoverImageUrl,
+  stripServiceMediaSection,
+} from '../utils/serviceDescription';
 import './Dashboard.css';
 import './FreelancerPublicProfile.css';
 
@@ -108,36 +112,44 @@ export default function FreelancerPublicProfile() {
 
           {services.length > 0 ? (
             <div className="public-services-grid">
-              {services.map((service) => (
-                <article className="card public-service-card" key={service.id}>
-                  <div className="service-card-header">
-                    <span className="badge badge-primary">{service.categoryName || 'Service'}</span>
-                    <span className="service-price">{service.price} MAD</span>
-                  </div>
-                  <h3 className="service-card-title">{service.title}</h3>
-                  <p>
-                    {service.description?.slice(0, 160)}
-                    {service.description?.length > 160 ? '...' : ''}
-                  </p>
-                  <div className="service-meta-chips">
-                    <span className="service-chip">
-                      <MapPin size={12} />
-                      {getServiceLocationLabel(service)}
-                    </span>
-                    <span className={`service-chip ${getExecutionModeTone(service.executionMode)}`}>
-                      {getExecutionModeLabel(service.executionMode)}
-                    </span>
-                    <span className="service-chip">{getDeliveryTimeLabel(service.deliveryTimeDays)}</span>
-                  </div>
-                  <Link
-                    to={`/services/${service.id}`}
-                    className="btn btn-secondary btn-sm"
-                    style={{ alignSelf: 'flex-start' }}
-                  >
-                    Voir le service
-                  </Link>
-                </article>
-              ))}
+              {services.map((service) => {
+                const coverImageUrl = getServiceCoverImageUrl(service);
+                const description = stripServiceMediaSection(service.description);
+
+                return (
+                  <article className="card public-service-card" key={service.id}>
+                    {coverImageUrl && (
+                      <img src={coverImageUrl} alt="" className="public-service-cover" />
+                    )}
+                    <div className="service-card-header">
+                      <span className="badge badge-primary">{service.categoryName || 'Service'}</span>
+                      <span className="service-price">{service.price} MAD</span>
+                    </div>
+                    <h3 className="service-card-title">{service.title}</h3>
+                    <p>
+                      {description?.slice(0, 160)}
+                      {description?.length > 160 ? '...' : ''}
+                    </p>
+                    <div className="service-meta-chips">
+                      <span className="service-chip">
+                        <MapPin size={12} />
+                        {getServiceLocationLabel(service)}
+                      </span>
+                      <span className={`service-chip ${getExecutionModeTone(service.executionMode)}`}>
+                        {getExecutionModeLabel(service.executionMode)}
+                      </span>
+                      <span className="service-chip">{getDeliveryTimeLabel(service.deliveryTimeDays)}</span>
+                    </div>
+                    <Link
+                      to={`/services/${service.id}`}
+                      className="btn btn-secondary btn-sm"
+                      style={{ alignSelf: 'flex-start' }}
+                    >
+                      Voir le service
+                    </Link>
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <div className="public-empty-block">

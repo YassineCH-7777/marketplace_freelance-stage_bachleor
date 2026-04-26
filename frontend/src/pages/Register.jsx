@@ -58,7 +58,7 @@ export default function Register() {
             <UserPlus size={28} />
           </div>
           <h1 className="auth-title">Creer un compte</h1>
-          <p className="auth-subtitle">Rejoignez la communaute FreelanceHub</p>
+          <p className="auth-subtitle">Rejoignez la communaute ProxiSkills</p>
         </div>
 
         {error && (

@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
-  AlertTriangle,
   Ban,
-  Briefcase,
   CheckCircle2,
   FolderKanban,
   Loader2,
-  ShieldCheck,
-  Users,
 } from 'lucide-react';
 import {
   getAdminCategories,
   getAdminReports,
-  getAdminStats,
   getAdminUsers,
   resolveAdminReport,
   suspendAdminUser,
@@ -20,7 +15,6 @@ import {
 import './Dashboard.css';
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -32,17 +26,15 @@ export default function AdminDashboard() {
     let isMounted = true;
 
     Promise.allSettled([
-      getAdminStats(),
       getAdminUsers(),
       getAdminReports(),
       getAdminCategories(),
     ])
-      .then(([statsResult, usersResult, reportsResult, categoriesResult]) => {
+      .then(([usersResult, reportsResult, categoriesResult]) => {
         if (!isMounted) {
           return;
         }
 
-        setStats(statsResult.status === 'fulfilled' ? statsResult.value.data : null);
         setUsers(usersResult.status === 'fulfilled' ? usersResult.value.data : []);
         setReports(reportsResult.status === 'fulfilled' ? reportsResult.value.data : []);
         setCategories(categoriesResult.status === 'fulfilled' ? categoriesResult.value.data : []);
@@ -57,33 +49,6 @@ export default function AdminDashboard() {
       isMounted = false;
     };
   }, []);
-
-  const dashboardStats = [
-    {
-      color: 'purple',
-      icon: <Users size={22} />,
-      label: 'Utilisateurs',
-      value: stats?.totalUsers ?? users.length,
-    },
-    {
-      color: 'blue',
-      icon: <Briefcase size={22} />,
-      label: 'Services actifs',
-      value: stats?.activeServices ?? 0,
-    },
-    {
-      color: 'green',
-      icon: <ShieldCheck size={22} />,
-      label: 'Commandes',
-      value: stats?.totalOrders ?? 0,
-    },
-    {
-      color: 'yellow',
-      icon: <AlertTriangle size={22} />,
-      label: 'Signalements ouverts',
-      value: reports.filter((report) => report.status !== 'RESOLVED').length,
-    },
-  ];
 
   const handleSuspend = async (userId) => {
     setSuspendingId(userId);
@@ -138,26 +103,11 @@ export default function AdminDashboard() {
   return (
     <div className="dashboard-page">
       <div className="container">
-        <div className="dashboard-header animate-fade-in-up">
-          <h1 className="dashboard-title">Pilotage de la plateforme</h1>
-          <p className="dashboard-subtitle">
-            Vue rapide sur l&apos;activite, les utilisateurs, les categories et les signalements.
-          </p>
-        </div>
-
-        <div className="dashboard-stats stagger">
-          {dashboardStats.map((stat) => (
-            <div className="dash-stat-card animate-fade-in-up" key={stat.label}>
-              <div className={`dash-stat-icon ${stat.color}`}>{stat.icon}</div>
-              <div className="dash-stat-info">
-                <span className="dash-stat-value">{stat.value}</span>
-                <span className="dash-stat-label">{stat.label}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <section className="animate-fade-in-up" style={{ marginBottom: 'var(--space-8)' }}>
+        <section
+          className="animate-fade-in-up dashboard-anchor-section"
+          id="admin-categories"
+          style={{ marginBottom: 'var(--space-8)' }}
+        >
           <div
             style={{
               display: 'flex',
@@ -200,7 +150,11 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        <section className="animate-fade-in-up" style={{ marginBottom: 'var(--space-8)' }}>
+        <section
+          className="animate-fade-in-up dashboard-anchor-section"
+          id="admin-users"
+          style={{ marginBottom: 'var(--space-8)' }}
+        >
           <div
             style={{
               display: 'flex',
@@ -262,7 +216,7 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        <section className="animate-fade-in-up">
+        <section className="animate-fade-in-up dashboard-anchor-section" id="admin-reports">
           <div
             style={{
               display: 'flex',

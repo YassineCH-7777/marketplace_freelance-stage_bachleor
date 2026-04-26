@@ -19,6 +19,10 @@ import {
   getExecutionModeTone,
   getServiceLocationLabel,
 } from '../utils/serviceMeta';
+import {
+  getServiceCoverImageUrl,
+  stripServiceMediaSection,
+} from '../utils/serviceDescription';
 import heroImage from '../assets/hero-freelancer.jpg';
 import './Home.css';
 
@@ -80,7 +84,7 @@ export default function Home() {
             </h1>
 
             <p className="hero-description animate-fade-in-up" style={{ animationDelay: '0.24s' }}>
-              FreelanceHub connecte clients et freelances de votre ville pour des missions de design,
+              ProxiSkills connecte clients et freelances de votre ville pour des missions de design,
               developpement, photo, cours, installation et bien plus.
             </p>
 
@@ -167,7 +171,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="categories-section">
+      <section className="categories-section" id="categories">
         <div className="container">
           <div className="section-heading-row">
             <div>
@@ -193,55 +197,63 @@ export default function Home() {
         </div>
       </section>
 
-      {services.length > 0 && (
-        <section className="featured-section">
-          <div className="container">
-            <div className="section-heading-row">
-              <div>
-                <p className="section-eyebrow">Services en vedette</p>
-                <h2 className="section-title">Les meilleures offres locales</h2>
-              </div>
-              <Link to="/services" className="section-link">
-                Voir tout <ArrowRight size={16} />
-              </Link>
+      <section className="featured-section" id="services">
+        <div className="container">
+          <div className="section-heading-row">
+            <div>
+              <p className="section-eyebrow">Services en vedette</p>
+              <h2 className="section-title">Les meilleures offres locales</h2>
             </div>
-            <div className="services-grid stagger">
-              {services.map((service) => (
-                <Link to={`/services/${service.id}`} className="service-card animate-fade-in-up" key={service.id}>
-                  <div className="service-card-media">
-                    <span className="service-card-category">{service.categoryName || 'Service'}</span>
-                    <h3>{service.title}</h3>
-                  </div>
-                  <div className="service-card-body">
-                    <p className="service-card-desc">
-                      {service.description?.slice(0, 110)}
-                      {service.description?.length > 110 ? '...' : ''}
-                    </p>
-                    <div className="service-meta-chips">
-                      <span className="service-chip">
-                        <MapPin size={12} />
-                        {getServiceLocationLabel(service)}
-                      </span>
-                      <span className={`service-chip ${getExecutionModeTone(service.executionMode)}`}>
-                        {getExecutionModeLabel(service.executionMode)}
-                      </span>
-                    </div>
-                    <div className="service-card-footer">
-                      <span>
-                        <Clock size={14} />
-                        {getDeliveryTimeLabel(service.deliveryTimeDays)}
-                      </span>
-                      <strong>{service.price} MAD</strong>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+            <Link to="/services" className="section-link">
+              Voir tout <ArrowRight size={16} />
+            </Link>
           </div>
-        </section>
-      )}
+          {services.length > 0 && (
+            <div className="services-grid stagger">
+              {services.map((service) => {
+                const coverImageUrl = getServiceCoverImageUrl(service);
+                const description = stripServiceMediaSection(service.description);
 
-      <section className="how-section">
+                return (
+                  <Link to={`/services/${service.id}`} className="service-card animate-fade-in-up" key={service.id}>
+                    <div
+                      className={`service-card-media ${coverImageUrl ? 'has-cover' : ''}`}
+                      style={coverImageUrl ? { backgroundImage: `url(${coverImageUrl})` } : undefined}
+                    >
+                      <span className="service-card-category">{service.categoryName || 'Service'}</span>
+                      <h3>{service.title}</h3>
+                    </div>
+                    <div className="service-card-body">
+                      <p className="service-card-desc">
+                        {description?.slice(0, 110)}
+                        {description?.length > 110 ? '...' : ''}
+                      </p>
+                      <div className="service-meta-chips">
+                        <span className="service-chip">
+                          <MapPin size={12} />
+                          {getServiceLocationLabel(service)}
+                        </span>
+                        <span className={`service-chip ${getExecutionModeTone(service.executionMode)}`}>
+                          {getExecutionModeLabel(service.executionMode)}
+                        </span>
+                      </div>
+                      <div className="service-card-footer">
+                        <span>
+                          <Clock size={14} />
+                          {getDeliveryTimeLabel(service.deliveryTimeDays)}
+                        </span>
+                        <strong>{service.price} MAD</strong>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="how-section" id="comment-ca-marche">
         <div className="container">
           <div className="section-header">
             <p className="section-eyebrow">Comment ca marche</p>
@@ -259,7 +271,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="cta-section">
+      <section className="cta-section" id="freelances">
         <div className="container">
           <div className="cta-card">
             <div className="cta-content">
@@ -286,9 +298,9 @@ export default function Home() {
           <div className="footer-content">
             <div className="footer-brand">
               <Briefcase size={20} />
-              <span>Freelance<span className="gradient-text">Hub</span></span>
+              <span>Proxi<span className="gradient-text">Skills</span></span>
             </div>
-            <p className="footer-text">(c) 2026 FreelanceHub. Marketplace hyper-locale de services.</p>
+            <p className="footer-text">(c) 2026 ProxiSkills. Marketplace hyper-locale de services.</p>
           </div>
         </div>
       </footer>

@@ -214,6 +214,14 @@
   gap: var(--space-3);
 }
 
+.public-service-cover {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+}
+
 .service-card-header {
   display: flex;
   justify-content: space-between;

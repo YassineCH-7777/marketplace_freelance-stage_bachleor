@@ -17,6 +17,7 @@ import com.marketplace.repository.OrderRepository;
 import com.marketplace.repository.OrderRequestRepository;
 import com.marketplace.repository.ReportRepository;
 import com.marketplace.repository.ReviewRepository;
+import com.marketplace.repository.ServiceImageRepository;
 import com.marketplace.repository.ServiceRepository;
 import com.marketplace.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -38,6 +40,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -67,6 +70,9 @@ class ApiIntegrationTest {
 
     @MockBean
     private ServiceRepository serviceRepository;
+
+    @MockBean
+    private ServiceImageRepository serviceImageRepository;
 
     @MockBean
     private CategoryRepository categoryRepository;
@@ -158,6 +164,40 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$[0].freelancerEmail").value("freelancer1@marketplace.com"))
                 .andExpect(jsonPath("$[0].freelancerCity").value("Marrakech"))
                 .andExpect(jsonPath("$[0].status").value("ACTIVE"));
+    }
+
+    @Test
+    void publicCategoriesExposeOnlyActiveCategories() throws Exception {
+        Category activeCategory = category(2L, "Developpement web");
+        Category inactiveCategory = category(3L, "Categorie archivee");
+        inactiveCategory.setActive(false);
+
+        when(categoryRepository.findAll()).thenReturn(List.of(activeCategory, inactiveCategory));
+
+        mockMvc.perform(get("/api/public/categories"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(2))
+                .andExpect(jsonPath("$[0].name").value("Developpement web"));
+    }
+
+    @Test
+    void freelancerCanUploadServiceImage() throws Exception {
+        User freelancerUser = freelancerUser(13L, "freelancer1@marketplace.com", "Casablanca");
+        MockMultipartFile image = new MockMultipartFile(
+                "image",
+                "cover.png",
+                MediaType.IMAGE_PNG_VALUE,
+                new byte[] {1, 2, 3, 4}
+        );
+
+        mockMvc.perform(multipart("/api/freelancer/uploads/image")
+                        .file(image)
+                        .with(SecurityMockMvcRequestPostProcessors.user(freelancerUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").exists())
+                .andExpect(jsonPath("$.fileName").value("cover.png"))
+                .andExpect(jsonPath("$.contentType").value(MediaType.IMAGE_PNG_VALUE));
     }
 
     @Test

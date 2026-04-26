@@ -26,7 +26,7 @@ export default function Footer() {
           <div className="footer-brand">
             <Briefcase size={20} />
             <span>
-              Freelance<span className="gradient-text">Hub</span>
+              Proxi<span className="gradient-text">Skills</span>
             </span>
           </div>
 
@@ -37,12 +37,15 @@ export default function Footer() {
             <Link className="footer-link" to="/services">
               Services
             </Link>
+            <Link className="footer-link" to="/#categories">
+              Categories
+            </Link>
             <Link className="footer-link" to={isAuthenticated ? dashboardLink : '/register'}>
               {isAuthenticated ? 'Dashboard' : 'Inscription'}
             </Link>
           </div>
 
-          <p className="footer-text">© 2026 FreelanceHub. Marketplace freelance locale.</p>
+          <p className="footer-text">(c) 2026 ProxiSkills. Marketplace freelance locale.</p>
         </div>
       </div>
     </footer>

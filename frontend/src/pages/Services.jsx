@@ -8,6 +8,10 @@ import {
   getExecutionModeTone,
   getServiceLocationLabel,
 } from '../utils/serviceMeta';
+import {
+  getServiceCoverImageUrl,
+  stripServiceMediaSection,
+} from '../utils/serviceDescription';
 import './Services.css';
 
 const SORT_OPTIONS = [
@@ -319,8 +323,13 @@ export default function Services() {
               <div className="services-results-grid">
                 {filteredServices.map((service) => {
                   const freelancerName = getFreelancerName(service);
+                  const coverImageUrl = getServiceCoverImageUrl(service);
+                  const description = stripServiceMediaSection(service.description);
                   return (
                     <Link to={`/services/${service.id}`} className="service-result-card" key={service.id}>
+                      {coverImageUrl && (
+                        <img src={coverImageUrl} alt="" className="service-result-cover" />
+                      )}
                       <div className="service-result-topline">
                         <div className="service-result-category">{service.categoryName || 'Service'}</div>
                         <div className="service-result-verified">
@@ -357,8 +366,8 @@ export default function Services() {
                       </div>
 
                       <p className="service-result-desc">
-                        {service.description?.slice(0, 96)}
-                        {service.description?.length > 96 ? '...' : ''}
+                        {description?.slice(0, 96)}
+                        {description?.length > 96 ? '...' : ''}
                       </p>
 
                       <div className="service-result-footer">

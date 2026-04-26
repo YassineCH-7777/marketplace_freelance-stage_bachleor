@@ -1,12 +1,16 @@
 package com.marketplace.controller;
 
 import com.marketplace.dto.service.ServiceDto;
+import com.marketplace.dto.service.CategoryDto;
 import com.marketplace.dto.user.FreelancerProfileDto;
 import com.marketplace.dto.review.ReviewDto;
 import com.marketplace.entity.FreelancerProfile;
 import com.marketplace.entity.ServiceEntity;
+import com.marketplace.entity.ServiceImage;
 import com.marketplace.enums.ServiceStatus;
+import com.marketplace.repository.CategoryRepository;
 import com.marketplace.repository.FreelancerProfileRepository;
+import com.marketplace.repository.ServiceImageRepository;
 import com.marketplace.repository.ServiceRepository;
 import com.marketplace.service.ReviewService;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +27,9 @@ import java.util.stream.Collectors;
 public class PublicController {
 
     private final ServiceRepository serviceRepository;
+    private final CategoryRepository categoryRepository;
     private final FreelancerProfileRepository freelancerProfileRepository;
+    private final ServiceImageRepository serviceImageRepository;
     private final ReviewService reviewService;
 
     @GetMapping("/services")
@@ -34,6 +40,21 @@ public class PublicController {
                 .map(this::mapToServiceDto)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(services);
+    }
+
+    @GetMapping("/categories")
+    public ResponseEntity<List<CategoryDto>> getActiveCategories() {
+        List<CategoryDto> categories = categoryRepository.findAll()
+                .stream()
+                .filter(category -> category.isActive())
+                .map(category -> CategoryDto.builder()
+                        .id(category.getId())
+                        .name(category.getName())
+                        .description(category.getDescription())
+                        .isActive(category.isActive())
+                        .build())
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(categories);
     }
 
     @GetMapping("/services/search")
@@ -96,9 +117,18 @@ public class PublicController {
                 .serviceCity(service.getCity())
                 .remote(service.isRemote())
                 .deliveryTimeDays(service.getDeliveryTimeDays())
+                .coverImageUrl(service.getCoverImageUrl())
+                .galleryImageUrls(getGalleryImageUrls(service.getId()))
                 .executionMode(resolveExecutionMode(service))
                 .status("ACTIVE")
                 .build();
+    }
+
+    private List<String> getGalleryImageUrls(Long serviceId) {
+        return serviceImageRepository.findByServiceIdOrderBySortOrderAsc(serviceId)
+                .stream()
+                .map(ServiceImage::getImageUrl)
+                .collect(Collectors.toList());
     }
 
     private FreelancerProfileDto mapToProfileDto(FreelancerProfile profile) {
