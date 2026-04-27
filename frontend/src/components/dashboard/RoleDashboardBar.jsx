@@ -232,13 +232,13 @@ export default function RoleDashboardBar() {
           },
         ],
         navItems: [
-          { icon: <LayoutDashboard size={16} />, label: 'Vue admin', to: '/admin' },
-          { icon: <Bell size={16} />, label: 'Notification systeme', to: '/admin#admin-notifications' },
-          { icon: <FolderKanban size={16} />, label: 'Categories', to: '/admin#admin-categories' },
-          { icon: <Users size={16} />, label: 'Utilisateurs', to: '/admin#admin-users' },
-          { icon: <Briefcase size={16} />, label: 'Services', to: '/admin#admin-services' },
-          { icon: <ClipboardList size={16} />, label: 'Commandes', to: '/admin#admin-orders' },
-          { icon: <AlertTriangle size={16} />, label: 'Signalements', to: '/admin#admin-reports' },
+          { icon: <LayoutDashboard size={16} />, label: 'Vue admin', to: '/admin/dashboard' },
+          { icon: <Bell size={16} />, label: 'Notification systeme', to: '/admin/notifications' },
+          { icon: <FolderKanban size={16} />, label: 'Categories', to: '/admin/categories' },
+          { icon: <Users size={16} />, label: 'Utilisateurs', to: '/admin/users' },
+          { icon: <Briefcase size={16} />, label: 'Services', to: '/admin/services' },
+          { icon: <ClipboardList size={16} />, label: 'Commandes', to: '/admin/orders' },
+          { icon: <AlertTriangle size={16} />, label: 'Signalements', to: '/admin/reports' },
         ],
       };
     }

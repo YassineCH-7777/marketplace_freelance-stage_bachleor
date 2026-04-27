@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import Home from '../pages/Home';
 import Login from '../pages/Login';
 import Register from '../pages/Register';
@@ -17,6 +17,12 @@ import ClientProfile from '../pages/ClientProfile';
 import Messages from '../pages/Messages';
 import Notifications from '../pages/Notifications';
 import AdminDashboard from '../pages/AdminDashboard';
+import AdminNotifications from '../pages/AdminNotifications';
+import AdminCategories from '../pages/AdminCategories';
+import AdminUsers from '../pages/AdminUsers';
+import AdminServices from '../pages/AdminServices';
+import AdminOrders from '../pages/AdminOrders';
+import AdminReports from '../pages/AdminReports';
 import NotFound from '../pages/NotFound';
 import ProtectedRoute from './ProtectedRoute';
 import ClientRoute from './ClientRoute';
@@ -54,7 +60,14 @@ export default function AppRoutes() {
       </Route>
 
       <Route element={<AdminRoute />}>
-        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin" element={<Navigate replace to="/admin/dashboard" />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/notifications" element={<AdminNotifications />} />
+        <Route path="/admin/categories" element={<AdminCategories />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/services" element={<AdminServices />} />
+        <Route path="/admin/orders" element={<AdminOrders />} />
+        <Route path="/admin/reports" element={<AdminReports />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
