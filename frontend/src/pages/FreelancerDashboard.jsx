@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getIncomingRequests } from '../api/userApi';
-import { ArrowRight, ClipboardList } from 'lucide-react';
+import { ArrowRight, Briefcase, ClipboardList } from 'lucide-react';
 import './Dashboard.css';
 
 export default function FreelancerDashboard() {
@@ -16,11 +16,29 @@ export default function FreelancerDashboard() {
   return (
     <div className="dashboard-page">
       <div className="container">
+        <div className="freelancer-dashboard-shortcuts animate-fade-in-up">
+          <Link to="/freelancer/services" className="freelancer-dashboard-shortcut">
+            <span>
+              <Briefcase size={20} />
+            </span>
+            <div>
+              <strong>Mes Services</strong>
+              <small>Voir, ajouter ou modifier vos offres</small>
+            </div>
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+
         {pendingRequests.length > 0 ? (
           <div className="animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
               <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700 }}>Dernières demandes</h2>
-              <Link to="/freelancer/requests" className="btn btn-secondary btn-sm">Voir tout <ArrowRight size={14} /></Link>
+              <div className="freelancer-dashboard-header-actions">
+                <Link to="/freelancer/services" className="btn btn-secondary btn-sm">
+                  Mes services <ArrowRight size={14} />
+                </Link>
+                <Link to="/freelancer/requests" className="btn btn-secondary btn-sm">Voir tout <ArrowRight size={14} /></Link>
+              </div>
             </div>
             <div className="dash-table-wrapper">
               <table className="dash-table">
@@ -56,6 +74,9 @@ export default function FreelancerDashboard() {
             </div>
             <h3 className="empty-state-title">Aucune demande en attente</h3>
             <p className="empty-state-desc">Les nouvelles demandes client apparaitront ici.</p>
+            <Link to="/freelancer/services" className="btn btn-primary">
+              <Briefcase size={16} /> Mes services
+            </Link>
           </div>
         )}
       </div>
