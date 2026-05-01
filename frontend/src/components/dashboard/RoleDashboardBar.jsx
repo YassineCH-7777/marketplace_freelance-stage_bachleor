@@ -17,11 +17,11 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react';
-import useAuth from '../../hooks/useAuth';
-import { getAdminCategories, getAdminReports, getAdminStats, getAdminUsers } from '../../api/adminApi';
-import { getClientOrders } from '../../api/orderApi';
-import { getFreelancerOrders, getIncomingRequests } from '../../api/userApi';
-import '../../pages/Dashboard.css';
+import useAuth from '@/hooks/useAuth';
+import { getAdminCategories, getAdminReports, getAdminStats, getAdminUsers } from '@/api/adminApi';
+import { getClientOrders } from '@/api/orderApi';
+import { getFreelancerOrders, getIncomingRequests } from '@/api/userApi';
+import '@/styles/dashboard.css';
 
 function getFirstName(user) {
   return user?.firstName || user?.email?.split('@')[0] || 'utilisateur';

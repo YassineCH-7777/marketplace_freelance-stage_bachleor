@@ -63,6 +63,28 @@ L'objectif est plutot de proposer un mini suivi de mission, simple et concret, a
 - base de donnees : PostgreSQL 15
 - orchestration locale : Docker Compose
 
+## Structure du projet
+
+```text
+marketplace_freelance/
+  backend/                 API Spring Boot
+    src/main/java/
+      application/         services et cas d'utilisation
+      domain/              modeles metier et enums
+      infrastructure/      persistence, security et configuration
+      web/                 controllers, DTO et gestion des erreurs HTTP
+    src/main/resources/    configuration et scripts SQL
+    src/test/java/         tests unitaires et integration
+  frontend/                application React/Vite
+    src/api/               clients HTTP vers le backend
+    src/components/        composants reutilisables
+    src/features/          pages regroupees par domaine produit
+    src/hooks/             hooks React partages
+    src/routes/            declaration des routes et guards
+    src/styles/            styles globaux par surface
+    src/utils/             fonctions de formatage et metadata
+```
+
 ## Lancer le projet
 
 ### Avec Docker
@@ -104,8 +126,6 @@ Les prochaines briques naturelles pour renforcer le positionnement hyper-local s
 - badges de confiance terrain plus fins
 - avis multi-axes pour les missions locales
 - relances automatiques via n8n
-
-
 
 
 

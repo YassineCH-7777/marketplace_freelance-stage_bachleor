@@ -1,16 +1,35 @@
-# React + Vite
+# Frontend ProxiSkills
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Application React 19 construite avec Vite. La structure est organisee par domaine fonctionnel pour que les pages metier restent faciles a trouver.
 
-Currently, two official plugins are available:
+## Dossiers principaux
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```text
+src/
+  api/          appels HTTP centralises
+  assets/       images statiques utilisees par l'interface
+  components/   composants reutilisables et UI communes
+  context/      providers React globaux
+  features/     pages groupees par domaine produit
+  hooks/        hooks partages
+  routes/       routes React Router et guards d'acces
+  styles/       styles partages par surface
+  utils/        helpers purs et metadata d'affichage
+```
 
-## React Compiler
+## Alias d'import
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Le projet expose l'alias `@` vers `src`.
 
-## Expanding the ESLint configuration
+```js
+import useAuth from '@/hooks/useAuth';
+import Services from '@/features/services/pages/Services';
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Scripts
+
+```bash
+npm run dev
+npm run lint
+npm run build
+```

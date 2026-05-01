@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import Navbar from './components/common/Navbar';
-import Footer from './components/common/Footer';
-import RoleDashboardBar from './components/dashboard/RoleDashboardBar';
-import useAuth from './hooks/useAuth';
-import AppRoutes from './routes/AppRoutes';
-import { shouldShowDashboardBar } from './utils/dashboardBar';
+import Navbar from '@/components/common/Navbar';
+import Footer from '@/components/common/Footer';
+import RoleDashboardBar from '@/components/dashboard/RoleDashboardBar';
+import useAuth from '@/hooks/useAuth';
+import AppRoutes from '@/routes/AppRoutes';
+import { shouldShowDashboardBar } from '@/utils/dashboardBar';
 
 function App() {
   const location = useLocation();

@@ -1,5 +1,5 @@
 import { Clock3, MapPin, Phone, Repeat, ShieldCheck, Star } from 'lucide-react';
-import { formatReviewScore, getReviewAverage, getReviewAxisAverages } from '../../utils/reviewMeta';
+import { formatReviewScore, getReviewAverage, getReviewAxisAverages } from '@/utils/reviewMeta';
 
 function countRepeatClients(reviews) {
   const occurrences = reviews.reduce((accumulator, review) => {

@@ -5,7 +5,7 @@ import {
   formatPlanningDate,
   getMissionChecklist,
   getOrderStatusMeta,
-} from '../../utils/orderExecution';
+} from '@/utils/orderExecution';
 
 export default function MissionExecutionCard({ order, role, onManage, onMessage, onReview }) {
   const statusMeta = getOrderStatusMeta(order.status);
