@@ -14,7 +14,7 @@ import {
   Star,
   X,
 } from 'lucide-react';
-import { getActiveServices } from '@/api/serviceApi';
+import { getActiveServices, getRecommendedServices } from '@/api/serviceApi';
 import useAuth from '@/hooks/useAuth';
 import {
   getDeliveryTimeLabel,
@@ -29,6 +29,7 @@ import {
 import '@/styles/services.css';
 
 const SORT_OPTIONS = [
+  { value: 'recommended', label: 'Pertinence' },
   { value: 'local-first', label: 'Proches de moi' },
   { value: 'price-desc', label: 'Prix decroissant' },
   { value: 'price-asc', label: 'Prix croissant' },
@@ -158,13 +159,15 @@ export default function Services() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [services, setServices] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
   const [city, setCity] = useState(searchParams.get('city') || '');
   const [categoryName, setCategoryName] = useState(searchParams.get('categoryName') || '');
   const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
-  const [sort, setSort] = useState(searchParams.get('sort') || 'local-first');
+  const [sort, setSort] = useState(searchParams.get('sort') || 'recommended');
   const localPriorityCity = city || user?.city || '';
   const hasLocalPriority = Boolean(normalize(localPriorityCity));
 
@@ -193,6 +196,62 @@ export default function Services() {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    const requestedCity = city || user?.city || '';
+
+    setRecommendationsLoading(true);
+    getRecommendedServices({
+      keyword,
+      categoryName,
+      city: requestedCity,
+      maxBudget: maxPrice || undefined,
+      limit: 50,
+    })
+      .then((response) => {
+        if (isMounted) {
+          setRecommendations(response.data || []);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setRecommendations([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setRecommendationsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [categoryName, city, keyword, maxPrice, user?.city]);
+
+  const servicesWithRecommendation = useMemo(() => {
+    const recommendationByServiceId = new Map(
+      recommendations
+        .filter((recommendation) => recommendation?.service?.id)
+        .map((recommendation) => [recommendation.service.id, recommendation]),
+    );
+
+    return services.map((service) => {
+      const recommendation = recommendationByServiceId.get(service.id);
+
+      if (!recommendation) {
+        return service;
+      }
+
+      return {
+        ...service,
+        recommendationScore: recommendation.score,
+        recommendationReasons: recommendation.reasons || [],
+        recommendationDetails: recommendation.scoreDetails || {},
+      };
+    });
+  }, [recommendations, services]);
+
   const cityOptions = useMemo(() => {
     const values = services
       .map((service) => getServiceLocationLabel(service))
@@ -212,12 +271,13 @@ export default function Services() {
     const min = minPrice === '' ? null : Number(minPrice);
     const max = maxPrice === '' ? null : Number(maxPrice);
 
-    return [...services]
+    return [...servicesWithRecommendation]
       .filter((service) => {
         const title = normalize(service.title);
         const description = normalize(service.description);
         const category = normalize(service.categoryName);
         const location = normalize(getServiceLocationLabel(service));
+        const executionMode = normalize(service.executionMode);
         const price = getPrice(service);
 
         const matchesKeyword =
@@ -226,7 +286,8 @@ export default function Services() {
           description.includes(normalizedKeyword) ||
           category.includes(normalizedKeyword);
 
-        const matchesCity = !normalizedCity || location.includes(normalizedCity);
+        const isRemoteCompatible = service.remote || executionMode === 'remote' || executionMode === 'hybrid';
+        const matchesCity = !normalizedCity || location.includes(normalizedCity) || isRemoteCompatible;
         const matchesCategory = !normalizedCategory || category === normalizedCategory;
         const matchesMin = min === null || price >= min;
         const matchesMax = max === null || price <= max;
@@ -234,13 +295,29 @@ export default function Services() {
         return matchesKeyword && matchesCity && matchesCategory && matchesMin && matchesMax;
       })
       .sort((a, b) => {
-        const localComparison = compareLocalPriority(a, b, localPriorityCity);
+        const localComparison = sort === 'recommended' ? 0 : compareLocalPriority(a, b, localPriorityCity);
 
         if (localComparison !== 0) {
           return localComparison;
         }
 
         switch (sort) {
+          case 'recommended': {
+            const recommendationDifference =
+              Number(b.recommendationScore || 0) - Number(a.recommendationScore || 0);
+
+            if (recommendationDifference !== 0) {
+              return recommendationDifference;
+            }
+
+            const localDifference = compareLocalPriority(a, b, localPriorityCity);
+
+            if (localDifference !== 0) {
+              return localDifference;
+            }
+
+            return compareDelivery(a, b);
+          }
           case 'price-asc':
             return getPrice(a) - getPrice(b);
           case 'delivery-asc':
@@ -267,7 +344,7 @@ export default function Services() {
             return getPrice(b) - getPrice(a);
         }
       });
-  }, [categoryName, city, keyword, localPriorityCity, maxPrice, minPrice, services, sort]);
+  }, [categoryName, city, keyword, localPriorityCity, maxPrice, minPrice, servicesWithRecommendation, sort]);
 
   const catalogStats = useMemo(() => {
     const rapidServices = services.filter((service) => Number(service.deliveryTimeDays || 999) <= 3).length;
@@ -349,7 +426,7 @@ export default function Services() {
     setCategoryName('');
     setMinPrice('');
     setMaxPrice('');
-    setSort('local-first');
+    setSort('recommended');
     setSearchParams({});
   };
 
@@ -532,8 +609,22 @@ export default function Services() {
                 </h2>
               </div>
               <span>
-                {hasLocalPriority ? <MapPin size={15} /> : <ShieldCheck size={15} />}
-                {hasLocalPriority ? `Proches de ${localPriorityCity}` : 'Niveau professionnel'}
+                {sort === 'recommended' ? (
+                  recommendationsLoading ? (
+                    <Loader2 size={15} className="spinner" />
+                  ) : (
+                    <ShieldCheck size={15} />
+                  )
+                ) : hasLocalPriority ? (
+                  <MapPin size={15} />
+                ) : (
+                  <ShieldCheck size={15} />
+                )}
+                {sort === 'recommended'
+                  ? 'Offres pertinentes'
+                  : hasLocalPriority
+                    ? `Proches de ${localPriorityCity}`
+                    : 'Niveau professionnel'}
               </span>
             </div>
 
