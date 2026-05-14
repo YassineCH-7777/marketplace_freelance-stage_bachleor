@@ -309,6 +309,57 @@ CREATE TABLE IF NOT EXISTS order_requests (
 );
 
 -- =========================================================
+-- 9B) TABLE CLIENT REQUEST DRAFTS
+-- =========================================================
+CREATE TABLE IF NOT EXISTS client_request_drafts (
+    id              BIGSERIAL PRIMARY KEY,
+    client_id       BIGINT NOT NULL,
+    category        VARCHAR(120),
+    city            VARCHAR(120),
+    mode            VARCHAR(30),
+    budget          NUMERIC(12,2),
+    deadline_days   INT,
+    objective       TEXT,
+    deliverables    TEXT[] NOT NULL DEFAULT '{}',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_client_request_drafts_client
+        FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
+
+    CONSTRAINT chk_client_request_drafts_budget CHECK (budget IS NULL OR budget >= 0),
+    CONSTRAINT chk_client_request_drafts_deadline CHECK (deadline_days IS NULL OR deadline_days >= 0)
+);
+
+-- =========================================================
+-- 9C) TABLE FREELANCER PROFILE DRAFTS
+-- =========================================================
+CREATE TABLE IF NOT EXISTS freelancer_profile_drafts (
+    id                          BIGSERIAL PRIMARY KEY,
+    user_id                     BIGINT NOT NULL UNIQUE,
+    headline                    VARCHAR(150),
+    professional_bio            TEXT,
+    skills                      TEXT[] NOT NULL DEFAULT '{}',
+    city                        VARCHAR(120),
+    availability                VARCHAR(40),
+    hourly_rate                 NUMERIC(10,2),
+    portfolio_url               TEXT,
+    primary_categories          TEXT[] NOT NULL DEFAULT '{}',
+    remote_mode                 VARCHAR(40),
+    profile_completion_score    INT,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_freelancer_profile_drafts_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+
+    CONSTRAINT chk_freelancer_profile_drafts_hourly_rate CHECK (hourly_rate IS NULL OR hourly_rate >= 0),
+    CONSTRAINT chk_freelancer_profile_drafts_completion CHECK (
+        profile_completion_score IS NULL OR profile_completion_score BETWEEN 0 AND 100
+    )
+);
+
+-- =========================================================
 -- 10) TABLE ORDERS
 -- =========================================================
 CREATE TABLE IF NOT EXISTS orders (
@@ -533,6 +584,12 @@ CREATE INDEX IF NOT EXISTS idx_order_requests_service_id ON order_requests(servi
 CREATE INDEX IF NOT EXISTS idx_order_requests_status ON order_requests(status);
 CREATE INDEX IF NOT EXISTS idx_order_requests_created_at ON order_requests(created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_client_request_drafts_client_id ON client_request_drafts(client_id);
+CREATE INDEX IF NOT EXISTS idx_client_request_drafts_updated_at ON client_request_drafts(updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_freelancer_profile_drafts_user_id ON freelancer_profile_drafts(user_id);
+CREATE INDEX IF NOT EXISTS idx_freelancer_profile_drafts_updated_at ON freelancer_profile_drafts(updated_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_orders_client_id ON orders(client_id);
 CREATE INDEX IF NOT EXISTS idx_orders_freelancer_id ON orders(freelancer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_service_id ON orders(service_id);
@@ -589,6 +646,18 @@ EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_order_requests_updated_at ON order_requests;
 CREATE TRIGGER trg_order_requests_updated_at
 BEFORE UPDATE ON order_requests
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_client_request_drafts_updated_at ON client_request_drafts;
+CREATE TRIGGER trg_client_request_drafts_updated_at
+BEFORE UPDATE ON client_request_drafts
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_freelancer_profile_drafts_updated_at ON freelancer_profile_drafts;
+CREATE TRIGGER trg_freelancer_profile_drafts_updated_at
+BEFORE UPDATE ON freelancer_profile_drafts
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import useAuth from '@/hooks/useAuth';
 import { getFreelancerOwnProfile, updateFreelancerProfile } from '@/api/userApi';
+import AiAssistantPanel from '@/components/ai/AiAssistantPanel';
 import {
   BadgeCheck,
   BriefcaseBusiness,
@@ -138,6 +139,19 @@ export default function FreelancerProfileEdit() {
     }
   };
 
+  const handleFreelanceAssistantResult = (draftProfile) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      city: draftProfile.city || currentForm.city,
+      headline: draftProfile.headline || draftProfile.title || currentForm.headline,
+      portfolioUrl: draftProfile.portfolioUrl || draftProfile.portfolio_url || currentForm.portfolioUrl,
+      skills: Array.isArray(draftProfile.skills)
+        ? draftProfile.skills.join(', ')
+        : draftProfile.skills || currentForm.skills,
+      bio: draftProfile.professional_bio || draftProfile.professionalBio || draftProfile.bio || currentForm.bio,
+    }));
+  };
+
   if (loading) {
     return (
       <div className="dashboard-page">
@@ -159,6 +173,19 @@ export default function FreelancerProfileEdit() {
             Mettez a jour vos informations personnelles et votre vitrine professionnelle.
           </p>
         </div>
+
+        <AiAssistantPanel
+          type="freelance"
+          title="Assistant IA profil"
+          subtitle="Construisez un headline, une bio et des competences propres, puis appliquez-les au formulaire."
+          placeholder="Ex: Je suis developpeur React et Spring Boot, je travaille avec des commerces locaux a Marrakech."
+          metadata={{
+            currentProfileCompletion: completion,
+            currentProfile: form,
+          }}
+          onStructuredResult={handleFreelanceAssistantResult}
+          applyLabel="Pre-remplir le profil"
+        />
 
         <div className="client-profile-layout freelancer-profile-layout animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <aside className="client-profile-summary freelancer-profile-summary">

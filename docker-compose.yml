@@ -39,6 +39,26 @@ services:
       - "3000:80"
     restart: unless-stopped
 
+  n8n:
+    image: n8nio/n8n:latest
+    depends_on:
+      - db
+      - backend
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      BACKEND_API_URL: http://backend:8080
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n-data:/home/node/.n8n
+    restart: unless-stopped
+
 volumes:
   db-data:
+    driver: local
+  n8n-data:
     driver: local

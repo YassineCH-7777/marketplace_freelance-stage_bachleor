@@ -30,7 +30,7 @@ import '@/styles/services.css';
 
 const SORT_OPTIONS = [
   { value: 'recommended', label: 'Pertinence' },
-  { value: 'local-first', label: 'Proches de moi' },
+  { value: 'local-first', label: 'Mode et delai' },
   { value: 'price-desc', label: 'Prix decroissant' },
   { value: 'price-asc', label: 'Prix croissant' },
   { value: 'delivery-asc', label: 'Delai le plus court' },
@@ -200,7 +200,11 @@ export default function Services() {
     let isMounted = true;
     const requestedCity = city || user?.city || '';
 
-    setRecommendationsLoading(true);
+    Promise.resolve().then(() => {
+      if (isMounted) {
+        setRecommendationsLoading(true);
+      }
+    });
     getRecommendedServices({
       keyword,
       categoryName,
@@ -452,12 +456,6 @@ export default function Services() {
                 <Clock size={15} />
                 Delais visibles avant contact
               </span>
-              {hasLocalPriority && (
-                <span>
-                  <MapPin size={15} />
-                  Priorite a {localPriorityCity}
-                </span>
-              )}
             </div>
           </div>
           <div className="services-heading-summary">
@@ -545,13 +543,6 @@ export default function Services() {
               </div>
             )}
 
-            {hasLocalPriority && !city && (
-              <div className="services-local-note">
-                <MapPin size={15} />
-                <span>Les services de {localPriorityCity} remontent en premier.</span>
-              </div>
-            )}
-
             <label className="services-filter-field">
               <span>Ville</span>
               <select value={city} onChange={handleSelectChange(setCity, 'city')}>
@@ -615,16 +606,10 @@ export default function Services() {
                   ) : (
                     <ShieldCheck size={15} />
                   )
-                ) : hasLocalPriority ? (
-                  <MapPin size={15} />
                 ) : (
-                  <ShieldCheck size={15} />
+                  <ArrowUpDown size={15} />
                 )}
-                {sort === 'recommended'
-                  ? 'Offres pertinentes'
-                  : hasLocalPriority
-                    ? `Proches de ${localPriorityCity}`
-                    : 'Niveau professionnel'}
+                {sort === 'recommended' ? 'Offres pertinentes' : 'Tri applique'}
               </span>
             </div>
 
@@ -644,7 +629,6 @@ export default function Services() {
                   const freelancerName = getFreelancerName(service);
                   const coverImageUrl = getServiceCoverImageUrl(service);
                   const description = stripServiceMediaSection(service.description);
-                  const isLocalMatch = getServiceLocalScore(service, localPriorityCity) > 0;
                   const previewDescription =
                     description?.trim() || 'Brief, budget et delai a valider directement avec le freelance.';
                   return (
@@ -655,9 +639,7 @@ export default function Services() {
                       aria-label={`Voir le service ${service.title}`}
                     >
                       <div
-                        className={`service-result-media ${coverImageUrl ? 'has-cover' : ''} ${
-                          isLocalMatch ? 'is-local-match' : ''
-                        }`}
+                        className={`service-result-media ${coverImageUrl ? 'has-cover' : ''}`}
                       >
                         {coverImageUrl ? (
                           <img src={coverImageUrl} alt="" className="service-result-cover" />
@@ -668,12 +650,6 @@ export default function Services() {
                           </div>
                         )}
                         <div className="service-result-category">{service.categoryName || 'Service'}</div>
-                        {isLocalMatch && (
-                          <div className="service-result-local-badge">
-                            <MapPin size={12} />
-                            Proche
-                          </div>
-                        )}
                       </div>
 
                       <div className="service-result-topline">

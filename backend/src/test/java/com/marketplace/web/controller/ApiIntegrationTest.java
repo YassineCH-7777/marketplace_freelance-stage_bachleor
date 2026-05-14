@@ -8,6 +8,7 @@ import com.marketplace.domain.model.User;
 import com.marketplace.domain.enums.ServiceStatus;
 import com.marketplace.domain.enums.UserRole;
 import com.marketplace.domain.enums.UserStatus;
+import com.marketplace.application.service.AiDraftService;
 import com.marketplace.infrastructure.persistence.CategoryRepository;
 import com.marketplace.infrastructure.persistence.ConversationRepository;
 import com.marketplace.infrastructure.persistence.FreelancerProfileRepository;
@@ -100,6 +101,9 @@ class ApiIntegrationTest {
 
     @MockBean
     private MessageRepository messageRepository;
+
+    @MockBean
+    private AiDraftService aiDraftService;
 
     @Test
     void freelancerCreateServiceReturnsCompleteDto() throws Exception {
