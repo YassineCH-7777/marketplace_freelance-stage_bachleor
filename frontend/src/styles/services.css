@@ -454,6 +454,46 @@
   gap: 0.45rem;
 }
 
+.services-radius-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.services-radius-control input[type='range'] {
+  height: auto;
+  padding: 0;
+  accent-color: var(--primary-500);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.services-radius-control input[type='range']:focus {
+  box-shadow: none;
+}
+
+.services-radius-control strong {
+  min-width: 3.25rem;
+  color: var(--primary-500);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.services-radius-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.services-radius-options span {
+  text-align: center;
+}
+
 /* ---------- Results ---------- */
 .services-results {
   min-width: 0;

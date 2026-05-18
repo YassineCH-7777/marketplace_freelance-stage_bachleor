@@ -45,6 +45,7 @@ public class AuthService {
                 .lastName(normalizeRegistrationName(request.getLastName(), "User"))
                 .role(request.getRole() != null ? request.getRole() : UserRole.CLIENT)
                 .status(UserStatus.ACTIVE)
+                .searchRadiusKm(10)
                 .build();
         
         user = userRepository.save(user);
@@ -63,16 +64,7 @@ public class AuthService {
 
         String jwtToken = jwtService.generateToken(user);
         
-        return AuthResponse.builder()
-                .token(jwtToken)
-                .id(user.getId())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .phone(user.getPhone())
-                .city(user.getCity())
-                .role(user.getRole())
-                .build();
+        return mapToAuthResponse(user, jwtToken);
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -92,16 +84,7 @@ public class AuthService {
 
         String jwtToken = jwtService.generateToken(user);
 
-        return AuthResponse.builder()
-                .token(jwtToken)
-                .id(user.getId())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .phone(user.getPhone())
-                .city(user.getCity())
-                .role(user.getRole())
-                .build();
+        return mapToAuthResponse(user, jwtToken);
     }
 
         public void logout(String jwt) {
@@ -116,5 +99,27 @@ public class AuthService {
     private String normalizeRegistrationName(String value, String fallback) {
         String normalized = value == null ? "" : value.trim();
         return normalized.length() >= 2 ? normalized : fallback;
+    }
+
+    private AuthResponse mapToAuthResponse(User user, String jwtToken) {
+        return AuthResponse.builder()
+                .token(jwtToken)
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .phone(user.getPhone())
+                .city(user.getCity())
+                .searchCity(user.getSearchCity())
+                .searchPlaceId(user.getSearchPlaceId())
+                .searchLatitude(user.getSearchLatitude())
+                .searchLongitude(user.getSearchLongitude())
+                .searchRadiusKm(resolveSearchRadius(user.getSearchRadiusKm()))
+                .role(user.getRole())
+                .build();
+    }
+
+    private Integer resolveSearchRadius(Integer radiusKm) {
+        return radiusKm != null && java.util.Set.of(5, 10, 20, 50).contains(radiusKm) ? radiusKm : 10;
     }
 }

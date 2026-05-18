@@ -16,5 +16,8 @@ public class OrderExecutionUpdateDto {
     private OrderStatus status;
     private LocalDate startDate;
     private LocalDate endDate;
+    private LocalDate dueDate;
+    private Integer progressPercentage;
     private String notes;
+    private String deliveryNote;
 }

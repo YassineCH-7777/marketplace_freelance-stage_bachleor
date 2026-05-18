@@ -141,6 +141,11 @@ public class PublicController {
                 .headline(profile.getHeadline())
                 .bio(profile.getBio())
                 .city(profile.getUser().getCity())
+                .searchCity(profile.getUser().getSearchCity())
+                .searchPlaceId(profile.getUser().getSearchPlaceId())
+                .searchLatitude(profile.getUser().getSearchLatitude())
+                .searchLongitude(profile.getUser().getSearchLongitude())
+                .searchRadiusKm(profile.getUser().getSearchRadiusKm())
                 .portfolioUrl(profile.getPortfolioUrl())
                 .skills(profile.getSkills() == null ? "" : String.join(",", profile.getSkills()))
                 .build();

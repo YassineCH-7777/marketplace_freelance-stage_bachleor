@@ -994,6 +994,37 @@
   justify-content: flex-end;
 }
 
+.profile-radius-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.profile-radius-control input[type='range'] {
+  width: 100%;
+  accent-color: var(--primary-500);
+}
+
+.profile-radius-control strong {
+  min-width: 3.5rem;
+  color: var(--primary-500);
+  font-size: var(--text-sm);
+  text-align: right;
+}
+
+.profile-radius-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 0.4rem;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.profile-radius-options span {
+  text-align: center;
+}
+
 .freelancer-profile-summary .client-profile-avatar {
   background: linear-gradient(135deg, #087f5b, var(--primary-500));
 }
@@ -1606,6 +1637,145 @@
   gap: var(--space-4);
 }
 
+.mission-attachment-box {
+  display: grid;
+  gap: var(--space-3);
+  padding: 1rem 1.1rem;
+  background: var(--bg-glass);
+  border: 1px dashed var(--surface-border);
+  border-radius: var(--radius-xl);
+}
+
+.mission-attachment-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 14rem);
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.mission-attachment-head .form-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mission-report-block .attachment-list {
+  margin-top: var(--space-3);
+}
+
+.mission-milestone-block,
+.mission-activity-block {
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--surface-border);
+  background: var(--bg-glass);
+}
+
+.mission-milestone-list,
+.mission-activity-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mission-milestone-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0.85rem 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.mission-milestone-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.mission-milestone-item:last-child {
+  padding-bottom: 0;
+}
+
+.mission-milestone-item div {
+  min-width: 0;
+}
+
+.mission-milestone-item strong,
+.mission-activity-item strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 800;
+}
+
+.mission-milestone-item span,
+.mission-activity-item span,
+.mission-activity-item p {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+
+.mission-milestone-status {
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mission-milestone-status.is-pending {
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.mission-milestone-status.is-active,
+.mission-milestone-status.is-waiting {
+  color: var(--info);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.mission-milestone-status.is-done {
+  color: #087f5b;
+  background: #dcfce7;
+}
+
+.mission-milestone-status.is-cancelled {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.mission-activity-item {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.mission-activity-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.mission-activity-item:last-child {
+  padding-bottom: 0;
+}
+
+.mission-progress-editor {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  background: var(--bg-glass);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-xl);
+}
+
+.mission-progress-editor input[type='range'] {
+  width: 100%;
+  accent-color: var(--primary-500);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .role-dashboard-inner {
@@ -1679,8 +1849,10 @@
   }
 
   .mission-meta-grid,
+  .mission-activity-item,
   .mission-checklist,
   .mission-modal-grid,
+  .mission-attachment-head,
   .review-axis-breakdown,
   .review-summary-grid,
   .admin-grid,

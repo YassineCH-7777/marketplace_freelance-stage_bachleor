@@ -13,11 +13,13 @@ import com.marketplace.domain.enums.UserRole;
 import com.marketplace.web.exception.BusinessException;
 import com.marketplace.web.exception.ResourceNotFoundException;
 import com.marketplace.web.exception.UnauthorizedException;
+import com.marketplace.infrastructure.persistence.AttachmentRepository;
 import com.marketplace.infrastructure.persistence.ConversationRepository;
 import com.marketplace.infrastructure.persistence.FreelancerProfileRepository;
 import com.marketplace.infrastructure.persistence.MessageRepository;
 import com.marketplace.infrastructure.persistence.OrderRepository;
 import com.marketplace.infrastructure.persistence.UserRepository;
+import com.marketplace.web.dto.attachment.AttachmentDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,7 @@ public class MessageService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final FreelancerProfileRepository freelancerProfileRepository;
+    private final AttachmentRepository attachmentRepository;
     private final NotificationService notificationService;
 
     @Transactional
@@ -255,7 +258,15 @@ public class MessageService {
                 .senderEmail(message.getSender().getEmail())
                 .content(message.getContent())
                 .isRead(message.isRead())
+                .attachments(safeList(attachmentRepository.findByMessage_IdOrderByCreatedAtAsc(message.getId()))
+                        .stream()
+                        .map(AttachmentDto::from)
+                        .toList())
                 .createdAt(message.getCreatedAt())
                 .build();
+    }
+
+    private <T> List<T> safeList(List<T> values) {
+        return values != null ? values : List.of();
     }
 }

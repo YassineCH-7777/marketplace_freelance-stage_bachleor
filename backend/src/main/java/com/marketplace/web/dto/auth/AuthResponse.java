@@ -18,5 +18,10 @@ public class AuthResponse {
     private String lastName;
     private String phone;
     private String city;
+    private String searchCity;
+    private String searchPlaceId;
+    private Double searchLatitude;
+    private Double searchLongitude;
+    private Integer searchRadiusKm;
     private UserRole role;
 }

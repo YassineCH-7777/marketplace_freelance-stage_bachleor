@@ -2,22 +2,29 @@ package com.marketplace.web.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marketplace.domain.model.Category;
+import com.marketplace.domain.model.Attachment;
 import com.marketplace.domain.model.FreelancerProfile;
+import com.marketplace.domain.model.ServiceRequest;
 import com.marketplace.domain.model.ServiceEntity;
 import com.marketplace.domain.model.User;
 import com.marketplace.domain.enums.ServiceStatus;
 import com.marketplace.domain.enums.UserRole;
 import com.marketplace.domain.enums.UserStatus;
 import com.marketplace.application.service.AiDraftService;
+import com.marketplace.infrastructure.persistence.AttachmentRepository;
 import com.marketplace.infrastructure.persistence.CategoryRepository;
 import com.marketplace.infrastructure.persistence.ConversationRepository;
 import com.marketplace.infrastructure.persistence.FreelancerProfileRepository;
+import com.marketplace.infrastructure.persistence.MissionActivityRepository;
+import com.marketplace.infrastructure.persistence.MissionMilestoneRepository;
 import com.marketplace.infrastructure.persistence.MessageRepository;
 import com.marketplace.infrastructure.persistence.NotificationRepository;
 import com.marketplace.infrastructure.persistence.OrderRepository;
 import com.marketplace.infrastructure.persistence.OrderRequestRepository;
+import com.marketplace.infrastructure.persistence.ProposalRepository;
 import com.marketplace.infrastructure.persistence.ReportRepository;
 import com.marketplace.infrastructure.persistence.ReviewRepository;
+import com.marketplace.infrastructure.persistence.ServiceRequestRepository;
 import com.marketplace.infrastructure.persistence.ServiceImageRepository;
 import com.marketplace.infrastructure.persistence.ServiceRepository;
 import com.marketplace.infrastructure.persistence.UserRepository;
@@ -35,6 +42,7 @@ import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequ
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -88,7 +96,19 @@ class ApiIntegrationTest {
     private OrderRequestRepository orderRequestRepository;
 
     @MockBean
+    private ServiceRequestRepository serviceRequestRepository;
+
+    @MockBean
+    private ProposalRepository proposalRepository;
+
+    @MockBean
     private ReviewRepository reviewRepository;
+
+    @MockBean
+    private MissionActivityRepository missionActivityRepository;
+
+    @MockBean
+    private MissionMilestoneRepository missionMilestoneRepository;
 
     @MockBean
     private ReportRepository reportRepository;
@@ -101,6 +121,9 @@ class ApiIntegrationTest {
 
     @MockBean
     private MessageRepository messageRepository;
+
+    @MockBean
+    private AttachmentRepository attachmentRepository;
 
     @MockBean
     private AiDraftService aiDraftService;
@@ -202,6 +225,43 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$.url").exists())
                 .andExpect(jsonPath("$.fileName").value("cover.png"))
                 .andExpect(jsonPath("$.contentType").value(MediaType.IMAGE_PNG_VALUE));
+    }
+
+    @Test
+    void clientCanUploadServiceRequestBrief() throws Exception {
+        User clientUser = clientUser(20L, "client1@marketplace.com");
+        ServiceRequest request = ServiceRequest.builder()
+                .id(55L)
+                .client(clientUser)
+                .category(category(2L, "Developpement web"))
+                .title("Brief logo")
+                .description("Creation d une identite visuelle locale")
+                .build();
+        MockMultipartFile brief = new MockMultipartFile(
+                "files",
+                "brief.pdf",
+                MediaType.APPLICATION_PDF_VALUE,
+                new byte[] {1, 2, 3, 4}
+        );
+
+        when(userRepository.findById(20L)).thenReturn(Optional.of(clientUser));
+        when(serviceRequestRepository.findById(55L)).thenReturn(Optional.of(request));
+        when(attachmentRepository.save(any(Attachment.class))).thenAnswer(invocation -> {
+            Attachment attachment = invocation.getArgument(0);
+            attachment.setId(301L);
+            attachment.setCreatedAt(LocalDateTime.of(2026, 5, 18, 12, 0));
+            return attachment;
+        });
+
+        mockMvc.perform(multipart("/api/attachments/service-requests/55")
+                        .file(brief)
+                        .param("type", "BRIEF")
+                        .with(SecurityMockMvcRequestPostProcessors.user(clientUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(301))
+                .andExpect(jsonPath("$[0].attachmentType").value("BRIEF"))
+                .andExpect(jsonPath("$[0].originalFileName").value("brief.pdf"))
+                .andExpect(jsonPath("$[0].serviceRequestId").value(55));
     }
 
     @Test

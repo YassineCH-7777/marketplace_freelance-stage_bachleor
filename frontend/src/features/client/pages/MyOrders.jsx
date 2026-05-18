@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ClipboardList, FileText, Loader2, Package, Star, X } from 'lucide-react';
-import { getClientOrders } from '@/api/orderApi';
+import { acceptOrderDelivery, getClientOrders, requestOrderRevision } from '@/api/orderApi';
 import { leaveReview } from '@/api/reviewApi';
 import MissionExecutionCard from '@/components/orders/MissionExecutionCard';
+import { activeMissionStatuses } from '@/utils/orderExecution';
 import { formatReviewScore, getReviewAverage, reviewAxes } from '@/utils/reviewMeta';
 import '@/styles/dashboard.css';
 
@@ -44,6 +45,8 @@ export default function MyOrders() {
   const [loading, setLoading] = useState(true);
   const [reviewModal, setReviewModal] = useState(null);
   const [reviewDraft, setReviewDraft] = useState(defaultReviewDraft);
+  const [revisionModal, setRevisionModal] = useState(null);
+  const [revisionComment, setRevisionComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const sortedOrders = useMemo(
@@ -57,9 +60,9 @@ export default function MyOrders() {
   const reviewAverage = useMemo(() => getReviewAverage(reviewDraft), [reviewDraft]);
 
   const stats = [
-    { icon: <Package size={22} />, value: orders.filter((order) => order.status === 'IN_PROGRESS').length, label: 'Missions en cours', color: 'blue' },
-    { icon: <ClipboardList size={22} />, value: orders.filter((order) => order.notes).length, label: 'Suivis partages', color: 'purple' },
-    { icon: <FileText size={22} />, value: orders.filter((order) => order.status === 'COMPLETED').length, label: 'Comptes-rendus finaux', color: 'green' },
+    { icon: <Package size={22} />, value: orders.filter((order) => activeMissionStatuses.includes(order.status)).length, label: 'Missions actives', color: 'blue' },
+    { icon: <ClipboardList size={22} />, value: orders.filter((order) => order.activities?.length || order.notes).length, label: 'Suivis traces', color: 'purple' },
+    { icon: <FileText size={22} />, value: orders.filter((order) => ['DELIVERED', 'COMPLETED'].includes(order.status)).length, label: 'Livraisons recues', color: 'green' },
   ];
 
   const fetchOrders = (showLoader = true) => loadOrders(setOrders, setLoading, showLoader);
@@ -111,6 +114,54 @@ export default function MyOrders() {
     }
   };
 
+  const updateOrderInState = (updatedOrder) => {
+    setOrders((currentOrders) =>
+      currentOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
+    );
+  };
+
+  const handleAcceptDelivery = async (order) => {
+    setSubmitting(true);
+    try {
+      const response = await acceptOrderDelivery(order.id, { comment: 'Livraison validee depuis l espace client.' });
+      updateOrderInState(response.data);
+      alert('Livraison validee. La mission est maintenant terminee.');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la validation de la livraison');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openRevisionModal = (order) => {
+    setRevisionModal(order);
+    setRevisionComment(order.revisionRequest || '');
+  };
+
+  const closeRevisionModal = () => {
+    setRevisionModal(null);
+    setRevisionComment('');
+    setSubmitting(false);
+  };
+
+  const handleRevisionRequest = async (event) => {
+    event.preventDefault();
+    if (!revisionModal) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await requestOrderRevision(revisionModal.id, { comment: revisionComment });
+      updateOrderInState(response.data);
+      alert('Demande de revision envoyee au freelance.');
+      closeRevisionModal();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la demande de revision');
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="dashboard-page">
       <div className="container">
@@ -158,6 +209,8 @@ export default function MyOrders() {
                 key={order.id}
                 order={order}
                 role="client"
+                onAcceptDelivery={handleAcceptDelivery}
+                onRequestRevision={openRevisionModal}
                 onReview={openReviewModal}
               />
             ))}
@@ -244,6 +297,50 @@ export default function MyOrders() {
                       'Mettre a jour l avis'
                     ) : (
                       'Enregistrer l avis'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {revisionModal && (
+          <div className="modal-overlay" onClick={closeRevisionModal}>
+            <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">Demander une revision</h2>
+                <button className="modal-close" onClick={closeRevisionModal}>
+                  <X size={20} />
+                </button>
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginBottom: '1.5rem' }}>
+                Precisez le retour attendu sur "{revisionModal.serviceTitle}" pour garder une trace claire dans la timeline.
+              </p>
+
+              <form className="modal-form" onSubmit={handleRevisionRequest}>
+                <div className="form-group">
+                  <label className="form-label">Retour client</label>
+                  <textarea
+                    className="form-textarea"
+                    value={revisionComment}
+                    onChange={(event) => setRevisionComment(event.target.value)}
+                    placeholder="Exemple : merci d'ajouter les sources, corriger la couleur principale et renvoyer une version finale."
+                    rows={5}
+                  />
+                </div>
+
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-secondary" onClick={closeRevisionModal}>
+                    Annuler
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={submitting}>
+                    {submitting ? (
+                      <>
+                        <Loader2 size={16} className="spinner" /> Envoi...
+                      </>
+                    ) : (
+                      'Envoyer la revision'
                     )}
                   </button>
                 </div>

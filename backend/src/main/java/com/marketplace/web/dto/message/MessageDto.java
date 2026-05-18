@@ -1,12 +1,14 @@
 package com.marketplace.web.dto.message;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.marketplace.web.dto.attachment.AttachmentDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -21,5 +23,6 @@ public class MessageDto {
 
     @JsonProperty("isRead")
     private boolean isRead;
+    private List<AttachmentDto> attachments;
     private LocalDateTime createdAt;
 }

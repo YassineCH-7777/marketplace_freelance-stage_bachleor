@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { getActiveServices, getRecommendedServices } from '@/api/serviceApi';
+import GoogleLocationInput from '@/components/common/GoogleLocationInput';
 import useAuth from '@/hooks/useAuth';
 import {
   getDeliveryTimeLabel,
@@ -26,6 +27,14 @@ import {
   getServiceCoverImageUrl,
   stripServiceMediaSection,
 } from '@/utils/serviceDescription';
+import {
+  DEFAULT_SEARCH_RADIUS_KM,
+  formatRadiusLabel,
+  getRadiusOptionIndex,
+  matchesLocationWithinRadius,
+  resolveSearchRadius,
+  SEARCH_RADIUS_OPTIONS,
+} from '@/utils/localSearch';
 import '@/styles/services.css';
 
 const SORT_OPTIONS = [
@@ -155,21 +164,53 @@ function formatPrice(value) {
   return new Intl.NumberFormat('fr-MA', { maximumFractionDigits: 0 }).format(getPrice({ price: value }));
 }
 
+function readCoordinateParam(value, fallback = null) {
+  const rawValue = value ?? fallback;
+  if (rawValue === null || rawValue === undefined || rawValue === '') {
+    return null;
+  }
+
+  const coordinate = Number(rawValue);
+  return Number.isFinite(coordinate) ? coordinate : null;
+}
+
 export default function Services() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const preferredSearchCity = user?.searchCity || user?.city || '';
+  const preferredSearchLatitude = user?.searchLatitude ?? null;
+  const preferredSearchLongitude = user?.searchLongitude ?? null;
+  const preferredSearchRadius = resolveSearchRadius(user?.searchRadiusKm || DEFAULT_SEARCH_RADIUS_KM);
   const [services, setServices] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
-  const [city, setCity] = useState(searchParams.get('city') || '');
+  const [city, setCity] = useState(searchParams.get('city') || preferredSearchCity);
+  const [searchPlaceId, setSearchPlaceId] = useState(searchParams.get('placeId') || user?.searchPlaceId || '');
+  const [searchLatitude, setSearchLatitude] = useState(
+    readCoordinateParam(searchParams.get('lat'), preferredSearchLatitude),
+  );
+  const [searchLongitude, setSearchLongitude] = useState(
+    readCoordinateParam(searchParams.get('lng'), preferredSearchLongitude),
+  );
+  const [radiusKm, setRadiusKm] = useState(
+    resolveSearchRadius(searchParams.get('radiusKm') || preferredSearchRadius),
+  );
   const [categoryName, setCategoryName] = useState(searchParams.get('categoryName') || '');
   const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
   const [sort, setSort] = useState(searchParams.get('sort') || 'recommended');
-  const localPriorityCity = city || user?.city || '';
-  const hasLocalPriority = Boolean(normalize(localPriorityCity));
+  const localPriorityCity = city || preferredSearchCity;
+  const searchLocation = useMemo(
+    () => ({
+      label: city,
+      placeId: searchPlaceId,
+      lat: searchLatitude,
+      lng: searchLongitude,
+    }),
+    [city, searchLatitude, searchLongitude, searchPlaceId],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -198,7 +239,7 @@ export default function Services() {
 
   useEffect(() => {
     let isMounted = true;
-    const requestedCity = city || user?.city || '';
+    const requestedCity = city || preferredSearchCity;
 
     Promise.resolve().then(() => {
       if (isMounted) {
@@ -231,7 +272,7 @@ export default function Services() {
     return () => {
       isMounted = false;
     };
-  }, [categoryName, city, keyword, maxPrice, user?.city]);
+  }, [categoryName, city, keyword, maxPrice, preferredSearchCity]);
 
   const servicesWithRecommendation = useMemo(() => {
     const recommendationByServiceId = new Map(
@@ -260,8 +301,11 @@ export default function Services() {
     const values = services
       .map((service) => getServiceLocationLabel(service))
       .filter((value) => value && value !== 'A distance');
+    if (preferredSearchCity) {
+      values.push(preferredSearchCity);
+    }
     return [...new Set(values)].sort((a, b) => a.localeCompare(b));
-  }, [services]);
+  }, [preferredSearchCity, services]);
 
   const categoryOptions = useMemo(() => {
     const values = services.map((service) => service.categoryName).filter(Boolean);
@@ -274,6 +318,7 @@ export default function Services() {
     const normalizedCategory = normalize(categoryName);
     const min = minPrice === '' ? null : Number(minPrice);
     const max = maxPrice === '' ? null : Number(maxPrice);
+    const radius = resolveSearchRadius(radiusKm);
 
     return [...servicesWithRecommendation]
       .filter((service) => {
@@ -291,7 +336,18 @@ export default function Services() {
           category.includes(normalizedKeyword);
 
         const isRemoteCompatible = service.remote || executionMode === 'remote' || executionMode === 'hybrid';
-        const matchesCity = !normalizedCity || location.includes(normalizedCity) || isRemoteCompatible;
+        const matchesCity =
+          !normalizedCity ||
+          isRemoteCompatible ||
+          matchesLocationWithinRadius(
+            searchLocation,
+            [
+              { label: service.serviceCity },
+              { label: service.freelancerCity },
+              { label: location },
+            ],
+            radius,
+          );
         const matchesCategory = !normalizedCategory || category === normalizedCategory;
         const matchesMin = min === null || price >= min;
         const matchesMax = max === null || price <= max;
@@ -348,7 +404,7 @@ export default function Services() {
             return getPrice(b) - getPrice(a);
         }
       });
-  }, [categoryName, city, keyword, localPriorityCity, maxPrice, minPrice, servicesWithRecommendation, sort]);
+  }, [categoryName, city, keyword, localPriorityCity, maxPrice, minPrice, radiusKm, searchLocation, servicesWithRecommendation, sort]);
 
   const catalogStats = useMemo(() => {
     const rapidServices = services.filter((service) => Number(service.deliveryTimeDays || 999) <= 3).length;
@@ -382,11 +438,12 @@ export default function Services() {
       [
         keyword && `Mot-cle : ${keyword}`,
         city && `Ville : ${city}`,
+        city && `Rayon : ${formatRadiusLabel(radiusKm)}`,
         categoryName && `Categorie : ${categoryName}`,
         minPrice && `Min : ${formatPrice(minPrice)} MAD`,
         maxPrice && `Max : ${formatPrice(maxPrice)} MAD`,
       ].filter(Boolean),
-    [categoryName, city, keyword, maxPrice, minPrice],
+    [categoryName, city, keyword, maxPrice, minPrice, radiusKm],
   );
 
   const hasActiveFilters = activeFilters.length > 0;
@@ -398,6 +455,10 @@ export default function Services() {
     const next = {
       keyword,
       city,
+      placeId: searchPlaceId,
+      lat: searchLatitude,
+      lng: searchLongitude,
+      radiusKm,
       categoryName,
       minPrice,
       maxPrice,
@@ -407,8 +468,8 @@ export default function Services() {
 
     const params = {};
     Object.entries(next).forEach(([key, value]) => {
-      if (value) {
-        params[key] = value;
+      if (value && !(['radiusKm', 'lat', 'lng', 'placeId'].includes(key) && !next.city)) {
+        params[key] = String(value);
       }
     });
     setSearchParams(params);
@@ -424,9 +485,40 @@ export default function Services() {
     updateSearchParams({ [key]: event.target.value });
   };
 
+  const handleSearchLocationTextChange = (value) => {
+    setCity(value);
+    setSearchPlaceId('');
+    setSearchLatitude(null);
+    setSearchLongitude(null);
+    updateSearchParams({ city: value, placeId: '', lat: null, lng: null });
+  };
+
+  const handleSearchLocationSelect = (place) => {
+    setCity(place.label || '');
+    setSearchPlaceId(place.placeId || '');
+    setSearchLatitude(place.lat);
+    setSearchLongitude(place.lng);
+    updateSearchParams({
+      city: place.label || '',
+      placeId: place.placeId || '',
+      lat: place.lat,
+      lng: place.lng,
+    });
+  };
+
+  const handleRadiusChange = (event) => {
+    const nextRadius = SEARCH_RADIUS_OPTIONS[Number(event.target.value)];
+    setRadiusKm(nextRadius);
+    updateSearchParams({ radiusKm: nextRadius });
+  };
+
   const resetFilters = () => {
     setKeyword('');
     setCity('');
+    setSearchPlaceId('');
+    setSearchLatitude(null);
+    setSearchLongitude(null);
+    setRadiusKm(preferredSearchRadius);
     setCategoryName('');
     setMinPrice('');
     setMaxPrice('');
@@ -544,16 +636,35 @@ export default function Services() {
             )}
 
             <label className="services-filter-field">
-              <span>Ville</span>
-              <select value={city} onChange={handleSelectChange(setCity, 'city')}>
-                <option value="">Toutes les villes</option>
-                {cityOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+              <span>Adresse ou quartier</span>
+              <GoogleLocationInput
+                value={city}
+                onTextChange={handleSearchLocationTextChange}
+                onPlaceSelect={handleSearchLocationSelect}
+                placeholder="Casablanca, Maarif..."
+              />
             </label>
+
+            <div className="services-filter-field">
+              <span>Rayon</span>
+              <div className="services-radius-control">
+                <input
+                  type="range"
+                  min="0"
+                  max={SEARCH_RADIUS_OPTIONS.length - 1}
+                  step="1"
+                  value={getRadiusOptionIndex(radiusKm)}
+                  onChange={handleRadiusChange}
+                  aria-label="Rayon de recherche"
+                />
+                <strong>{formatRadiusLabel(radiusKm)}</strong>
+              </div>
+              <div className="services-radius-options" aria-hidden="true">
+                {SEARCH_RADIUS_OPTIONS.map((option) => (
+                  <span key={option}>{option}</span>
+                ))}
+              </div>
+            </div>
 
             <label className="services-filter-field">
               <span>Categorie</span>

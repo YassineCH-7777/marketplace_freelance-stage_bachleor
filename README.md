@@ -119,9 +119,12 @@ Les workflows utilisent Groq Cloud avec le modele `llama-3.3-70b-versatile`, une
 Variables frontend a definir dans `frontend/.env` :
 
 ```bash
+VITE_GOOGLE_MAPS_API_KEY=votre_cle_google_maps
 VITE_N8N_CLIENT_CHAT_URL=http://localhost:5678/webhook/97c1a41f-8ef0-4d63-a924-92eb634384d1/chat
 VITE_N8N_FREELANCE_CHAT_URL=http://localhost:5678/webhook/97c1a41f-8ef0-4d63-a924-92eb634384d2/chat
 ```
+
+La cle Google Maps active l'autocomplete d'adresse/quartier et les distances precises dans les filtres locaux. Activez au minimum Maps JavaScript API et Places API dans Google Cloud pour cette cle.
 
 L'assistant client est disponible sur la fiche service et peut pre-remplir le message de demande ainsi que le prix propose. L'assistant freelance est disponible sur la page profil et peut pre-remplir le headline, la bio, les competences, la ville et le portfolio apres validation manuelle.
 
@@ -170,4 +173,3 @@ Les prochaines briques naturelles pour renforcer le positionnement hyper-local s
 - badges de confiance terrain plus fins
 - avis multi-axes pour les missions locales
 - relances automatiques via n8n
-

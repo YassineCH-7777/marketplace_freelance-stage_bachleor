@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getFreelancerOrders, updateFreelancerOrderExecution } from '@/api/userApi';
 import { createOrderConversation } from '@/api/messageApi';
+import { uploadOrderAttachments } from '@/api/attachmentApi';
 import MissionExecutionCard from '@/components/orders/MissionExecutionCard';
 import MissionUpdateModal from '@/components/orders/MissionUpdateModal';
+import { activeMissionStatuses } from '@/utils/orderExecution';
 import { ClipboardCheck, FileText, Loader2, Package, Rocket } from 'lucide-react';
 import '@/styles/dashboard.css';
 
@@ -23,9 +25,9 @@ export default function FreelancerOrders() {
   );
 
   const stats = [
-    { icon: <Rocket size={22} />, value: orders.filter((order) => order.status === 'IN_PROGRESS').length, label: 'Missions en cours', color: 'blue' },
-    { icon: <ClipboardCheck size={22} />, value: orders.filter((order) => order.notes).length, label: 'Etapes renseignees', color: 'purple' },
-    { icon: <FileText size={22} />, value: orders.filter((order) => order.status === 'COMPLETED').length, label: 'Livraisons cloturees', color: 'green' },
+    { icon: <Rocket size={22} />, value: orders.filter((order) => activeMissionStatuses.includes(order.status)).length, label: 'Missions actives', color: 'blue' },
+    { icon: <ClipboardCheck size={22} />, value: orders.filter((order) => order.milestones?.length || order.activities?.length).length, label: 'Suivis traces', color: 'purple' },
+    { icon: <FileText size={22} />, value: orders.filter((order) => ['DELIVERED', 'COMPLETED'].includes(order.status)).length, label: 'Livraisons envoyees', color: 'green' },
   ];
 
   const fetchOrders = () => {
@@ -45,11 +47,27 @@ export default function FreelancerOrders() {
       return;
     }
 
+    const { attachmentFiles = [], attachmentType = 'DELIVERY_PROOF', ...missionPayload } = payload;
+
     setSavingMission(true);
     try {
-      const response = await updateFreelancerOrderExecution(activeMission.id, payload);
+      const response = await updateFreelancerOrderExecution(activeMission.id, missionPayload);
+      let updatedOrder = response.data;
+
+      if (attachmentFiles.length > 0) {
+        try {
+          const attachmentsResponse = await uploadOrderAttachments(activeMission.id, attachmentFiles, attachmentType);
+          updatedOrder = {
+            ...updatedOrder,
+            attachments: [...(updatedOrder.attachments || []), ...attachmentsResponse.data],
+          };
+        } catch (uploadError) {
+          alert(uploadError.response?.data?.message || 'Suivi mis a jour, mais les fichiers n ont pas pu etre ajoutes.');
+        }
+      }
+
       setOrders((currentOrders) =>
-        currentOrders.map((entry) => (entry.id === response.data.id ? response.data : entry)),
+        currentOrders.map((entry) => (entry.id === updatedOrder.id ? updatedOrder : entry)),
       );
       setActiveMission(null);
       alert('Suivi de mission mis a jour avec succes !');

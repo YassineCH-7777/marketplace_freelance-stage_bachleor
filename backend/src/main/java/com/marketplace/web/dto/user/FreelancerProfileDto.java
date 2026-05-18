@@ -20,6 +20,11 @@ public class FreelancerProfileDto {
     private String headline;
     private String bio;
     private String city;
+    private String searchCity;
+    private String searchPlaceId;
+    private Double searchLatitude;
+    private Double searchLongitude;
+    private Integer searchRadiusKm;
     private String portfolioUrl;
     private String skills;
 }

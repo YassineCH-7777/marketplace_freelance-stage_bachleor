@@ -81,6 +81,21 @@ function formatPrice(value) {
   return new Intl.NumberFormat('fr-MA', { maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
+function getDefaultDeadline(deliveryTimeDays) {
+  const days = Number(deliveryTimeDays || 0);
+  const date = new Date();
+  date.setDate(date.getDate() + Math.max(days, 1));
+  return date.toISOString().slice(0, 10);
+}
+
+function getRequestErrorMessage(error) {
+  if (!error.response) {
+    return "Impossible de contacter le serveur API. Verifiez que le backend est demarre sur http://localhost:8080.";
+  }
+
+  return error.response?.data?.message || error.response?.data?.details || "Erreur lors de l'envoi de la demande";
+}
+
 const DESCRIPTION_SECTION_META = {
   'Ce qui est inclus': { icon: CheckCircle, tone: 'is-positive' },
   "Ce qui n'est pas inclus": { icon: XCircle, tone: 'is-muted' },
@@ -132,6 +147,7 @@ export default function ServiceDetails() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [price, setPrice] = useState('');
+  const [deadline, setDeadline] = useState('');
   const [sending, setSending] = useState(false);
   const [contacting, setContacting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -150,6 +166,7 @@ export default function ServiceDetails() {
 
         if (foundService) {
           setPrice(String(foundService.price));
+          setDeadline(getDefaultDeadline(foundService.deliveryTimeDays));
         }
       })
       .catch(() => {
@@ -170,17 +187,31 @@ export default function ServiceDetails() {
 
   const handleSendRequest = async (event) => {
     event.preventDefault();
+    const normalizedMessage = message.trim();
+    const proposedPrice = Number(price);
+
+    if (normalizedMessage.length < 5) {
+      alert('Le message doit contenir au moins 5 caracteres.');
+      return;
+    }
+
+    if (!Number.isFinite(proposedPrice) || proposedPrice < 0) {
+      alert('Le prix propose doit etre un montant valide.');
+      return;
+    }
+
     setSending(true);
 
     try {
       await createOrderRequest({
         serviceId: service.id,
-        initialMessage: message,
-        proposedPrice: parseFloat(price),
+        initialMessage: normalizedMessage,
+        proposedPrice,
+        proposedDate: deadline || null,
       });
       setSent(true);
     } catch (error) {
-      alert(error.response?.data?.message || "Erreur lors de l'envoi de la demande");
+      alert(getRequestErrorMessage(error));
     } finally {
       setSending(false);
     }
@@ -465,6 +496,16 @@ export default function ServiceDetails() {
                         step="0.01"
                         value={price}
                         onChange={(event) => setPrice(event.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Date souhaitee</label>
+                      <input
+                        className="form-input"
+                        type="date"
+                        value={deadline}
+                        onChange={(event) => setDeadline(event.target.value)}
                         required
                       />
                     </div>

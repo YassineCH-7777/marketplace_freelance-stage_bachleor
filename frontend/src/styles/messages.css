@@ -207,6 +207,22 @@
 }
 
 /* Input Bar */
+.chat-composer {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.chat-composer .attachment-picker {
+  align-items: flex-start;
+}
+
+.chat-composer .attachment-selected-list {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
 .chat-input-bar {
   display: flex;
   align-items: center;
@@ -214,6 +230,16 @@
   padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--surface-border);
   background: rgba(255, 255, 255, 0.02);
+}
+
+.chat-composer .chat-input-bar {
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+}
+
+.chat-bubble .attachment-list {
+  margin: var(--space-2) 0;
 }
 
 .chat-input {

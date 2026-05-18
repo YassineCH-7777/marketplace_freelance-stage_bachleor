@@ -20,6 +20,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FreelancerProfileService {
 
+    private static final java.util.Set<Integer> SEARCH_RADIUS_OPTIONS = java.util.Set.of(5, 10, 20, 50);
+
     private final FreelancerProfileRepository profileRepository;
 
     @Transactional(readOnly = true)
@@ -36,6 +38,11 @@ public class FreelancerProfileService {
         user.setLastName(normalizeRequired(dto.getLastName(), "Le nom est obligatoire."));
         user.setPhone(normalizeOptional(dto.getPhone()));
         user.setCity(normalizeOptional(dto.getCity()));
+        user.setSearchCity(normalizeOptional(dto.getSearchCity()));
+        user.setSearchPlaceId(normalizeOptional(dto.getSearchPlaceId()));
+        user.setSearchLatitude(normalizeLatitude(dto.getSearchLatitude()));
+        user.setSearchLongitude(normalizeLongitude(dto.getSearchLongitude()));
+        user.setSearchRadiusKm(normalizeSearchRadius(dto.getSearchRadiusKm()));
         profile.setHeadline(normalizeOptional(dto.getHeadline()));
         profile.setBio(normalizeOptional(dto.getBio()));
         profile.setPortfolioUrl(normalizeOptional(dto.getPortfolioUrl()));
@@ -91,6 +98,11 @@ public class FreelancerProfileService {
                 .phone(user.getPhone())
                 .headline(profile.getHeadline())
                 .city(user.getCity())
+                .searchCity(user.getSearchCity())
+                .searchPlaceId(user.getSearchPlaceId())
+                .searchLatitude(user.getSearchLatitude())
+                .searchLongitude(user.getSearchLongitude())
+                .searchRadiusKm(resolveSearchRadius(user.getSearchRadiusKm()))
                 .bio(profile.getBio())
                 .portfolioUrl(profile.getPortfolioUrl())
                 .skills(joinSkills(profile.getSkills()))
@@ -102,5 +114,41 @@ public class FreelancerProfileService {
             return "";
         }
         return String.join(", ", skills);
+    }
+
+    private Integer normalizeSearchRadius(Integer radiusKm) {
+        if (radiusKm == null) {
+            return 10;
+        }
+
+        if (!SEARCH_RADIUS_OPTIONS.contains(radiusKm)) {
+            throw new BusinessException("Le rayon doit etre 5, 10, 20 ou 50 km.", HttpStatus.BAD_REQUEST);
+        }
+
+        return radiusKm;
+    }
+
+    private Integer resolveSearchRadius(Integer radiusKm) {
+        return radiusKm != null && SEARCH_RADIUS_OPTIONS.contains(radiusKm) ? radiusKm : 10;
+    }
+
+    private Double normalizeLatitude(Double value) {
+        return normalizeCoordinate(value, -90, 90, "La latitude de recherche est invalide.");
+    }
+
+    private Double normalizeLongitude(Double value) {
+        return normalizeCoordinate(value, -180, 180, "La longitude de recherche est invalide.");
+    }
+
+    private Double normalizeCoordinate(Double value, double min, double max, String errorMessage) {
+        if (value == null) {
+            return null;
+        }
+
+        if (value < min || value > max) {
+            throw new BusinessException(errorMessage, HttpStatus.BAD_REQUEST);
+        }
+
+        return value;
     }
 }

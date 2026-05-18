@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
 import { getConversations, getMessages, sendMessage } from '@/api/messageApi';
+import { uploadMessageAttachments } from '@/api/attachmentApi';
+import AttachmentList from '@/components/common/AttachmentList';
+import AttachmentPicker from '@/components/common/AttachmentPicker';
 import { ArrowLeft, Check, CheckCheck, Inbox, Loader2, MessageSquare, Send } from 'lucide-react';
 import '@/styles/dashboard.css';
 import '@/styles/messages.css';
@@ -14,6 +17,7 @@ const getConversationTime = (conversation) => {
 const normalizeMessage = (message) => ({
   ...message,
   isRead: Boolean(message.isRead ?? message.read),
+  attachments: message.attachments || [],
 });
 
 const normalizeMessages = (items) => items.map(normalizeMessage);
@@ -32,10 +36,14 @@ const haveMessagesChanged = (currentMessages, nextMessages) => {
       message.id !== nextMessage.id ||
       message.content !== nextMessage.content ||
       message.isRead !== nextMessage.isRead ||
-      message.createdAt !== nextMessage.createdAt
+      message.createdAt !== nextMessage.createdAt ||
+      getAttachmentSignature(message) !== getAttachmentSignature(nextMessage)
     );
   });
 };
+
+const getAttachmentSignature = (message) =>
+  (message.attachments || []).map((attachment) => `${attachment.id}:${attachment.fileUrl}`).join('|');
 
 const formatConversationDate = (conversation) => {
   const value = conversation.lastMessageAt || conversation.updatedAt;
@@ -61,6 +69,7 @@ export default function Messages() {
   const [activeConvo, setActiveConvo] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [msgsLoading, setMsgsLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -76,6 +85,7 @@ export default function Messages() {
   const openConversation = useCallback(
     async (convo) => {
       setActiveConvo(convo);
+      setSelectedFiles([]);
       setMsgsLoading(true);
       try {
         const response = await getMessages(convo.id);
@@ -168,14 +178,28 @@ export default function Messages() {
   const handleSend = async (event) => {
     event.preventDefault();
     const content = newMsg.trim();
-    if (!content || !activeConvo) return;
+    if ((!content && selectedFiles.length === 0) || !activeConvo) return;
 
     setSending(true);
     try {
-      const response = await sendMessage(activeConvo.id, content);
-      const sentMessage = normalizeMessage(response.data);
+      const response = await sendMessage(activeConvo.id, content || 'Piece jointe');
+      let sentMessage = normalizeMessage(response.data);
+
+      if (selectedFiles.length > 0) {
+        try {
+          const attachmentsResponse = await uploadMessageAttachments(sentMessage.id, selectedFiles);
+          sentMessage = {
+            ...sentMessage,
+            attachments: attachmentsResponse.data,
+          };
+        } catch (uploadError) {
+          alert(uploadError.response?.data?.message || 'Message envoye, mais les fichiers n ont pas pu etre ajoutes.');
+        }
+      }
+
       setMessages((current) => [...current, sentMessage]);
       setNewMsg('');
+      setSelectedFiles([]);
       setConversations((current) =>
         sortConversations(
           current.map((conversation) =>
@@ -291,7 +315,8 @@ export default function Messages() {
 
                       return (
                         <div key={message.id} className={`chat-bubble ${isMine ? 'mine' : 'theirs'}`}>
-                          <p className="chat-bubble-text">{message.content}</p>
+                          {message.content && <p className="chat-bubble-text">{message.content}</p>}
+                          <AttachmentList attachments={message.attachments} compact />
                           <span className="chat-bubble-meta">
                             <span className="chat-bubble-time">
                               {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
@@ -308,19 +333,32 @@ export default function Messages() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                <form className="chat-input-bar" onSubmit={handleSend}>
-                  <input
-                    type="text"
-                    className="chat-input"
-                    placeholder="Ecrire un message..."
-                    value={newMsg}
-                    onChange={(event) => setNewMsg(event.target.value)}
+                <form className="chat-composer" onSubmit={handleSend}>
+                  <AttachmentPicker
+                    files={selectedFiles}
+                    onChange={setSelectedFiles}
+                    buttonLabel="Joindre"
+                    compact
                     disabled={sending}
-                    maxLength={2000}
                   />
-                  <button type="submit" className="btn btn-primary btn-sm" disabled={sending || !newMsg.trim()}>
-                    {sending ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}
-                  </button>
+                  <div className="chat-input-bar">
+                    <input
+                      type="text"
+                      className="chat-input"
+                      placeholder="Ecrire un message..."
+                      value={newMsg}
+                      onChange={(event) => setNewMsg(event.target.value)}
+                      disabled={sending}
+                      maxLength={2000}
+                    />
+                    <button
+                      type="submit"
+                      className="btn btn-primary btn-sm"
+                      disabled={sending || (!newMsg.trim() && selectedFiles.length === 0)}
+                    >
+                      {sending ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}
+                    </button>
+                  </div>
                 </form>
               </>
             )}

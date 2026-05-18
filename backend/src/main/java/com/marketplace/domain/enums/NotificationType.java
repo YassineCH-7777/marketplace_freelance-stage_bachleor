@@ -7,5 +7,9 @@ public enum NotificationType {
     NEW_MESSAGE,
     ORDER_UPDATED,
     NEW_REVIEW,
-    SYSTEM
+    SYSTEM,
+    NEW_SERVICE_REQUEST,
+    NEW_PROPOSAL,
+    PROPOSAL_ACCEPTED,
+    PROPOSAL_REJECTED
 }

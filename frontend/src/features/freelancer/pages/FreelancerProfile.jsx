@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import useAuth from '@/hooks/useAuth';
 import { getFreelancerOwnProfile, updateFreelancerProfile } from '@/api/userApi';
 import AiAssistantPanel from '@/components/ai/AiAssistantPanel';
+import GoogleLocationInput from '@/components/common/GoogleLocationInput';
+import { getRadiusOptionIndex, SEARCH_RADIUS_OPTIONS } from '@/utils/localSearch';
 import {
   BadgeCheck,
   BriefcaseBusiness,
@@ -23,6 +25,11 @@ const emptyProfile = {
   lastName: '',
   phone: '',
   city: '',
+  searchCity: '',
+  searchPlaceId: '',
+  searchLatitude: null,
+  searchLongitude: null,
+  searchRadiusKm: 10,
   headline: '',
   portfolioUrl: '',
   skills: '',
@@ -54,6 +61,13 @@ export default function FreelancerProfileEdit() {
           lastName: readProfileValue(nextProfile, 'lastName', 'last_name', user?.lastName),
           phone: readProfileValue(nextProfile, 'phone', 'phone', user?.phone),
           city: readProfileValue(nextProfile, 'city', 'city', user?.city),
+          searchCity: readProfileValue(nextProfile, 'searchCity', 'search_city', user?.searchCity),
+          searchPlaceId: readProfileValue(nextProfile, 'searchPlaceId', 'search_place_id', user?.searchPlaceId),
+          searchLatitude: nextProfile?.searchLatitude ?? nextProfile?.search_latitude ?? user?.searchLatitude ?? null,
+          searchLongitude: nextProfile?.searchLongitude ?? nextProfile?.search_longitude ?? user?.searchLongitude ?? null,
+          searchRadiusKm: Number(
+            readProfileValue(nextProfile, 'searchRadiusKm', 'search_radius_km', user?.searchRadiusKm || 10),
+          ),
           headline: readProfileValue(nextProfile, 'headline', 'headline'),
           portfolioUrl: readProfileValue(nextProfile, 'portfolioUrl', 'portfolio_url'),
           skills: readProfileValue(nextProfile, 'skills', 'skills'),
@@ -69,6 +83,11 @@ export default function FreelancerProfileEdit() {
             lastName: user?.lastName || '',
             phone: user?.phone || '',
             city: user?.city || '',
+            searchCity: user?.searchCity || '',
+            searchPlaceId: user?.searchPlaceId || '',
+            searchLatitude: user?.searchLatitude ?? null,
+            searchLongitude: user?.searchLongitude ?? null,
+            searchRadiusKm: Number(user?.searchRadiusKm || 10),
           });
         }
       })
@@ -116,6 +135,26 @@ export default function FreelancerProfileEdit() {
     }));
   };
 
+  const handleSearchLocationTextChange = useCallback((value) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      searchCity: value,
+      searchPlaceId: '',
+      searchLatitude: null,
+      searchLongitude: null,
+    }));
+  }, []);
+
+  const handleSearchLocationSelect = useCallback((place) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      searchCity: place.label || '',
+      searchPlaceId: place.placeId || '',
+      searchLatitude: place.lat,
+      searchLongitude: place.lng,
+    }));
+  }, []);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -129,6 +168,11 @@ export default function FreelancerProfileEdit() {
         lastName: response.data.lastName,
         phone: response.data.phone,
         city: response.data.city,
+        searchCity: response.data.searchCity,
+        searchPlaceId: response.data.searchPlaceId,
+        searchLatitude: response.data.searchLatitude,
+        searchLongitude: response.data.searchLongitude,
+        searchRadiusKm: response.data.searchRadiusKm,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -221,6 +265,14 @@ export default function FreelancerProfileEdit() {
                 <span>{form.city || 'Ville non renseignee'}</span>
               </div>
               <div>
+                <MapPin size={16} />
+                <span>
+                  {form.searchCity
+                    ? `Recherche : ${form.searchCity} (${form.searchRadiusKm} km)`
+                    : 'Ville de recherche non renseignee'}
+                </span>
+              </div>
+              <div>
                 <LinkIcon size={16} />
                 <span>{form.portfolioUrl || 'Portfolio non renseigne'}</span>
               </div>
@@ -298,6 +350,43 @@ export default function FreelancerProfileEdit() {
                   onChange={(event) => updateField('city', event.target.value)}
                   placeholder="Ex: Casablanca"
                 />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  <MapPin size={14} style={{ display: 'inline' }} /> Ville de recherche
+                </label>
+                <GoogleLocationInput
+                  value={form.searchCity}
+                  onTextChange={handleSearchLocationTextChange}
+                  onPlaceSelect={handleSearchLocationSelect}
+                  placeholder="Ex: Gueliz, Marrakech"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  <MapPin size={14} style={{ display: 'inline' }} /> Rayon par defaut
+                </label>
+                <div className="profile-radius-control">
+                  <input
+                    type="range"
+                    min="0"
+                    max={SEARCH_RADIUS_OPTIONS.length - 1}
+                    step="1"
+                    value={getRadiusOptionIndex(form.searchRadiusKm)}
+                    onChange={(event) =>
+                      updateField('searchRadiusKm', SEARCH_RADIUS_OPTIONS[Number(event.target.value)])
+                    }
+                    aria-label="Rayon de recherche par defaut"
+                  />
+                  <strong>{form.searchRadiusKm} km</strong>
+                </div>
+                <div className="profile-radius-options" aria-hidden="true">
+                  {SEARCH_RADIUS_OPTIONS.map((option) => (
+                    <span key={option}>{option}</span>
+                  ))}
+                </div>
               </div>
 
               <div className="form-group full-width">

@@ -12,7 +12,10 @@ import com.marketplace.domain.model.User;
 import com.marketplace.domain.enums.OrderStatus;
 import com.marketplace.web.exception.BusinessException;
 import com.marketplace.web.exception.UnauthorizedException;
+import com.marketplace.infrastructure.persistence.AttachmentRepository;
 import com.marketplace.infrastructure.persistence.FreelancerProfileRepository;
+import com.marketplace.infrastructure.persistence.MissionActivityRepository;
+import com.marketplace.infrastructure.persistence.MissionMilestoneRepository;
 import com.marketplace.infrastructure.persistence.OrderRepository;
 import com.marketplace.infrastructure.persistence.OrderRequestRepository;
 import com.marketplace.infrastructure.persistence.ReviewRepository;
@@ -57,7 +60,16 @@ class OrderServiceTest {
     private ReviewRepository reviewRepository;
 
     @Mock
+    private MissionActivityRepository missionActivityRepository;
+
+    @Mock
+    private MissionMilestoneRepository missionMilestoneRepository;
+
+    @Mock
     private MessageService messageService;
+
+    @Mock
+    private AttachmentRepository attachmentRepository;
 
     @InjectMocks
     private OrderService orderService;
@@ -78,11 +90,13 @@ class OrderServiceTest {
         OrderDto result = orderService.updateFreelancerOrder(17L, 13L, request);
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.IN_PROGRESS);
+        assertThat(order.getProgressPercentage()).isEqualTo(30);
         assertThat(order.getStartDate()).isEqualTo(LocalDate.of(2026, 4, 26));
         assertThat(order.getNotes()).isEqualTo("Checklist validee, intervention en cours.");
         assertThat(result.getFreelancerEmail()).isEqualTo("freelancer@marketplace.com");
         assertThat(result.getRequestMessage()).isEqualTo("Besoin d'une mission terrain rapide");
         assertThat(result.getNotes()).isEqualTo("Checklist validee, intervention en cours.");
+        assertThat(result.getProgressPercentage()).isEqualTo(30);
     }
 
     @Test
@@ -213,6 +227,7 @@ class OrderServiceTest {
                 .freelancer(freelancer)
                 .agreedPrice(new BigDecimal("900.00"))
                 .status(OrderStatus.IN_PROGRESS)
+                .progressPercentage(25)
                 .createdAt(LocalDateTime.of(2026, 4, 24, 10, 0))
                 .updatedAt(LocalDateTime.of(2026, 4, 25, 9, 0))
                 .build();

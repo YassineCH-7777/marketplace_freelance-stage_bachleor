@@ -10,6 +10,7 @@ import com.marketplace.domain.enums.NotificationType;
 import com.marketplace.domain.enums.UserRole;
 import com.marketplace.web.exception.BusinessException;
 import com.marketplace.web.exception.UnauthorizedException;
+import com.marketplace.infrastructure.persistence.AttachmentRepository;
 import com.marketplace.infrastructure.persistence.ConversationRepository;
 import com.marketplace.infrastructure.persistence.FreelancerProfileRepository;
 import com.marketplace.infrastructure.persistence.MessageRepository;
@@ -50,6 +51,9 @@ class MessageServiceTest {
 
     @Mock
     private FreelancerProfileRepository freelancerProfileRepository;
+
+    @Mock
+    private AttachmentRepository attachmentRepository;
 
     @Mock
     private NotificationService notificationService;

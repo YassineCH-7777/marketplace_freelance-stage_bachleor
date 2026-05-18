@@ -23,6 +23,11 @@ import Messages from '@/features/messaging/pages/Messages';
 import Notifications from '@/features/notifications/pages/Notifications';
 import ServiceDetails from '@/features/services/pages/ServiceDetails';
 import Services from '@/features/services/pages/Services';
+import ServiceRequests from '@/features/requests/pages/ServiceRequests';
+import ServiceRequestDetail from '@/features/requests/pages/ServiceRequestDetail';
+import CreateServiceRequest from '@/features/requests/pages/CreateServiceRequest';
+import MyServiceRequests from '@/features/requests/pages/MyServiceRequests';
+import MyProposals from '@/features/requests/pages/MyProposals';
 import NotFound from '@/features/system/pages/NotFound';
 import ProtectedRoute from './ProtectedRoute';
 import ClientRoute from './ClientRoute';
@@ -38,6 +43,8 @@ export default function AppRoutes() {
       <Route path="/services" element={<Services />} />
       <Route path="/services/:id" element={<ServiceDetails />} />
       <Route path="/freelancers/:id" element={<FreelancerPublicProfile />} />
+      <Route path="/requests" element={<ServiceRequests />} />
+      <Route path="/requests/:id" element={<ServiceRequestDetail />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/messages" element={<Messages />} />
@@ -51,12 +58,15 @@ export default function AppRoutes() {
         <Route path="/freelancer/orders" element={<FreelancerOrders />} />
         <Route path="/freelancer/profile" element={<FreelancerProfile />} />
         <Route path="/freelancer/reviews" element={<FreelancerReviews />} />
+        <Route path="/freelancer/proposals" element={<MyProposals />} />
       </Route>
 
       <Route element={<ClientRoute />}>
         <Route path="/client/dashboard" element={<ClientDashboard />} />
         <Route path="/client/orders" element={<MyOrders />} />
         <Route path="/client/profile" element={<ClientProfile />} />
+        <Route path="/client/requests" element={<MyServiceRequests />} />
+        <Route path="/client/requests/new" element={<CreateServiceRequest />} />
       </Route>
 
       <Route element={<AdminRoute />}>
@@ -74,3 +84,4 @@ export default function AppRoutes() {
     </Routes>
   );
 }
+

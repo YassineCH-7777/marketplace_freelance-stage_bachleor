@@ -5,11 +5,13 @@ import {
   Bell,
   Briefcase,
   ClipboardList,
+  FileText,
   FolderKanban,
   LayoutDashboard,
   MessageSquare,
   Package,
   Search,
+  Send,
   ShieldCheck,
   ShoppingBag,
   Star,
@@ -21,6 +23,7 @@ import useAuth from '@/hooks/useAuth';
 import { getAdminCategories, getAdminReports, getAdminStats, getAdminUsers } from '@/api/adminApi';
 import { getClientOrders } from '@/api/orderApi';
 import { getFreelancerOrders, getIncomingRequests } from '@/api/userApi';
+import { activeMissionStatuses } from '@/utils/orderExecution';
 import '@/styles/dashboard.css';
 
 function getFirstName(user) {
@@ -111,7 +114,7 @@ export default function RoleDashboardBar() {
 
     if (user?.role === 'FREELANCER') {
       const pendingRequests = freelancerData.requests.filter((request) => request.status === 'PENDING');
-      const activeOrders = freelancerData.orders.filter((order) => order.status === 'IN_PROGRESS');
+      const activeOrders = freelancerData.orders.filter((order) => activeMissionStatuses.includes(order.status));
 
       return {
         title: (
@@ -149,6 +152,8 @@ export default function RoleDashboardBar() {
         navItems: [
           { icon: <Briefcase size={16} />, label: 'Mes Services', to: '/freelancer/services' },
           { icon: <ClipboardList size={16} />, label: 'Demandes Reçues', to: '/freelancer/requests' },
+          { icon: <FileText size={16} />, label: 'Demandes Projets', matchPrefix: true, to: '/requests' },
+          { icon: <Send size={16} />, label: 'Mes Candidatures', to: '/freelancer/proposals' },
           { icon: <Package size={16} />, label: 'Commandes', to: '/freelancer/orders' },
           { icon: <MessageSquare size={16} />, label: 'Messages', to: '/messages' },
           { icon: <UserCheck size={16} />, label: 'Mon Profil', to: '/freelancer/profile' },
@@ -159,7 +164,7 @@ export default function RoleDashboardBar() {
     }
 
     if (user?.role === 'CLIENT') {
-      const activeOrders = clientOrders.filter((order) => order.status === 'IN_PROGRESS');
+      const activeOrders = clientOrders.filter((order) => activeMissionStatuses.includes(order.status));
       const completedOrders = clientOrders.filter((order) => order.status === 'COMPLETED');
 
       return {
@@ -191,6 +196,7 @@ export default function RoleDashboardBar() {
         ],
         navItems: [
           { icon: <Search size={16} />, label: 'Explorer les services', matchPrefix: true, to: '/services' },
+          { icon: <FileText size={16} />, label: 'Mes Demandes', to: '/client/requests' },
           { icon: <Package size={16} />, label: 'Mes Commandes', to: '/client/orders' },
           { icon: <UserCheck size={16} />, label: 'Mon Profil', to: '/client/profile' },
           { icon: <MessageSquare size={16} />, label: 'Messages', to: '/messages' },

@@ -164,6 +164,7 @@ export default function Navbar() {
 
         <div className={`navbar-links ${mobileOpen ? 'active' : ''}`}>
           <Link to="/services" className="nav-link" onClick={closeMenus}>Services</Link>
+          <Link to="/requests" className="nav-link" onClick={closeMenus}>Demandes</Link>
           <Link to="/#categories" className="nav-link" onClick={() => handleHomeSectionClick('categories')}>Categories</Link>
           <Link to="/#comment-ca-marche" className="nav-link" onClick={() => handleHomeSectionClick('comment-ca-marche')}>Comment ca marche</Link>
           <Link to="/#freelances" className="nav-link" onClick={() => handleHomeSectionClick('freelances')}>Freelances</Link>

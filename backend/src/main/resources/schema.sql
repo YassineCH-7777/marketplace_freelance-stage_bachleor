@@ -62,7 +62,57 @@ END $$;
 
 DO $$
 BEGIN
-    CREATE TYPE order_status AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+    CREATE TYPE order_status AS ENUM (
+        'PENDING',
+        'ACCEPTED',
+        'IN_PROGRESS',
+        'WAITING_CLIENT',
+        'DELIVERED',
+        'REVISION',
+        'COMPLETED',
+        'CANCELLED',
+        'DISPUTED'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'ACCEPTED';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'WAITING_CLIENT';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'DELIVERED';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'REVISION';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'DISPUTED';
+
+DO $$
+BEGIN
+    CREATE TYPE payment_status AS ENUM ('UNPAID', 'PENDING', 'PAID', 'REFUNDED');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    CREATE TYPE mission_milestone_status AS ENUM ('PENDING', 'IN_PROGRESS', 'WAITING_CLIENT', 'COMPLETED', 'CANCELLED');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    CREATE TYPE mission_activity_type AS ENUM (
+        'CREATED',
+        'ACCEPTED',
+        'STARTED',
+        'PROGRESS_UPDATED',
+        'MILESTONE_UPDATED',
+        'DELIVERY_SUBMITTED',
+        'CLIENT_ACCEPTED',
+        'REVISION_REQUESTED',
+        'STATUS_CHANGED',
+        'PAYMENT_UPDATED',
+        'CANCELLED',
+        'DISPUTED'
+    );
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
@@ -177,6 +227,11 @@ CREATE TABLE IF NOT EXISTS users (
     role                user_role NOT NULL DEFAULT 'CLIENT',
     phone               VARCHAR(30),
     city                VARCHAR(120),
+    search_city         VARCHAR(120),
+    search_place_id     VARCHAR(255),
+    search_latitude     DOUBLE PRECISION,
+    search_longitude    DOUBLE PRECISION,
+    search_radius_km    INT NOT NULL DEFAULT 10,
     profile_picture_url TEXT,
     status              user_status NOT NULL DEFAULT 'ACTIVE',
     email_verified      BOOLEAN NOT NULL DEFAULT FALSE,
@@ -186,8 +241,41 @@ CREATE TABLE IF NOT EXISTS users (
 
     CONSTRAINT chk_users_first_name_not_empty CHECK (char_length(trim(first_name)) >= 2),
     CONSTRAINT chk_users_last_name_not_empty  CHECK (char_length(trim(last_name)) >= 2),
-    CONSTRAINT chk_users_email_format CHECK (position('@' in email) > 1)
+    CONSTRAINT chk_users_email_format CHECK (position('@' in email) > 1),
+    CONSTRAINT chk_users_search_latitude CHECK (search_latitude IS NULL OR search_latitude BETWEEN -90 AND 90),
+    CONSTRAINT chk_users_search_longitude CHECK (search_longitude IS NULL OR search_longitude BETWEEN -180 AND 180),
+    CONSTRAINT chk_users_search_radius CHECK (search_radius_km IN (5, 10, 20, 50))
 );
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS search_city VARCHAR(120),
+    ADD COLUMN IF NOT EXISTS search_place_id VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS search_latitude DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS search_longitude DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS search_radius_km INT NOT NULL DEFAULT 10;
+
+UPDATE users
+SET search_radius_km = 10
+WHERE search_radius_km IS NULL
+   OR search_radius_km NOT IN (5, 10, 20, 50);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_users_search_latitude') THEN
+        ALTER TABLE users
+            ADD CONSTRAINT chk_users_search_latitude CHECK (search_latitude IS NULL OR search_latitude BETWEEN -90 AND 90);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_users_search_longitude') THEN
+        ALTER TABLE users
+            ADD CONSTRAINT chk_users_search_longitude CHECK (search_longitude IS NULL OR search_longitude BETWEEN -180 AND 180);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_users_search_radius') THEN
+        ALTER TABLE users
+            ADD CONSTRAINT chk_users_search_radius CHECK (search_radius_km IN (5, 10, 20, 50));
+    END IF;
+END $$;
 
 -- =========================================================
 -- 5) TABLE FREELANCER PROFILES
@@ -371,8 +459,14 @@ CREATE TABLE IF NOT EXISTS orders (
     agreed_price        NUMERIC(12,2) NOT NULL,
     start_date          DATE,
     end_date            DATE,
+    due_date            DATE,
+    progress_percentage INT NOT NULL DEFAULT 0,
+    payment_status      payment_status NOT NULL DEFAULT 'UNPAID',
     status              order_status NOT NULL DEFAULT 'PENDING',
     notes               TEXT,
+    delivery_note       TEXT,
+    revision_request    TEXT,
+    delivered_at        TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -389,7 +483,84 @@ CREATE TABLE IF NOT EXISTS orders (
         FOREIGN KEY (freelancer_id) REFERENCES freelancer_profiles(id) ON DELETE RESTRICT,
 
     CONSTRAINT chk_orders_price CHECK (agreed_price >= 0),
+    CONSTRAINT chk_orders_progress CHECK (progress_percentage BETWEEN 0 AND 100),
     CONSTRAINT chk_orders_dates CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date)
+);
+
+ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS due_date DATE,
+    ADD COLUMN IF NOT EXISTS progress_percentage INT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS payment_status payment_status NOT NULL DEFAULT 'UNPAID',
+    ADD COLUMN IF NOT EXISTS delivery_note TEXT,
+    ADD COLUMN IF NOT EXISTS revision_request TEXT,
+    ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+
+UPDATE orders
+SET progress_percentage = CASE
+    WHEN status = 'COMPLETED' THEN 100
+    WHEN status = 'IN_PROGRESS' THEN GREATEST(progress_percentage, 60)
+    WHEN status = 'CANCELLED' THEN GREATEST(progress_percentage, 10)
+    ELSE progress_percentage
+END
+WHERE progress_percentage = 0;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_orders_progress') THEN
+        ALTER TABLE orders
+            ADD CONSTRAINT chk_orders_progress CHECK (progress_percentage BETWEEN 0 AND 100);
+    END IF;
+END $$;
+
+-- =========================================================
+-- 10B) TABLE MISSION MILESTONES
+-- =========================================================
+CREATE TABLE IF NOT EXISTS mission_milestones (
+    id              BIGSERIAL PRIMARY KEY,
+    order_id        BIGINT NOT NULL,
+    title           VARCHAR(160) NOT NULL,
+    description     TEXT,
+    amount          NUMERIC(12,2),
+    deadline        DATE,
+    status          mission_milestone_status NOT NULL DEFAULT 'PENDING',
+    sort_order      INT NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_mission_milestones_order
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+
+    CONSTRAINT chk_mission_milestones_title_not_empty CHECK (char_length(trim(title)) >= 2),
+    CONSTRAINT chk_mission_milestones_amount CHECK (amount IS NULL OR amount >= 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_mission_milestones_order_sort
+    ON mission_milestones(order_id, sort_order);
+
+-- =========================================================
+-- 10C) TABLE MISSION ACTIVITIES
+-- =========================================================
+CREATE TABLE IF NOT EXISTS mission_activities (
+    id                  BIGSERIAL PRIMARY KEY,
+    order_id            BIGINT NOT NULL,
+    actor_user_id       BIGINT,
+    type                mission_activity_type NOT NULL,
+    title               VARCHAR(180) NOT NULL,
+    details             TEXT,
+    progress_snapshot   INT,
+    status_snapshot     order_status,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_mission_activities_order
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_mission_activities_actor
+        FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL,
+
+    CONSTRAINT chk_mission_activities_title_not_empty CHECK (char_length(trim(title)) >= 2),
+    CONSTRAINT chk_mission_activities_progress CHECK (
+        progress_snapshot IS NULL OR progress_snapshot BETWEEN 0 AND 100
+    )
 );
 
 -- =========================================================
@@ -563,6 +734,7 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
 CREATE INDEX IF NOT EXISTS idx_users_city ON users(city);
+CREATE INDEX IF NOT EXISTS idx_users_search_city ON users(search_city);
 
 CREATE INDEX IF NOT EXISTS idx_freelancer_profiles_user_id ON freelancer_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_freelancer_profiles_availability ON freelancer_profiles(availability);
@@ -595,6 +767,16 @@ CREATE INDEX IF NOT EXISTS idx_orders_freelancer_id ON orders(freelancer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_service_id ON orders(service_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_due_date ON orders(due_date);
+CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders(payment_status);
+
+CREATE INDEX IF NOT EXISTS idx_mission_milestones_order_id ON mission_milestones(order_id);
+CREATE INDEX IF NOT EXISTS idx_mission_milestones_status ON mission_milestones(status);
+CREATE INDEX IF NOT EXISTS idx_mission_milestones_deadline ON mission_milestones(deadline);
+
+CREATE INDEX IF NOT EXISTS idx_mission_activities_order_id ON mission_activities(order_id);
+CREATE INDEX IF NOT EXISTS idx_mission_activities_actor_user_id ON mission_activities(actor_user_id);
+CREATE INDEX IF NOT EXISTS idx_mission_activities_created_at ON mission_activities(created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_conversations_client_id ON conversations(client_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_freelancer_id ON conversations(freelancer_id);
@@ -667,6 +849,12 @@ BEFORE UPDATE ON orders
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_mission_milestones_updated_at ON mission_milestones;
+CREATE TRIGGER trg_mission_milestones_updated_at
+BEFORE UPDATE ON mission_milestones
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
 DROP TRIGGER IF EXISTS trg_conversations_updated_at ON conversations;
 CREATE TRIGGER trg_conversations_updated_at
 BEFORE UPDATE ON conversations
@@ -699,5 +887,180 @@ CREATE TRIGGER trg_orders_refresh_completed_orders
 AFTER INSERT OR UPDATE OR DELETE ON orders
 FOR EACH ROW
 EXECUTE FUNCTION refresh_completed_orders_count();
+
+-- =========================================================
+-- 19) ENUM TYPES - DEMAND-DRIVEN MARKETPLACE
+-- =========================================================
+DO $$
+BEGIN
+    CREATE TYPE service_request_status AS ENUM (
+        'OPEN', 'IN_DISCUSSION', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    CREATE TYPE proposal_status AS ENUM (
+        'PENDING', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'NEW_SERVICE_REQUEST';
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'NEW_PROPOSAL';
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'PROPOSAL_ACCEPTED';
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'PROPOSAL_REJECTED';
+
+-- =========================================================
+-- 20) TABLE SERVICE REQUESTS (demandes clients)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS service_requests (
+    id                  BIGSERIAL PRIMARY KEY,
+    client_id           BIGINT NOT NULL,
+    category_id         BIGINT NOT NULL,
+    title               VARCHAR(200) NOT NULL,
+    description         TEXT NOT NULL,
+    budget_min          NUMERIC(12,2),
+    budget_max          NUMERIC(12,2),
+    deadline            DATE,
+    city                VARCHAR(120),
+    is_remote           BOOLEAN NOT NULL DEFAULT FALSE,
+    is_urgent           BOOLEAN NOT NULL DEFAULT FALSE,
+    required_skills     TEXT[] NOT NULL DEFAULT '{}',
+    status              service_request_status NOT NULL DEFAULT 'OPEN',
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_service_requests_client
+        FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_service_requests_category
+        FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT,
+
+    CONSTRAINT chk_service_requests_title_not_empty CHECK (char_length(trim(title)) >= 3),
+    CONSTRAINT chk_service_requests_description_not_empty CHECK (char_length(trim(description)) >= 10),
+    CONSTRAINT chk_service_requests_budget_min CHECK (budget_min IS NULL OR budget_min >= 0),
+    CONSTRAINT chk_service_requests_budget_max CHECK (budget_max IS NULL OR budget_max >= 0),
+    CONSTRAINT chk_service_requests_budget_range CHECK (
+        budget_min IS NULL OR budget_max IS NULL OR budget_max >= budget_min
+    )
+);
+
+-- =========================================================
+-- 21) TABLE PROPOSALS (candidatures freelance)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS proposals (
+    id                      BIGSERIAL PRIMARY KEY,
+    service_request_id      BIGINT NOT NULL,
+    freelancer_id           BIGINT NOT NULL,
+    message                 TEXT NOT NULL,
+    proposed_price          NUMERIC(12,2) NOT NULL,
+    estimated_days          INT NOT NULL,
+    portfolio_url           TEXT,
+    status                  proposal_status NOT NULL DEFAULT 'PENDING',
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_proposals_service_request
+        FOREIGN KEY (service_request_id) REFERENCES service_requests(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_proposals_freelancer
+        FOREIGN KEY (freelancer_id) REFERENCES freelancer_profiles(id) ON DELETE CASCADE,
+
+    CONSTRAINT chk_proposals_message_not_empty CHECK (char_length(trim(message)) >= 5),
+    CONSTRAINT chk_proposals_proposed_price CHECK (proposed_price >= 0),
+    CONSTRAINT chk_proposals_estimated_days CHECK (estimated_days >= 1),
+
+    CONSTRAINT uq_proposals_request_freelancer UNIQUE (service_request_id, freelancer_id)
+);
+
+-- =========================================================
+-- 21B) TABLE ATTACHMENTS (pieces jointes)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS attachments (
+    id                  BIGSERIAL PRIMARY KEY,
+    uploader_id         BIGINT NOT NULL,
+    message_id          BIGINT,
+    service_request_id  BIGINT,
+    order_id            BIGINT,
+    attachment_type     VARCHAR(40) NOT NULL DEFAULT 'OTHER',
+    original_file_name  VARCHAR(255) NOT NULL,
+    stored_file_name    VARCHAR(255) NOT NULL UNIQUE,
+    content_type        VARCHAR(120) NOT NULL,
+    file_size           BIGINT NOT NULL,
+    file_url            TEXT NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_attachments_uploader
+        FOREIGN KEY (uploader_id) REFERENCES users(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_attachments_message
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_attachments_service_request
+        FOREIGN KEY (service_request_id) REFERENCES service_requests(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_attachments_order
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+
+    CONSTRAINT chk_attachments_file_size CHECK (file_size > 0),
+    CONSTRAINT chk_attachments_context CHECK (num_nonnulls(message_id, service_request_id, order_id) = 1)
+);
+
+-- Ajout colonne proposal_id optionnel sur orders
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS proposal_id BIGINT;
+ALTER TABLE orders ALTER COLUMN service_id DROP NOT NULL;
+ALTER TABLE orders ALTER COLUMN request_id DROP NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_orders_proposal') THEN
+        ALTER TABLE orders
+            ADD CONSTRAINT fk_orders_proposal
+            FOREIGN KEY (proposal_id) REFERENCES proposals(id) ON DELETE SET NULL;
+    END IF;
+END $$;
+
+-- =========================================================
+-- 22) INDEXES - DEMAND-DRIVEN MARKETPLACE
+-- =========================================================
+CREATE INDEX IF NOT EXISTS idx_service_requests_client_id ON service_requests(client_id);
+CREATE INDEX IF NOT EXISTS idx_service_requests_category_id ON service_requests(category_id);
+CREATE INDEX IF NOT EXISTS idx_service_requests_status ON service_requests(status);
+CREATE INDEX IF NOT EXISTS idx_service_requests_city ON service_requests(city);
+CREATE INDEX IF NOT EXISTS idx_service_requests_is_urgent ON service_requests(is_urgent);
+CREATE INDEX IF NOT EXISTS idx_service_requests_created_at ON service_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_service_requests_deadline ON service_requests(deadline);
+
+CREATE INDEX IF NOT EXISTS idx_proposals_service_request_id ON proposals(service_request_id);
+CREATE INDEX IF NOT EXISTS idx_proposals_freelancer_id ON proposals(freelancer_id);
+CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals(status);
+CREATE INDEX IF NOT EXISTS idx_proposals_created_at ON proposals(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_orders_proposal_id ON orders(proposal_id);
+
+CREATE INDEX IF NOT EXISTS idx_attachments_uploader_id ON attachments(uploader_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON attachments(message_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_service_request_id ON attachments(service_request_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_order_id ON attachments(order_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_created_at ON attachments(created_at DESC);
+
+-- =========================================================
+-- 23) TRIGGERS - DEMAND-DRIVEN MARKETPLACE
+-- =========================================================
+DROP TRIGGER IF EXISTS trg_service_requests_updated_at ON service_requests;
+CREATE TRIGGER trg_service_requests_updated_at
+BEFORE UPDATE ON service_requests
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_proposals_updated_at ON proposals;
+CREATE TRIGGER trg_proposals_updated_at
+BEFORE UPDATE ON proposals
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
 
 COMMIT;

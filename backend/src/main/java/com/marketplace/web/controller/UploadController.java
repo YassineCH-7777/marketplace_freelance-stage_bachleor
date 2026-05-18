@@ -113,6 +113,28 @@ public class UploadController {
         }
     }
 
+    @GetMapping("/public/uploads/attachments/{filename:.+}")
+    public ResponseEntity<Resource> getAttachment(@PathVariable String filename) {
+        try {
+            Path targetDirectory = getAttachmentUploadDirectory();
+            Path file = targetDirectory.resolve(StringUtils.cleanPath(filename)).normalize();
+
+            if (!file.startsWith(targetDirectory) || !Files.exists(file) || !Files.isReadable(file)) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Fichier introuvable");
+            }
+
+            Resource resource = new UrlResource(file.toUri());
+            String contentType = Files.probeContentType(file);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType != null ? contentType : MediaType.APPLICATION_OCTET_STREAM_VALUE))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                    .body(resource);
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Impossible de lire le fichier", exception);
+        }
+    }
+
     private void validateImage(MultipartFile image) {
         if (image == null || image.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucune image fournie");
@@ -130,6 +152,10 @@ public class UploadController {
 
     private Path getServiceUploadDirectory() {
         return Paths.get(uploadDir, "services").toAbsolutePath().normalize();
+    }
+
+    private Path getAttachmentUploadDirectory() {
+        return Paths.get(uploadDir, "attachments").toAbsolutePath().normalize();
     }
 
     private String resolveExtension(String originalFilename, String contentType) {

@@ -446,7 +446,7 @@ function getClientRows(data) {
   ];
 }
 
-function getFreelanceRows(data, snapshot) {
+function getFreelanceRows(data) {
   return [
     ['Headline', data.headline],
     ['Bio', data.professional_bio || data.bio],
@@ -464,7 +464,7 @@ function snapshotToText(type, snapshot) {
     return '';
   }
 
-  const rows = type === 'client' ? getClientRows(snapshot.data) : getFreelanceRows(snapshot.data, snapshot);
+  const rows = type === 'client' ? getClientRows(snapshot.data) : getFreelanceRows(snapshot.data);
 
   return rows.map(([label, value]) => `${label}: ${renderValue(value)}`).join('\n');
 }

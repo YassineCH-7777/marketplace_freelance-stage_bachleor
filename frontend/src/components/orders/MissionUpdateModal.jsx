@@ -1,19 +1,28 @@
 import { useState } from 'react';
-import { Loader2, Save, X } from 'lucide-react';
+import AttachmentPicker from '@/components/common/AttachmentPicker';
+import { Loader2, Paperclip, Save, X } from 'lucide-react';
+import { getMissionProgress } from '@/utils/orderExecution';
 
 const STATUS_OPTIONS = [
   { value: 'IN_PROGRESS', label: 'Execution en cours' },
-  { value: 'COMPLETED', label: 'Mission terminee' },
+  { value: 'WAITING_CLIENT', label: 'Attente client' },
+  { value: 'DELIVERED', label: 'Livraison envoyee' },
+  { value: 'REVISION', label: 'Revision en cours' },
   { value: 'CANCELLED', label: 'Mission annulee' },
 ];
 
 export default function MissionUpdateModal({ order, onClose, onSubmit, submitting }) {
   const [form, setForm] = useState({
-    status: order?.status || 'IN_PROGRESS',
+    status: order?.status === 'ACCEPTED' ? 'IN_PROGRESS' : order?.status || 'IN_PROGRESS',
     startDate: order?.startDate || '',
     endDate: order?.endDate || '',
+    dueDate: order?.dueDate || '',
+    progressPercentage: getMissionProgress(order),
     notes: order?.notes || '',
+    deliveryNote: order?.deliveryNote || '',
   });
+  const [attachmentFiles, setAttachmentFiles] = useState([]);
+  const [attachmentType, setAttachmentType] = useState('DELIVERY_PROOF');
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -21,7 +30,12 @@ export default function MissionUpdateModal({ order, onClose, onSubmit, submittin
       status: form.status,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
+      dueDate: form.dueDate || null,
+      progressPercentage: Number(form.progressPercentage),
       notes: form.notes,
+      deliveryNote: form.deliveryNote,
+      attachmentFiles,
+      attachmentType,
     });
   };
 
@@ -36,7 +50,7 @@ export default function MissionUpdateModal({ order, onClose, onSubmit, submittin
         </div>
 
         <p className="mission-modal-copy">
-          Renseignez une etape simple de validation, une preuve de livraison ou un compte-rendu final.
+          Renseignez l'etat actuel, la progression, les jalons de livraison et le compte-rendu partage au client.
         </p>
 
         <form className="modal-form" onSubmit={handleSubmit}>
@@ -55,6 +69,23 @@ export default function MissionUpdateModal({ order, onClose, onSubmit, submittin
             </select>
           </div>
 
+          <div className="mission-progress-editor">
+            <div className="mission-progress-copy">
+              <span>Progression</span>
+              <strong>{form.progressPercentage}%</strong>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={form.progressPercentage}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, progressPercentage: event.target.value }))
+              }
+            />
+          </div>
+
           <div className="mission-modal-grid">
             <div className="form-group">
               <label className="form-label">Date de debut</label>
@@ -67,24 +98,67 @@ export default function MissionUpdateModal({ order, onClose, onSubmit, submittin
             </div>
 
             <div className="form-group">
-              <label className="form-label">Date de fin / livraison</label>
+              <label className="form-label">Echeance</label>
               <input
                 type="date"
                 className="form-input"
-                value={form.endDate}
-                onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))}
+                value={form.dueDate}
+                onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))}
               />
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Suivi, preuve de livraison ou compte-rendu</label>
+            <label className="form-label">Date de fin effective</label>
+            <input
+              type="date"
+              className="form-input"
+              value={form.endDate}
+              onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Livraison ou preuve partagee</label>
+            <textarea
+              className="form-textarea"
+              rows={4}
+              value={form.deliveryNote}
+              onChange={(event) => setForm((current) => ({ ...current, deliveryNote: event.target.value }))}
+              placeholder="Lien, fichiers remis, elements valides, consignes de verification..."
+            />
+          </div>
+
+          <div className="mission-attachment-box">
+            <div className="mission-attachment-head">
+              <label className="form-label"><Paperclip size={14} /> Fichiers de mission</label>
+              <select
+                className="form-select"
+                value={attachmentType}
+                onChange={(event) => setAttachmentType(event.target.value)}
+                disabled={submitting}
+              >
+                <option value="DELIVERY_PROOF">Preuve de livraison</option>
+                <option value="INVOICE">Facture</option>
+                <option value="DOCUMENT">Document</option>
+              </select>
+            </div>
+            <AttachmentPicker
+              files={attachmentFiles}
+              onChange={setAttachmentFiles}
+              buttonLabel="Ajouter fichiers"
+              disabled={submitting}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Suivi ou compte-rendu</label>
             <textarea
               className="form-textarea"
               rows={5}
               value={form.notes}
               onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
-              placeholder="Checklist terminee, livrables partages, validations obtenues, prochaines etapes..."
+              placeholder="Checklist terminee, blocages, prochaines etapes, validations obtenues..."
             />
           </div>
 

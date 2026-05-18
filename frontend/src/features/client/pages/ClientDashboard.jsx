@@ -1,25 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getClientOrders } from '@/api/orderApi';
 import { ArrowRight, Package } from 'lucide-react';
+import { getOrderStatusMeta } from '@/utils/orderExecution';
 import '@/styles/dashboard.css';
 
 export default function ClientDashboard() {
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    getClientOrders().then(r => setOrders(r.data)).catch(() => {});
+    getClientOrders().then((response) => setOrders(response.data)).catch(() => {});
   }, []);
 
   const statusBadge = (status) => {
-    const map = {
-      IN_PROGRESS: { cls: 'badge-primary', label: 'En cours' },
-      COMPLETED: { cls: 'badge-success', label: 'Terminée' },
-      CANCELLED: { cls: 'badge-warning', label: 'Annulée' },
-      PENDING: { cls: 'badge-warning', label: 'En attente' },
-    };
-    const s = map[status] || { cls: 'badge-primary', label: status };
-    return <span className={`badge ${s.cls}`}>{s.label}</span>;
+    const statusMeta = getOrderStatusMeta(status);
+    return <span className={`badge ${statusMeta.badgeClass}`}>{statusMeta.label}</span>;
   };
 
   return (
@@ -28,7 +23,7 @@ export default function ClientDashboard() {
         {orders.length > 0 ? (
           <div className="animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700 }}>Dernières commandes</h2>
+              <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700 }}>Dernieres commandes</h2>
               <Link to="/client/orders" className="btn btn-secondary btn-sm">Voir tout <ArrowRight size={14} /></Link>
             </div>
             <div className="dash-table-wrapper">
@@ -43,13 +38,13 @@ export default function ClientDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.slice(0, 5).map(o => (
-                    <tr key={o.id}>
-                      <td className="td-title">{o.serviceTitle}</td>
-                      <td>{o.freelancerId}</td>
-                      <td><span style={{ color: 'var(--accent-400)', fontWeight: 700 }}>{o.amount} MAD</span></td>
-                      <td>{statusBadge(o.status)}</td>
-                      <td>{new Date(o.createdAt).toLocaleDateString('fr-FR')}</td>
+                  {orders.slice(0, 5).map((order) => (
+                    <tr key={order.id}>
+                      <td className="td-title">{order.serviceTitle}</td>
+                      <td>{order.freelancerEmail || order.freelancerId}</td>
+                      <td><span style={{ color: 'var(--accent-400)', fontWeight: 700 }}>{order.amount} MAD</span></td>
+                      <td>{statusBadge(order.status)}</td>
+                      <td>{new Date(order.createdAt).toLocaleDateString('fr-FR')}</td>
                     </tr>
                   ))}
                 </tbody>

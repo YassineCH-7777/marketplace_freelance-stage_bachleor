@@ -48,6 +48,21 @@ public class User implements UserDetails {
     @Column(name = "city", length = 120)
     private String city;
 
+    @Column(name = "search_city", length = 120)
+    private String searchCity;
+
+    @Column(name = "search_place_id", length = 255)
+    private String searchPlaceId;
+
+    @Column(name = "search_latitude")
+    private Double searchLatitude;
+
+    @Column(name = "search_longitude")
+    private Double searchLongitude;
+
+    @Column(name = "search_radius_km", nullable = false)
+    private Integer searchRadiusKm = 10;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "user_role")

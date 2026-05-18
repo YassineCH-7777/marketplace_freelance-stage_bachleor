@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ClientProfileService {
 
+    private static final java.util.Set<Integer> SEARCH_RADIUS_OPTIONS = java.util.Set.of(5, 10, 20, 50);
+
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
@@ -31,6 +33,11 @@ public class ClientProfileService {
         user.setLastName(normalizeRequired(dto.getLastName(), "Le nom est obligatoire."));
         user.setPhone(normalizeOptional(dto.getPhone()));
         user.setCity(normalizeOptional(dto.getCity()));
+        user.setSearchCity(normalizeOptional(dto.getSearchCity()));
+        user.setSearchPlaceId(normalizeOptional(dto.getSearchPlaceId()));
+        user.setSearchLatitude(normalizeLatitude(dto.getSearchLatitude()));
+        user.setSearchLongitude(normalizeLongitude(dto.getSearchLongitude()));
+        user.setSearchRadiusKm(normalizeSearchRadius(dto.getSearchRadiusKm()));
 
         return mapToDto(userRepository.save(user));
     }
@@ -70,10 +77,51 @@ public class ClientProfileService {
                 .lastName(user.getLastName())
                 .phone(user.getPhone())
                 .city(user.getCity())
+                .searchCity(user.getSearchCity())
+                .searchPlaceId(user.getSearchPlaceId())
+                .searchLatitude(user.getSearchLatitude())
+                .searchLongitude(user.getSearchLongitude())
+                .searchRadiusKm(resolveSearchRadius(user.getSearchRadiusKm()))
                 .role(user.getRole())
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
+    }
+
+    private Integer normalizeSearchRadius(Integer radiusKm) {
+        if (radiusKm == null) {
+            return 10;
+        }
+
+        if (!SEARCH_RADIUS_OPTIONS.contains(radiusKm)) {
+            throw new BusinessException("Le rayon doit etre 5, 10, 20 ou 50 km.", HttpStatus.BAD_REQUEST);
+        }
+
+        return radiusKm;
+    }
+
+    private Integer resolveSearchRadius(Integer radiusKm) {
+        return radiusKm != null && SEARCH_RADIUS_OPTIONS.contains(radiusKm) ? radiusKm : 10;
+    }
+
+    private Double normalizeLatitude(Double value) {
+        return normalizeCoordinate(value, -90, 90, "La latitude de recherche est invalide.");
+    }
+
+    private Double normalizeLongitude(Double value) {
+        return normalizeCoordinate(value, -180, 180, "La longitude de recherche est invalide.");
+    }
+
+    private Double normalizeCoordinate(Double value, double min, double max, String errorMessage) {
+        if (value == null) {
+            return null;
+        }
+
+        if (value < min || value > max) {
+            throw new BusinessException(errorMessage, HttpStatus.BAD_REQUEST);
+        }
+
+        return value;
     }
 }

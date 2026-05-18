@@ -1,6 +1,7 @@
 package com.marketplace.domain.model;
 
 import com.marketplace.domain.enums.OrderStatus;
+import com.marketplace.domain.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -11,6 +12,7 @@ import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Entity
 @Table(name = "orders") // "Order" is a reserved SQL keyword, so table must be "orders"
@@ -26,12 +28,16 @@ public class Order {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "request_id", nullable = false, unique = true)
+    @JoinColumn(name = "request_id", unique = true)
     private OrderRequest request;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "service_id", nullable = false)
+    @JoinColumn(name = "service_id")
     private ServiceEntity service;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proposal_id")
+    private Proposal proposal;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
@@ -50,11 +56,34 @@ public class Order {
     @Column(name = "end_date")
     private LocalDate endDate;
 
-    @Column(name = "notes")
-    private String notes;
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
+    @Builder.Default
+    @Column(name = "progress_percentage", nullable = false)
+    private Integer progressPercentage = 0;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Builder.Default
+    @Column(name = "payment_status", nullable = false, columnDefinition = "payment_status")
+    private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
+
+    @Column(name = "notes")
+    private String notes;
+
+    @Column(name = "delivery_note")
+    private String deliveryNote;
+
+    @Column(name = "revision_request")
+    private String revisionRequest;
+
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "order_status")
     private OrderStatus status = OrderStatus.PENDING;
 

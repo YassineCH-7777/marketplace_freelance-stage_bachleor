@@ -1,13 +1,16 @@
 package com.marketplace.web.controller;
 
+import com.marketplace.web.dto.order.MissionMilestoneDto;
 import com.marketplace.web.dto.order.OrderDto;
 import com.marketplace.web.dto.order.OrderExecutionUpdateDto;
 import com.marketplace.web.dto.order.OrderRequestDto;
+import com.marketplace.web.dto.request.ProposalDto;
 import com.marketplace.web.dto.service.ServiceDto;
 import com.marketplace.web.dto.user.FreelancerProfileDto;
 import com.marketplace.domain.model.User;
 import com.marketplace.application.service.FreelancerProfileService;
 import com.marketplace.application.service.OrderService;
+import com.marketplace.application.service.ProposalService;
 import com.marketplace.application.service.ServiceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,12 +22,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/freelancer")
 @RequiredArgsConstructor
-// @PreAuthorize("hasRole('FREELANCER')") // En attente de protection stricte
 public class FreelancerController {
 
     private final ServiceService serviceService;
     private final OrderService orderService;
     private final FreelancerProfileService profileService;
+    private final ProposalService proposalService;
 
     // --- Profile Management ---
     @GetMapping("/profile")
@@ -86,4 +89,44 @@ public class FreelancerController {
             @RequestBody OrderExecutionUpdateDto dto) {
         return ResponseEntity.ok(orderService.updateFreelancerOrder(id, user.getId(), dto));
     }
+
+    @PostMapping("/orders/{id}/milestones")
+    public ResponseEntity<MissionMilestoneDto> addMissionMilestone(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user,
+            @RequestBody MissionMilestoneDto dto) {
+        return ResponseEntity.ok(orderService.addMissionMilestone(id, user.getId(), dto));
+    }
+
+    @PutMapping("/orders/{orderId}/milestones/{milestoneId}")
+    public ResponseEntity<MissionMilestoneDto> updateMissionMilestone(
+            @PathVariable Long orderId,
+            @PathVariable Long milestoneId,
+            @AuthenticationPrincipal User user,
+            @RequestBody MissionMilestoneDto dto) {
+        return ResponseEntity.ok(orderService.updateMissionMilestone(orderId, milestoneId, user.getId(), dto));
+    }
+
+    // --- Proposals (demand-driven marketplace) ---
+
+    @PostMapping("/proposals")
+    public ResponseEntity<ProposalDto> submitProposal(
+            @AuthenticationPrincipal User user,
+            @RequestBody ProposalDto dto) {
+        return ResponseEntity.ok(proposalService.submitProposal(user.getId(), dto));
+    }
+
+    @GetMapping("/proposals")
+    public ResponseEntity<List<ProposalDto>> getMyProposals(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(proposalService.getFreelancerProposals(user.getId()));
+    }
+
+    @DeleteMapping("/proposals/{id}")
+    public ResponseEntity<Void> withdrawProposal(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user) {
+        proposalService.withdrawProposal(id, user.getId());
+        return ResponseEntity.ok().build();
+    }
 }
+
