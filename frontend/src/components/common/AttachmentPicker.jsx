@@ -8,6 +8,8 @@ export default function AttachmentPicker({
   buttonLabel = 'Ajouter des fichiers',
   disabled = false,
   compact = false,
+  iconOnly = false,
+  showSelectedList = true,
 }) {
   const inputId = useId();
 
@@ -26,9 +28,13 @@ export default function AttachmentPicker({
 
   return (
     <div className={`attachment-picker ${compact ? 'is-compact' : ''}`}>
-      <label className={`attachment-picker-button ${disabled ? 'is-disabled' : ''}`} htmlFor={inputId}>
+      <label
+        className={`attachment-picker-button ${iconOnly ? 'is-icon-only' : ''} ${disabled ? 'is-disabled' : ''}`}
+        htmlFor={inputId}
+        aria-label={buttonLabel}
+      >
         <Paperclip size={16} />
-        <span>{buttonLabel}</span>
+        <span className={iconOnly ? 'sr-only' : undefined}>{buttonLabel}</span>
       </label>
       <input
         id={inputId}
@@ -40,7 +46,7 @@ export default function AttachmentPicker({
         onChange={handleSelect}
       />
 
-      {files.length > 0 && (
+      {showSelectedList && files.length > 0 && (
         <div className="attachment-selected-list">
           {files.map((file, index) => (
             <span className="attachment-selected-item" key={`${file.name}-${file.size}-${index}`}>

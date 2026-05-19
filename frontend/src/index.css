@@ -442,6 +442,13 @@ textarea.form-input:focus {
   transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
+.attachment-picker-button.is-icon-only {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: var(--radius-lg);
+}
+
 .attachment-picker-button:hover {
   border-color: oklch(0.62 0.12 220 / 0.45);
   box-shadow: var(--shadow-md);

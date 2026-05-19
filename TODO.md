@@ -1,4 +1,4 @@
-1. Recherche par distance
+- 1. Recherche par distance
 Ajouter adresse/quartier + rayon en km : “freelances à moins de 10 km”. C’est très cohérent avec ton positionnement hyper-local.
 
 2. Disponibilités réelles
@@ -7,7 +7,7 @@ Un calendrier freelance : disponible aujourd’hui, demain, week-end, créneaux 
 3. Paiement simulé ou escrow
 Même sans vrai Stripe, tu peux ajouter un workflow : paiement en attente, paiement bloqué, mission livrée, paiement libéré.
 
-4. Pièces jointes
+- 4. Pièces jointes
 Dans les messages, demandes et livraisons : images, PDF, brief, facture, preuve de livraison.
 
 5. Badges de confiance

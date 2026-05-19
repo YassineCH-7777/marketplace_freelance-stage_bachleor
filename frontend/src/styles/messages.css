@@ -219,7 +219,7 @@
   align-items: flex-start;
 }
 
-.chat-composer .attachment-selected-list {
+.chat-composer .chat-selected-files {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
@@ -236,6 +236,18 @@
   padding: 0;
   border-top: 0;
   background: transparent;
+}
+
+.chat-input-bar .attachment-picker {
+  flex-shrink: 0;
+}
+
+.chat-input-bar .attachment-picker-button.is-icon-only,
+.chat-send-btn {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: var(--radius-lg);
 }
 
 .chat-bubble .attachment-list {

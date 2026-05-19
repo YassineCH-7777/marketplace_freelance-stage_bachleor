@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
 import {
   Bell,
   Briefcase,
   ClipboardList,
   Inbox,
-  LayoutDashboard,
   Loader2,
   LogOut,
   Menu,
@@ -52,6 +51,7 @@ function formatNotificationDate(value) {
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const notificationRef = useRef(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -60,6 +60,7 @@ export default function Navbar() {
   const [notificationsError, setNotificationsError] = useState(false);
 
   const recentNotifications = useMemo(() => notifications.slice(0, 5), [notifications]);
+  const isHomePage = location.pathname === '/';
 
   const loadNotifications = useCallback(async () => {
     if (!isAuthenticated) {
@@ -165,17 +166,16 @@ export default function Navbar() {
         <div className={`navbar-links ${mobileOpen ? 'active' : ''}`}>
           <Link to="/services" className="nav-link" onClick={closeMenus}>Services</Link>
           <Link to="/requests" className="nav-link" onClick={closeMenus}>Demandes</Link>
-          <Link to="/#categories" className="nav-link" onClick={() => handleHomeSectionClick('categories')}>Categories</Link>
-          <Link to="/#comment-ca-marche" className="nav-link" onClick={() => handleHomeSectionClick('comment-ca-marche')}>Comment ca marche</Link>
-          <Link to="/#freelances" className="nav-link" onClick={() => handleHomeSectionClick('freelances')}>Freelances</Link>
+          {isHomePage && (
+            <>
+              <Link to="/#categories" className="nav-link" onClick={() => handleHomeSectionClick('categories')}>Categories</Link>
+              <Link to="/#comment-ca-marche" className="nav-link" onClick={() => handleHomeSectionClick('comment-ca-marche')}>Comment ca marche</Link>
+              <Link to="/#freelances" className="nav-link" onClick={() => handleHomeSectionClick('freelances')}>Freelances</Link>
+            </>
+          )}
 
           {isAuthenticated ? (
             <>
-              <Link to={getDashboardLink()} className="nav-link" onClick={closeMenus}>
-                <LayoutDashboard size={16} />
-                Dashboard
-              </Link>
-
               <div className="notification-menu" ref={notificationRef}>
                 <button
                   type="button"
@@ -250,11 +250,11 @@ export default function Navbar() {
               </div>
 
               <div className="nav-user-section">
-                <div className="nav-user-badge">
+                <Link to={getDashboardLink()} className="nav-user-badge" onClick={closeMenus}>
                   <User size={14} />
                   <span>{user?.email?.split('@')[0]}</span>
                   <span className="nav-role-tag">{user?.role}</span>
-                </div>
+                </Link>
                 <button className="btn btn-sm btn-secondary nav-logout-btn" onClick={handleLogout}>
                   <LogOut size={14} />
                   Deconnexion

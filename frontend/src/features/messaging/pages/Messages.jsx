@@ -5,7 +5,8 @@ import { getConversations, getMessages, sendMessage } from '@/api/messageApi';
 import { uploadMessageAttachments } from '@/api/attachmentApi';
 import AttachmentList from '@/components/common/AttachmentList';
 import AttachmentPicker from '@/components/common/AttachmentPicker';
-import { ArrowLeft, Check, CheckCheck, Inbox, Loader2, MessageSquare, Send } from 'lucide-react';
+import { formatFileSize } from '@/utils/attachments';
+import { ArrowLeft, Check, CheckCheck, Inbox, Loader2, MessageSquare, Send, X } from 'lucide-react';
 import '@/styles/dashboard.css';
 import '@/styles/messages.css';
 
@@ -334,13 +335,24 @@ export default function Messages() {
                 </div>
 
                 <form className="chat-composer" onSubmit={handleSend}>
-                  <AttachmentPicker
-                    files={selectedFiles}
-                    onChange={setSelectedFiles}
-                    buttonLabel="Joindre"
-                    compact
-                    disabled={sending}
-                  />
+                  {selectedFiles.length > 0 && (
+                    <div className="attachment-selected-list chat-selected-files">
+                      {selectedFiles.map((file, index) => (
+                        <span className="attachment-selected-item" key={`${file.name}-${file.size}-${index}`}>
+                          <span>{file.name}</span>
+                          <small>{formatFileSize(file.size)}</small>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFiles((current) => current.filter((_, i) => i !== index))}
+                            disabled={sending}
+                            aria-label="Retirer"
+                          >
+                            <X size={13} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="chat-input-bar">
                     <input
                       type="text"
@@ -351,9 +363,18 @@ export default function Messages() {
                       disabled={sending}
                       maxLength={2000}
                     />
+                    <AttachmentPicker
+                      files={selectedFiles}
+                      onChange={setSelectedFiles}
+                      buttonLabel="Joindre un fichier"
+                      compact
+                      iconOnly
+                      showSelectedList={false}
+                      disabled={sending}
+                    />
                     <button
                       type="submit"
-                      className="btn btn-primary btn-sm"
+                      className="btn btn-primary btn-sm chat-send-btn"
                       disabled={sending || (!newMsg.trim() && selectedFiles.length === 0)}
                     >
                       {sending ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}

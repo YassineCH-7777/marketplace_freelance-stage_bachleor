@@ -288,6 +288,15 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
   box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.nav-user-badge:hover {
+  color: var(--text-primary);
+  border-color: oklch(0.62 0.12 220 / 0.45);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .nav-role-tag {
