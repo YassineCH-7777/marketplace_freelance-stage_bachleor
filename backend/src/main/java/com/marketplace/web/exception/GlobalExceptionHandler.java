@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -86,6 +87,17 @@ public class GlobalExceptionHandler {
 		body.put("error", ex.getStatusCode().toString());
 		body.put("message", ex.getReason() != null ? ex.getReason() : "Erreur de requete");
 		return new ResponseEntity<>(body, ex.getStatusCode());
+	}
+
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<Object> handleNoResourceFound(NoResourceFoundException ex) {
+		Map<String, Object> body = new HashMap<>();
+		body.put("timestamp", Instant.now().toString());
+		body.put("status", HttpStatus.NOT_FOUND.value());
+		body.put("error", HttpStatus.NOT_FOUND.getReasonPhrase());
+		body.put("message", "Ressource introuvable");
+		body.put("details", ex.getMessage());
+		return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
 	}
 
 	@ExceptionHandler({MultipartException.class, MissingServletRequestParameterException.class})

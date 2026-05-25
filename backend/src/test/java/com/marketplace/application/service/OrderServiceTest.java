@@ -10,6 +10,8 @@ import com.marketplace.domain.model.Review;
 import com.marketplace.domain.model.ServiceEntity;
 import com.marketplace.domain.model.User;
 import com.marketplace.domain.enums.OrderStatus;
+import com.marketplace.domain.enums.PaymentStatus;
+import com.marketplace.domain.model.Attachment;
 import com.marketplace.web.exception.BusinessException;
 import com.marketplace.web.exception.UnauthorizedException;
 import com.marketplace.infrastructure.persistence.AttachmentRepository;
@@ -31,6 +33,7 @@ import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -180,6 +183,110 @@ class OrderServiceTest {
         assertThat(result.getReviewUpdatedAt()).isEqualTo(LocalDateTime.of(2026, 4, 25, 11, 30));
     }
 
+    @Test
+    void requestRevisionIncrementsRevisionCount() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.DELIVERED);
+        order.setRevisionCount(1);
+        order.setMaxRevisionRounds(3);
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(reviewRepository.findByOrder_Id(17L)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderDto result = orderService.requestRevision(17L, 5L,
+                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                        .comment("Merci de corriger la livraison.")
+                        .build());
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.REVISION);
+        assertThat(order.getRevisionCount()).isEqualTo(2);
+        assertThat(result.getRevisionCount()).isEqualTo(2);
+        assertThat(result.getMaxRevisionRounds()).isEqualTo(3);
+    }
+
+    @Test
+    void requestRevisionRejectsWhenLimitIsReached() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.DELIVERED);
+        order.setRevisionCount(3);
+        order.setMaxRevisionRounds(3);
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.requestRevision(17L, 5L,
+                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                        .comment("Encore une correction.")
+                        .build()))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void acceptDeliveryAllowsInProgressOrderWithSharedDelivery() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.IN_PROGRESS);
+        order.setDeliveryNote("Livraison partagee avec le client.");
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(reviewRepository.findByOrder_Id(17L)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderDto result = orderService.acceptDelivery(17L, 5L,
+                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                        .comment("Livraison conforme.")
+                        .build());
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(result.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+        assertThat(result.getProgressPercentage()).isEqualTo(100);
+    }
+
+    @Test
+    void requestRevisionAllowsInProgressOrderWithSharedDelivery() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.IN_PROGRESS);
+        order.setDeliveryNote("Livraison partagee avec le client.");
+        order.setRevisionCount(0);
+        order.setMaxRevisionRounds(3);
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(reviewRepository.findByOrder_Id(17L)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderDto result = orderService.requestRevision(17L, 5L,
+                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                        .comment("Merci de corriger le fichier final.")
+                        .build());
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.REVISION);
+        assertThat(order.getRevisionCount()).isEqualTo(1);
+        assertThat(result.getStatus()).isEqualTo(OrderStatus.REVISION);
+        assertThat(result.getRevisionRequest()).isEqualTo("Merci de corriger le fichier final.");
+    }
+
+    @Test
+    void acceptDeliveryAllowsInProgressOrderWithDeliveryProofAttachment() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.IN_PROGRESS);
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(17L))
+                .thenReturn(List.of(buildDeliveryProofAttachment(order)));
+        when(reviewRepository.findByOrder_Id(17L)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderDto result = orderService.acceptDelivery(17L, 5L,
+                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                        .comment("Fichier de livraison verifie.")
+                        .build());
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(result.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+    }
+
     private Order buildOrder(Long orderId, Long freelancerUserId) {
         User client = User.builder()
                 .id(5L)
@@ -230,6 +337,18 @@ class OrderServiceTest {
                 .progressPercentage(25)
                 .createdAt(LocalDateTime.of(2026, 4, 24, 10, 0))
                 .updatedAt(LocalDateTime.of(2026, 4, 25, 9, 0))
+                .build();
+    }
+
+    private Attachment buildDeliveryProofAttachment(Order order) {
+        return Attachment.builder()
+                .id(101L)
+                .order(order)
+                .attachmentType("DELIVERY_PROOF")
+                .originalFileName("rapport-mission.pdf")
+                .contentType("application/pdf")
+                .fileSize(2048L)
+                .fileUrl("/uploads/rapport-mission.pdf")
                 .build();
     }
 }

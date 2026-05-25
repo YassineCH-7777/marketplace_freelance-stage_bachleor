@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, FileText, Loader2, Package, Star, X } from 'lucide-react';
+import { CheckCircle2, ClipboardList, FileText, Loader2, Package, Star, X } from 'lucide-react';
 import { acceptOrderDelivery, getClientOrders, requestOrderRevision } from '@/api/orderApi';
 import { leaveReview } from '@/api/reviewApi';
 import MissionExecutionCard from '@/components/orders/MissionExecutionCard';
@@ -40,11 +40,21 @@ function buildReviewDraft(order) {
   };
 }
 
+function getRevisionCount(order) {
+  return Number(order?.revisionCount) || 0;
+}
+
+function getMaxRevisionRounds(order) {
+  return Number.isFinite(Number(order?.maxRevisionRounds)) ? Number(order.maxRevisionRounds) : 3;
+}
+
 export default function MyOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewModal, setReviewModal] = useState(null);
   const [reviewDraft, setReviewDraft] = useState(defaultReviewDraft);
+  const [deliveryModal, setDeliveryModal] = useState(null);
+  const [deliveryComment, setDeliveryComment] = useState('');
   const [revisionModal, setRevisionModal] = useState(null);
   const [revisionComment, setRevisionComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -120,20 +130,43 @@ export default function MyOrders() {
     );
   };
 
-  const handleAcceptDelivery = async (order) => {
+  const openDeliveryModal = (order) => {
+    setDeliveryModal(order);
+    setDeliveryComment('');
+  };
+
+  const closeDeliveryModal = () => {
+    setDeliveryModal(null);
+    setDeliveryComment('');
+    setSubmitting(false);
+  };
+
+  const handleAcceptDelivery = async (event) => {
+    event.preventDefault();
+    if (!deliveryModal) {
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const response = await acceptOrderDelivery(order.id, { comment: 'Livraison validee depuis l espace client.' });
+      const response = await acceptOrderDelivery(deliveryModal.id, {
+        comment: deliveryComment || 'Livraison verifiee et validee depuis l espace client.',
+      });
       updateOrderInState(response.data);
       alert('Livraison validee. La mission est maintenant terminee.');
+      closeDeliveryModal();
     } catch (error) {
       alert(error.response?.data?.message || 'Erreur lors de la validation de la livraison');
-    } finally {
       setSubmitting(false);
     }
   };
 
   const openRevisionModal = (order) => {
+    if (getRevisionCount(order) >= getMaxRevisionRounds(order)) {
+      alert('Le nombre maximum de revisions est atteint pour cette mission.');
+      return;
+    }
+
     setRevisionModal(order);
     setRevisionComment(order.revisionRequest || '');
   };
@@ -209,7 +242,7 @@ export default function MyOrders() {
                 key={order.id}
                 order={order}
                 role="client"
-                onAcceptDelivery={handleAcceptDelivery}
+                onAcceptDelivery={openDeliveryModal}
                 onRequestRevision={openRevisionModal}
                 onReview={openReviewModal}
               />
@@ -305,6 +338,80 @@ export default function MyOrders() {
           </div>
         )}
 
+        {deliveryModal && (
+          <div className="modal-overlay" onClick={closeDeliveryModal}>
+            <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">Confirmer la livraison</h2>
+                <button className="modal-close" onClick={closeDeliveryModal}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="delivery-confirmation-note">
+                <strong>{deliveryModal.serviceTitle}</strong>
+                <p>Avant de valider, verifiez que la livraison correspond au brief et que les fichiers ou preuves sont bien accessibles.</p>
+                <p>Revisions utilisees : {getRevisionCount(deliveryModal)} / {getMaxRevisionRounds(deliveryModal)}</p>
+              </div>
+
+              <div className="delivery-confirmation-list">
+                <div>
+                  <CheckCircle2 size={16} />
+                  <span>J ai consulte la note de livraison et les pieces jointes.</span>
+                </div>
+                <div>
+                  <CheckCircle2 size={16} />
+                  <span>Le resultat attendu est complet ou suffisamment conforme.</span>
+                </div>
+                <div>
+                  <CheckCircle2 size={16} />
+                  <span>Je comprends que la validation cloture la mission et libere le paiement.</span>
+                </div>
+              </div>
+
+              <form className="modal-form" onSubmit={handleAcceptDelivery}>
+                <div className="form-group">
+                  <label className="form-label">Commentaire de validation (optionnel)</label>
+                  <textarea
+                    className="form-textarea"
+                    value={deliveryComment}
+                    onChange={(event) => setDeliveryComment(event.target.value)}
+                    placeholder="Exemple : livraison verifiee, fichiers recus et resultat conforme au brief."
+                    rows={4}
+                  />
+                </div>
+
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-secondary" onClick={closeDeliveryModal}>
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      const currentDelivery = deliveryModal;
+                      closeDeliveryModal();
+                      openRevisionModal(currentDelivery);
+                    }}
+                    disabled={submitting}
+                  >
+                    Demander une revision
+                  </button>
+                  <button type="submit" className="btn btn-accept" disabled={submitting}>
+                    {submitting ? (
+                      <>
+                        <Loader2 size={16} className="spinner" /> Validation...
+                      </>
+                    ) : (
+                      'Confirmer la livraison'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {revisionModal && (
           <div className="modal-overlay" onClick={closeRevisionModal}>
             <div className="modal-content" onClick={(event) => event.stopPropagation()}>
@@ -316,6 +423,9 @@ export default function MyOrders() {
               </div>
               <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginBottom: '1.5rem' }}>
                 Precisez le retour attendu sur "{revisionModal.serviceTitle}" pour garder une trace claire dans la timeline.
+              </p>
+              <p className="revision-limit-copy">
+                Revision {getRevisionCount(revisionModal) + 1} sur {getMaxRevisionRounds(revisionModal)}.
               </p>
 
               <form className="modal-form" onSubmit={handleRevisionRequest}>

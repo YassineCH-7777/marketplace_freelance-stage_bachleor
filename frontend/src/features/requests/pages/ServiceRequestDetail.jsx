@@ -5,8 +5,16 @@ import { getRequestDetail } from '@/api/requestApi';
 import { getServiceRequestDetail, acceptProposal, rejectProposal, closeServiceRequest } from '@/api/requestApi';
 import { submitProposal } from '@/api/requestApi';
 import AttachmentList from '@/components/common/AttachmentList';
-import { MapPin, Calendar, Coins, Zap, Star, CheckCircle, XCircle, Clock, Send, Award, X, Paperclip } from 'lucide-react';
+import { MapPin, Calendar, Coins, Zap, Star, CheckCircle, XCircle, Clock, Send, Award, X, Paperclip, ListChecks, Plus, Trash2 } from 'lucide-react';
 import '@/styles/requests.css';
+
+const DEFAULT_PROPOSAL_STEPS = [
+  'Cadrage et validation du brief',
+  'Production principale',
+  'Livraison finale et ajustements',
+];
+
+const REQUEST_STATUSES_ACCEPTING_PROPOSALS = ['OPEN', 'IN_DISCUSSION'];
 
 export default function ServiceRequestDetail() {
   const { id } = useParams();
@@ -23,12 +31,19 @@ export default function ServiceRequestDetail() {
   const [proposalMessage, setProposalMessage] = useState('');
   const [proposedPrice, setProposedPrice] = useState('');
   const [estimatedDays, setEstimatedDays] = useState('');
+  const [proposedSteps, setProposedSteps] = useState(DEFAULT_PROPOSAL_STEPS);
   const [portfolioUrl, setPortfolioUrl] = useState('');
   const [proposalError, setProposalError] = useState('');
 
   const isOwner = user && request && user.id === request.clientId;
   const isFreelancer = user && user.role === 'FREELANCER';
-  const alreadyApplied = request?.proposals?.some(p => p.freelancerId === user?.id);
+  const ownProposal = request?.proposals?.find(p => p.freelancerId === user?.id);
+  const alreadyApplied = Boolean(ownProposal);
+  const canSubmitProposal =
+    isFreelancer
+    && !isOwner
+    && !alreadyApplied
+    && REQUEST_STATUSES_ACCEPTING_PROPOSALS.includes(request?.status);
   const requestId = request?.id;
   const requestClientId = request?.clientId;
   const userId = user?.id;
@@ -70,6 +85,13 @@ export default function ServiceRequestDetail() {
   const handleSubmitProposal = async (e) => {
     e.preventDefault();
     setProposalError('');
+    const normalizedSteps = proposedSteps.map((step) => step.trim()).filter(Boolean);
+
+    if (normalizedSteps.length === 0) {
+      setProposalError('Ajoutez au moins une etape proposee.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await submitProposal({
@@ -77,10 +99,16 @@ export default function ServiceRequestDetail() {
         message: proposalMessage,
         proposedPrice: Number(proposedPrice),
         estimatedDays: Number(estimatedDays),
+        proposedSteps: normalizedSteps,
         portfolioUrl: portfolioUrl || null,
       });
       setSuccessMessage('Votre candidature a ete envoyee !');
       setShowProposalForm(false);
+      setProposalMessage('');
+      setProposedPrice('');
+      setEstimatedDays('');
+      setPortfolioUrl('');
+      setProposedSteps(DEFAULT_PROPOSAL_STEPS);
       // Reload
       const r = await getRequestDetail(id);
       setRequest(r.data);
@@ -128,6 +156,20 @@ export default function ServiceRequestDetail() {
     } catch (err) {
       setProposalError(err.response?.data?.message || 'Erreur.');
     }
+  };
+
+  const handleStepChange = (index, value) => {
+    setProposedSteps((current) => current.map((step, stepIndex) => (
+      stepIndex === index ? value : step
+    )));
+  };
+
+  const handleAddStep = () => {
+    setProposedSteps((current) => [...current, '']);
+  };
+
+  const handleRemoveStep = (index) => {
+    setProposedSteps((current) => current.filter((_, stepIndex) => stepIndex !== index));
   };
 
   const formatBudget = (min, max) => {
@@ -203,7 +245,7 @@ export default function ServiceRequestDetail() {
             )}
 
             {/* Proposal form for freelancers */}
-            {isFreelancer && !isOwner && !alreadyApplied && request.status === 'OPEN' && (
+            {canSubmitProposal && (
               <div className="request-proposal-section">
                 {!showProposalForm ? (
                   <button className="btn btn-primary btn-lg" onClick={() => setShowProposalForm(true)}>
@@ -223,8 +265,47 @@ export default function ServiceRequestDetail() {
                         <input type="number" className="form-input" value={proposedPrice} onChange={(e) => setProposedPrice(e.target.value)} placeholder="Ex: 5000" required min="0" />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Delai estime (jours) *</label>
+                      <label className="form-label">Delai estime (jours) *</label>
                         <input type="number" className="form-input" value={estimatedDays} onChange={(e) => setEstimatedDays(e.target.value)} placeholder="Ex: 14" required min="1" />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <div className="proposal-steps-head">
+                        <label className="form-label">
+                          <ListChecks size={15} /> Etapes proposees *
+                        </label>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={handleAddStep}
+                          disabled={proposedSteps.length >= 6}
+                        >
+                          <Plus size={14} /> Ajouter
+                        </button>
+                      </div>
+                      <div className="proposal-step-editor">
+                        {proposedSteps.map((step, index) => (
+                          <div className="proposal-step-input" key={`proposal-step-${index}`}>
+                            <span>{index + 1}</span>
+                            <input
+                              type="text"
+                              className="form-input"
+                              value={step}
+                              onChange={(event) => handleStepChange(index, event.target.value)}
+                              placeholder="Ex: Maquette, developpement, livraison..."
+                              maxLength={160}
+                              required={index === 0}
+                            />
+                            <button
+                              type="button"
+                              aria-label="Supprimer cette etape"
+                              onClick={() => handleRemoveStep(index)}
+                              disabled={proposedSteps.length <= 1}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
                     <div className="form-group">
@@ -243,23 +324,32 @@ export default function ServiceRequestDetail() {
             )}
 
             {isFreelancer && alreadyApplied && (
-              <div className="request-already-applied">
-                <CheckCircle size={16} /> Vous avez deja postule a cette demande.
+              <div className="request-already-applied request-already-applied-card">
+                <div>
+                  <CheckCircle size={16} /> Vous avez deja envoye une offre personnalisee.
+                </div>
+                {ownProposal?.proposedSteps?.length > 0 && (
+                  <ol className="proposal-steps-preview">
+                    {ownProposal.proposedSteps.map((step, index) => (
+                      <li key={`${ownProposal.id}-step-${index}`}>{step}</li>
+                    ))}
+                  </ol>
+                )}
               </div>
             )}
 
-            {/* Proposals comparison table (client owner view) */}
+            {/* Personalized offers (client owner view) */}
             {isOwner && request.proposals && (
               <div className="request-proposals-section">
                 <div className="request-proposals-header">
-                  <h3><Award size={18} /> Candidatures ({request.proposals.length})</h3>
+                  <h3><Award size={18} /> Offres personnalisees ({request.proposals.length})</h3>
                   {(request.status === 'OPEN' || request.status === 'IN_DISCUSSION' || request.status === 'IN_PROGRESS') && (
                     <button className="btn btn-secondary btn-sm" onClick={handleCloseRequest}>Cloturer la demande</button>
                   )}
                 </div>
                 {proposalError && <div className="form-error" style={{ marginBottom: '1rem' }}>{proposalError}</div>}
                 {request.proposals.length === 0 ? (
-                  <p className="request-proposals-empty">Aucune candidature recue pour le moment.</p>
+                  <p className="request-proposals-empty">Aucune offre recue pour le moment.</p>
                 ) : (
                   <div className="proposals-table-wrapper">
                     <table className="proposals-table">
@@ -270,6 +360,7 @@ export default function ServiceRequestDetail() {
                           <th>Delai</th>
                           <th>Note</th>
                           <th>Ville</th>
+                          <th>Offre</th>
                           <th>Statut</th>
                           <th>Actions</th>
                         </tr>
@@ -291,6 +382,18 @@ export default function ServiceRequestDetail() {
                               </span>
                             </td>
                             <td>{p.freelancerCity || '—'}</td>
+                            <td>
+                              <div className="proposal-offer-summary">
+                                <p>{p.message}</p>
+                                {p.proposedSteps?.length > 0 && (
+                                  <ol className="proposal-steps-preview">
+                                    {p.proposedSteps.map((step, index) => (
+                                      <li key={`${p.id}-step-${index}`}>{step}</li>
+                                    ))}
+                                  </ol>
+                                )}
+                              </div>
+                            </td>
                             <td>{statusLabel(p.status)}</td>
                             <td className="proposal-actions">
                               {p.status === 'PENDING' && (

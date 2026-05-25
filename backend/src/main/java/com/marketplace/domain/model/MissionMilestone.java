@@ -41,6 +41,15 @@ public class MissionMilestone {
     @Column
     private LocalDate deadline;
 
+    @Column(name = "timer_duration_minutes")
+    private Integer timerDurationMinutes;
+
+    @Column(name = "timer_started_at")
+    private LocalDateTime timerStartedAt;
+
+    @Column(name = "timer_completed_at")
+    private LocalDateTime timerCompletedAt;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Builder.Default

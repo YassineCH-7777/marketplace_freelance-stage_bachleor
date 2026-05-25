@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
-import { getConversations, getMessages, sendMessage } from '@/api/messageApi';
+import { getConversations, getMessages, sendMessage, updateMessageImportant } from '@/api/messageApi';
 import { uploadMessageAttachments } from '@/api/attachmentApi';
 import AttachmentList from '@/components/common/AttachmentList';
 import AttachmentPicker from '@/components/common/AttachmentPicker';
 import { formatFileSize } from '@/utils/attachments';
-import { ArrowLeft, Check, CheckCheck, Inbox, Loader2, MessageSquare, Send, X } from 'lucide-react';
+import { ArrowLeft, Check, CheckCheck, Inbox, Loader2, MessageSquare, Send, Star, X } from 'lucide-react';
 import '@/styles/dashboard.css';
 import '@/styles/messages.css';
 
@@ -18,6 +18,7 @@ const getConversationTime = (conversation) => {
 const normalizeMessage = (message) => ({
   ...message,
   isRead: Boolean(message.isRead ?? message.read),
+  isImportant: Boolean(message.isImportant ?? message.important),
   attachments: message.attachments || [],
 });
 
@@ -37,6 +38,7 @@ const haveMessagesChanged = (currentMessages, nextMessages) => {
       message.id !== nextMessage.id ||
       message.content !== nextMessage.content ||
       message.isRead !== nextMessage.isRead ||
+      message.isImportant !== nextMessage.isImportant ||
       message.createdAt !== nextMessage.createdAt ||
       getAttachmentSignature(message) !== getAttachmentSignature(nextMessage)
     );
@@ -222,6 +224,27 @@ export default function Messages() {
     }
   };
 
+  const handleToggleImportant = async (message) => {
+    const nextImportant = !message.isImportant;
+
+    setMessages((current) =>
+      current.map((item) => (item.id === message.id ? { ...item, isImportant: nextImportant } : item)),
+    );
+
+    try {
+      const response = await updateMessageImportant(message.id, nextImportant);
+      const updatedMessage = normalizeMessage(response.data);
+      setMessages((current) =>
+        current.map((item) => (item.id === updatedMessage.id ? updatedMessage : item)),
+      );
+    } catch (error) {
+      setMessages((current) =>
+        current.map((item) => (item.id === message.id ? { ...item, isImportant: message.isImportant } : item)),
+      );
+      alert(error.response?.data?.message || "Impossible de modifier l'importance du message.");
+    }
+  };
+
   const getOtherName = (convo) => {
     if (convo.clientId === user?.id) return convo.freelancerEmail;
     return convo.clientEmail;
@@ -319,6 +342,15 @@ export default function Messages() {
                           {message.content && <p className="chat-bubble-text">{message.content}</p>}
                           <AttachmentList attachments={message.attachments} compact />
                           <span className="chat-bubble-meta">
+                            <button
+                              type="button"
+                              className={`chat-important-btn ${message.isImportant ? 'is-active' : ''}`}
+                              onClick={() => void handleToggleImportant(message)}
+                              title={message.isImportant ? 'Retirer des messages importants' : 'Marquer important'}
+                              aria-label={message.isImportant ? 'Retirer des messages importants' : 'Marquer important'}
+                            >
+                              <Star size={13} fill={message.isImportant ? 'currentColor' : 'none'} />
+                            </button>
                             <span className="chat-bubble-time">
                               {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
                                 hour: '2-digit',

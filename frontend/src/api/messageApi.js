@@ -8,3 +8,5 @@ export const createOrderConversation = (orderId) =>
 export const getMessages = (conversationId) => API.get(`/messages/conversations/${conversationId}`);
 export const sendMessage = (conversationId, content) => 
   API.post(`/messages/conversations/${conversationId}`, { content });
+export const updateMessageImportant = (messageId, isImportant) =>
+  API.put(`/messages/${messageId}/important`, { isImportant });

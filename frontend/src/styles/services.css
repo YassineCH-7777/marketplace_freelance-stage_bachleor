@@ -545,6 +545,7 @@
 
 /* ---------- Service Cards ---------- */
 .service-result-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 27rem;
@@ -557,6 +558,30 @@
     0 2px 0 #eaf1f7,
     0 12px 32px -24px oklch(0.27 0.07 245 / 0.4);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.service-result-card-link {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+}
+
+.service-result-card-link:hover {
+  color: inherit;
+}
+
+.service-result-favorite {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 2;
+}
+
+.service-result-favorite .favorite-button {
+  background: oklch(1 0 0 / 0.94);
+  backdrop-filter: blur(8px);
 }
 
 .service-result-card:hover {
@@ -1415,6 +1440,15 @@
 .service-detail-contact-card {
   display: grid;
   gap: var(--space-3);
+}
+
+.service-detail-contact-card .favorite-button {
+  width: 100%;
+}
+
+.service-detail-badge-row .favorite-button {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .service-detail-contact-head {

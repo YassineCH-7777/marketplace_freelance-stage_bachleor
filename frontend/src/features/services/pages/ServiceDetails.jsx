@@ -17,10 +17,18 @@ import {
   XCircle,
 } from 'lucide-react';
 import useAuth from '@/hooks/useAuth';
+import useClientFavorites from '@/hooks/useClientFavorites';
 import { createOrderRequest } from '@/api/orderApi';
+import {
+  addFreelancerFavorite,
+  addServiceFavorite,
+  removeFreelancerFavorite,
+  removeServiceFavorite,
+} from '@/api/favoriteApi';
 import { createConversation } from '@/api/messageApi';
 import { getActiveServices } from '@/api/serviceApi';
 import AiAssistantPanel from '@/components/ai/AiAssistantPanel';
+import FavoriteButton from '@/components/common/FavoriteButton';
 import {
   getDeliveryTimeLabel,
   getExecutionModeLabel,
@@ -143,6 +151,7 @@ export default function ServiceDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const { freelancerIds, removeFavorite, serviceIds, upsertFavorite } = useClientFavorites();
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -150,6 +159,7 @@ export default function ServiceDetails() {
   const [deadline, setDeadline] = useState('');
   const [sending, setSending] = useState(false);
   const [contacting, setContacting] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(null);
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
@@ -239,6 +249,62 @@ export default function ServiceDetails() {
     }
   };
 
+  const ensureClientCanFavorite = () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return false;
+    }
+    if (user?.role !== 'CLIENT') {
+      alert('Seuls les clients peuvent sauvegarder des favoris.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleToggleServiceFavorite = async () => {
+    if (!ensureClientCanFavorite()) {
+      return;
+    }
+
+    const isFavorite = serviceIds.has(String(service.id));
+    setFavoriteLoading('service');
+    try {
+      if (isFavorite) {
+        await removeServiceFavorite(service.id);
+        removeFavorite({ type: 'SERVICE', serviceId: service.id });
+      } else {
+        const response = await addServiceFavorite(service.id);
+        upsertFavorite(response.data);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
+    } finally {
+      setFavoriteLoading(null);
+    }
+  };
+
+  const handleToggleFreelancerFavorite = async () => {
+    if (!ensureClientCanFavorite()) {
+      return;
+    }
+
+    const isFavorite = freelancerIds.has(String(service.freelancerId));
+    setFavoriteLoading('freelancer');
+    try {
+      if (isFavorite) {
+        await removeFreelancerFavorite(service.freelancerId);
+        removeFavorite({ type: 'FREELANCER', freelancerId: service.freelancerId });
+      } else {
+        const response = await addFreelancerFavorite(service.freelancerId);
+        upsertFavorite(response.data);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
+    } finally {
+      setFavoriteLoading(null);
+    }
+  };
+
   const handleClientAssistantResult = (brief) => {
     const summary = brief.objective || brief.need_summary || brief.summary || brief.description || '';
     const livrables = brief.deliverables || brief.livrables || [];
@@ -320,6 +386,11 @@ export default function ServiceDetails() {
                 <Clock size={13} />
                 {deliveryLabel}
               </span>
+              <FavoriteButton
+                active={serviceIds.has(String(service.id))}
+                loading={favoriteLoading === 'service'}
+                onClick={handleToggleServiceFavorite}
+              />
             </div>
 
             <h1 className="service-detail-title">{service.title}</h1>
@@ -540,6 +611,12 @@ export default function ServiceDetails() {
               <Link to={`/freelancers/${service.freelancerId}`} className="btn btn-secondary service-detail-side-action">
                 <User size={16} /> Voir le profil
               </Link>
+              <FavoriteButton
+                active={freelancerIds.has(String(service.freelancerId))}
+                loading={favoriteLoading === 'freelancer'}
+                onClick={handleToggleFreelancerFavorite}
+                label="Sauvegarder freelance"
+              />
               <button
                 type="button"
                 className="btn btn-secondary service-detail-side-action"

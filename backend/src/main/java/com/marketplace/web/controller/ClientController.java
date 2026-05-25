@@ -3,12 +3,14 @@ package com.marketplace.web.controller;
 import com.marketplace.web.dto.order.OrderDto;
 import com.marketplace.web.dto.order.OrderClientDecisionDto;
 import com.marketplace.web.dto.order.OrderRequestDto;
+import com.marketplace.web.dto.favorite.FavoriteDto;
 import com.marketplace.web.dto.request.ProposalDto;
 import com.marketplace.web.dto.request.ServiceRequestDto;
 import com.marketplace.web.dto.review.ReviewDto;
 import com.marketplace.web.dto.user.UserDto;
 import com.marketplace.domain.model.User;
 import com.marketplace.application.service.ClientProfileService;
+import com.marketplace.application.service.FavoriteService;
 import com.marketplace.application.service.OrderService;
 import com.marketplace.application.service.ProposalService;
 import com.marketplace.application.service.ReviewService;
@@ -30,6 +32,7 @@ public class ClientController {
     private final ClientProfileService clientProfileService;
     private final ServiceRequestService serviceRequestService;
     private final ProposalService proposalService;
+    private final FavoriteService favoriteService;
 
     @GetMapping("/profile")
     public ResponseEntity<UserDto> getProfile(@AuthenticationPrincipal User user) {
@@ -76,6 +79,43 @@ public class ClientController {
             @AuthenticationPrincipal User user, 
             @RequestBody ReviewDto dto) {
         return ResponseEntity.ok(reviewService.leaveReview(user.getId(), dto));
+    }
+
+    // --- Favorites ---
+
+    @GetMapping("/favorites")
+    public ResponseEntity<List<FavoriteDto>> getFavorites(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(favoriteService.getClientFavorites(user.getId()));
+    }
+
+    @PostMapping("/favorites/services/{serviceId}")
+    public ResponseEntity<FavoriteDto> addServiceFavorite(
+            @PathVariable Long serviceId,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(favoriteService.addServiceFavorite(user.getId(), serviceId));
+    }
+
+    @DeleteMapping("/favorites/services/{serviceId}")
+    public ResponseEntity<Void> removeServiceFavorite(
+            @PathVariable Long serviceId,
+            @AuthenticationPrincipal User user) {
+        favoriteService.removeServiceFavorite(user.getId(), serviceId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/favorites/freelancers/{freelancerUserId}")
+    public ResponseEntity<FavoriteDto> addFreelancerFavorite(
+            @PathVariable Long freelancerUserId,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(favoriteService.addFreelancerFavorite(user.getId(), freelancerUserId));
+    }
+
+    @DeleteMapping("/favorites/freelancers/{freelancerUserId}")
+    public ResponseEntity<Void> removeFreelancerFavorite(
+            @PathVariable Long freelancerUserId,
+            @AuthenticationPrincipal User user) {
+        favoriteService.removeFreelancerFavorite(user.getId(), freelancerUserId);
+        return ResponseEntity.ok().build();
     }
 
     // --- Service Requests (demand-driven marketplace) ---
@@ -139,4 +179,3 @@ public class ClientController {
         return ResponseEntity.ok(proposalService.rejectProposal(proposalId, user.getId()));
     }
 }
-

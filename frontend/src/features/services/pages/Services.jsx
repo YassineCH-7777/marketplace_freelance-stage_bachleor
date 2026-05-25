@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowUpDown,
   BadgeCheck,
@@ -15,8 +15,11 @@ import {
   X,
 } from 'lucide-react';
 import { getActiveServices, getRecommendedServices } from '@/api/serviceApi';
+import { addServiceFavorite, removeServiceFavorite } from '@/api/favoriteApi';
+import FavoriteButton from '@/components/common/FavoriteButton';
 import GoogleLocationInput from '@/components/common/GoogleLocationInput';
 import useAuth from '@/hooks/useAuth';
+import useClientFavorites from '@/hooks/useClientFavorites';
 import {
   getDeliveryTimeLabel,
   getExecutionModeLabel,
@@ -175,8 +178,11 @@ function readCoordinateParam(value, fallback = null) {
 }
 
 export default function Services() {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const { removeFavorite, serviceIds, upsertFavorite } = useClientFavorites();
   const [searchParams, setSearchParams] = useSearchParams();
+  const freelancerIdFilter = searchParams.get('freelancerId') || '';
   const preferredSearchCity = user?.searchCity || user?.city || '';
   const preferredSearchLatitude = user?.searchLatitude ?? null;
   const preferredSearchLongitude = user?.searchLongitude ?? null;
@@ -201,6 +207,7 @@ export default function Services() {
   const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
   const [sort, setSort] = useState(searchParams.get('sort') || 'recommended');
+  const [favoriteLoadingId, setFavoriteLoadingId] = useState(null);
   const localPriorityCity = city || preferredSearchCity;
   const searchLocation = useMemo(
     () => ({
@@ -351,8 +358,10 @@ export default function Services() {
         const matchesCategory = !normalizedCategory || category === normalizedCategory;
         const matchesMin = min === null || price >= min;
         const matchesMax = max === null || price <= max;
+        const matchesFreelancer =
+          !freelancerIdFilter || String(service.freelancerId) === String(freelancerIdFilter);
 
-        return matchesKeyword && matchesCity && matchesCategory && matchesMin && matchesMax;
+        return matchesKeyword && matchesCity && matchesCategory && matchesMin && matchesMax && matchesFreelancer;
       })
       .sort((a, b) => {
         const localComparison = sort === 'recommended' ? 0 : compareLocalPriority(a, b, localPriorityCity);
@@ -404,7 +413,7 @@ export default function Services() {
             return getPrice(b) - getPrice(a);
         }
       });
-  }, [categoryName, city, keyword, localPriorityCity, maxPrice, minPrice, radiusKm, searchLocation, servicesWithRecommendation, sort]);
+  }, [categoryName, city, freelancerIdFilter, keyword, localPriorityCity, maxPrice, minPrice, radiusKm, searchLocation, servicesWithRecommendation, sort]);
 
   const catalogStats = useMemo(() => {
     const rapidServices = services.filter((service) => Number(service.deliveryTimeDays || 999) <= 3).length;
@@ -439,11 +448,12 @@ export default function Services() {
         keyword && `Mot-cle : ${keyword}`,
         city && `Ville : ${city}`,
         city && `Rayon : ${formatRadiusLabel(radiusKm)}`,
+        freelancerIdFilter && 'Freelance selectionne',
         categoryName && `Categorie : ${categoryName}`,
         minPrice && `Min : ${formatPrice(minPrice)} MAD`,
         maxPrice && `Max : ${formatPrice(maxPrice)} MAD`,
       ].filter(Boolean),
-    [categoryName, city, keyword, maxPrice, minPrice, radiusKm],
+    [categoryName, city, freelancerIdFilter, keyword, maxPrice, minPrice, radiusKm],
   );
 
   const hasActiveFilters = activeFilters.length > 0;
@@ -460,6 +470,7 @@ export default function Services() {
       lng: searchLongitude,
       radiusKm,
       categoryName,
+      freelancerId: freelancerIdFilter,
       minPrice,
       maxPrice,
       sort,
@@ -524,6 +535,35 @@ export default function Services() {
     setMaxPrice('');
     setSort('recommended');
     setSearchParams({});
+  };
+
+  const handleToggleServiceFavorite = async (serviceId) => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    if (user?.role !== 'CLIENT') {
+      alert('Seuls les clients peuvent sauvegarder des favoris.');
+      return;
+    }
+
+    const isFavorite = serviceIds.has(String(serviceId));
+    setFavoriteLoadingId(serviceId);
+
+    try {
+      if (isFavorite) {
+        await removeServiceFavorite(serviceId);
+        removeFavorite({ type: 'SERVICE', serviceId });
+      } else {
+        const response = await addServiceFavorite(serviceId);
+        upsertFavorite(response.data);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
+    } finally {
+      setFavoriteLoadingId(null);
+    }
   };
 
   return (
@@ -743,79 +783,88 @@ export default function Services() {
                   const previewDescription =
                     description?.trim() || 'Brief, budget et delai a valider directement avec le freelance.';
                   return (
-                    <Link
-                      to={`/services/${service.id}`}
-                      className="service-result-card"
-                      key={service.id}
-                      aria-label={`Voir le service ${service.title}`}
-                    >
-                      <div
-                        className={`service-result-media ${coverImageUrl ? 'has-cover' : ''}`}
+                    <article className="service-result-card" key={service.id}>
+                      <div className="service-result-favorite">
+                        <FavoriteButton
+                          active={serviceIds.has(String(service.id))}
+                          compact
+                          loading={favoriteLoadingId === service.id}
+                          onClick={() => handleToggleServiceFavorite(service.id)}
+                        />
+                      </div>
+                      <Link
+                        to={`/services/${service.id}`}
+                        className="service-result-card-link"
+                        aria-label={`Voir le service ${service.title}`}
                       >
-                        {coverImageUrl ? (
-                          <img src={coverImageUrl} alt="" className="service-result-cover" />
-                        ) : (
-                          <div className="service-result-cover-placeholder">
-                            <BriefcaseBusiness size={24} />
-                            <span>{service.categoryName || 'Service'}</span>
+                        <div
+                          className={`service-result-media ${coverImageUrl ? 'has-cover' : ''}`}
+                        >
+                          {coverImageUrl ? (
+                            <img src={coverImageUrl} alt="" className="service-result-cover" />
+                          ) : (
+                            <div className="service-result-cover-placeholder">
+                              <BriefcaseBusiness size={24} />
+                              <span>{service.categoryName || 'Service'}</span>
+                            </div>
+                          )}
+                          <div className="service-result-category">{service.categoryName || 'Service'}</div>
+                        </div>
+
+                        <div className="service-result-topline">
+                          <div className="service-result-verified">
+                            <ShieldCheck size={13} />
+                            Profil verifie
                           </div>
-                        )}
-                        <div className="service-result-category">{service.categoryName || 'Service'}</div>
-                      </div>
-
-                      <div className="service-result-topline">
-                        <div className="service-result-verified">
-                          <ShieldCheck size={13} />
-                          Profil verifie
+                          <div className="service-result-delivery-pill">
+                            <Clock size={13} />
+                            {getDeliveryTimeLabel(service.deliveryTimeDays).replace('Sous ', '')}
+                          </div>
                         </div>
-                        <div className="service-result-delivery-pill">
-                          <Clock size={13} />
-                          {getDeliveryTimeLabel(service.deliveryTimeDays).replace('Sous ', '')}
+
+                        <h2 className="service-result-title">{service.title}</h2>
+
+                        <div className="service-result-author">
+                          <div className="service-result-avatar">{getInitials(freelancerName)}</div>
+                          <div className="service-result-author-copy">
+                            <strong>{freelancerName}</strong>
+                            <span>
+                              <MapPin size={12} />
+                              {getServiceLocationLabel(service)}
+                            </span>
+                          </div>
+                          <div className="service-result-rating">
+                            <Star size={13} />
+                            {getRating(service)}
+                          </div>
                         </div>
-                      </div>
 
-                      <h2 className="service-result-title">{service.title}</h2>
-
-                      <div className="service-result-author">
-                        <div className="service-result-avatar">{getInitials(freelancerName)}</div>
-                        <div className="service-result-author-copy">
-                          <strong>{freelancerName}</strong>
-                          <span>
-                            <MapPin size={12} />
-                            {getServiceLocationLabel(service)}
+                        <div className="service-result-meta">
+                          <span className={`service-chip ${getExecutionModeTone(service.executionMode)}`}>
+                            {getExecutionModeLabel(service.executionMode)}
+                          </span>
+                          <span className="service-chip">
+                            <Clock size={12} />
+                            {getDeliveryTimeLabel(service.deliveryTimeDays)}
                           </span>
                         </div>
-                        <div className="service-result-rating">
-                          <Star size={13} />
-                          {getRating(service)}
+
+                        <p className="service-result-desc">
+                          {previewDescription.slice(0, 118)}
+                          {previewDescription.length > 118 ? '...' : ''}
+                        </p>
+
+                        <div className="service-result-footer">
+                          <div>
+                            <span>Budget indicatif</span>
+                            <strong>
+                              <b>{formatPrice(service.price)}</b> MAD
+                            </strong>
+                          </div>
+                          <span className="service-result-action">Voir l'offre</span>
                         </div>
-                      </div>
-
-                      <div className="service-result-meta">
-                        <span className={`service-chip ${getExecutionModeTone(service.executionMode)}`}>
-                          {getExecutionModeLabel(service.executionMode)}
-                        </span>
-                        <span className="service-chip">
-                          <Clock size={12} />
-                          {getDeliveryTimeLabel(service.deliveryTimeDays)}
-                        </span>
-                      </div>
-
-                      <p className="service-result-desc">
-                        {previewDescription.slice(0, 118)}
-                        {previewDescription.length > 118 ? '...' : ''}
-                      </p>
-
-                      <div className="service-result-footer">
-                        <div>
-                          <span>Budget indicatif</span>
-                          <strong>
-                            <b>{formatPrice(service.price)}</b> MAD
-                          </strong>
-                        </div>
-                        <span className="service-result-action">Voir l'offre</span>
-                      </div>
-                    </Link>
+                      </Link>
+                    </article>
                   );
                 })}
               </div>

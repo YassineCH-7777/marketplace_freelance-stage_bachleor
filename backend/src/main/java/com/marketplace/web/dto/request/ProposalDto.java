@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -28,6 +29,7 @@ public class ProposalDto {
     private String message;
     private BigDecimal proposedPrice;
     private Integer estimatedDays;
+    private List<String> proposedSteps;
     private String portfolioUrl;
     private ProposalStatus status;
     private LocalDateTime createdAt;

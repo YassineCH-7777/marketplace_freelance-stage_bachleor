@@ -5,6 +5,7 @@ import com.marketplace.domain.enums.MissionMilestoneStatus;
 import com.marketplace.domain.enums.OrderStatus;
 import com.marketplace.domain.enums.PaymentStatus;
 import com.marketplace.domain.enums.RequestStatus;
+import com.marketplace.domain.model.Attachment;
 import com.marketplace.domain.model.FreelancerProfile;
 import com.marketplace.domain.model.MissionActivity;
 import com.marketplace.domain.model.MissionMilestone;
@@ -175,6 +176,7 @@ public class OrderService {
             if (order.getDeliveredAt() == null) {
                 order.setDeliveredAt(LocalDateTime.now());
             }
+            moveClientValidationMilestoneToWaitingClient(order);
         }
 
         if (nextStatus == OrderStatus.COMPLETED) {
@@ -205,13 +207,18 @@ public class OrderService {
                 .description(normalizeOptionalText(dto.getDescription()))
                 .amount(dto.getAmount())
                 .deadline(dto.getDeadline())
+                .timerDurationMinutes(normalizeTimerDuration(dto.getTimerDurationMinutes()))
+                .timerStartedAt(dto.getTimerStartedAt())
+                .timerCompletedAt(dto.getTimerCompletedAt())
                 .status(dto.getStatus() != null ? dto.getStatus() : MissionMilestoneStatus.PENDING)
                 .sortOrder(dto.getSortOrder() != null
                         ? dto.getSortOrder()
                         : (int) missionMilestoneRepository.countByOrder_Id(orderId) + 1)
                 .build();
+        applyMilestoneTimerState(milestone);
 
         MissionMilestone savedMilestone = missionMilestoneRepository.save(milestone);
+        refreshOrderProgressFromMilestones(order);
         logActivity(
                 order,
                 order.getFreelancer().getUser(),
@@ -246,14 +253,29 @@ public class OrderService {
         if (dto.getDeadline() != null) {
             milestone.setDeadline(dto.getDeadline());
         }
+        if (dto.getTimerDurationMinutes() != null) {
+            milestone.setTimerDurationMinutes(normalizeTimerDuration(dto.getTimerDurationMinutes()));
+        }
+        if (dto.getTimerStartedAt() != null) {
+            milestone.setTimerStartedAt(dto.getTimerStartedAt());
+        }
+        if (dto.getTimerCompletedAt() != null) {
+            milestone.setTimerCompletedAt(dto.getTimerCompletedAt());
+        }
+        if (dto.getStatus() == MissionMilestoneStatus.COMPLETED && isClientValidatedMilestone(order, milestone)) {
+            throw new BusinessException("La phase de livraison doit etre terminee par le client apres verification.", HttpStatus.BAD_REQUEST);
+        }
         if (dto.getStatus() != null) {
             milestone.setStatus(dto.getStatus());
         }
         if (dto.getSortOrder() != null) {
             milestone.setSortOrder(dto.getSortOrder());
         }
+        applyMilestoneTimerState(milestone);
+        startOrderFromMilestoneIfNeeded(order, milestone);
 
         MissionMilestone savedMilestone = missionMilestoneRepository.save(milestone);
+        refreshOrderProgressFromMilestones(order);
         logActivity(
                 order,
                 order.getFreelancer().getUser(),
@@ -298,7 +320,7 @@ public class OrderService {
     @Transactional
     public OrderDto acceptDelivery(Long orderId, Long clientId, OrderClientDecisionDto dto) {
         Order order = findClientOrder(orderId, clientId);
-        if (order.getStatus() != OrderStatus.DELIVERED && order.getStatus() != OrderStatus.WAITING_CLIENT) {
+        if (!isClientDeliveryReviewable(order)) {
             throw new BusinessException("La mission doit etre livree avant validation client.", HttpStatus.BAD_REQUEST);
         }
 
@@ -307,6 +329,7 @@ public class OrderService {
         order.setPaymentStatus(PaymentStatus.PAID);
         order.setEndDate(order.getEndDate() != null ? order.getEndDate() : LocalDate.now());
         order.setRevisionRequest(null);
+        completeClientValidationMilestone(order);
 
         String comment = dto != null ? normalizeOptionalText(dto.getComment()) : null;
         Order savedOrder = orderRepository.save(order);
@@ -322,7 +345,7 @@ public class OrderService {
     @Transactional
     public OrderDto requestRevision(Long orderId, Long clientId, OrderClientDecisionDto dto) {
         Order order = findClientOrder(orderId, clientId);
-        if (order.getStatus() != OrderStatus.DELIVERED && order.getStatus() != OrderStatus.WAITING_CLIENT) {
+        if (!isClientDeliveryReviewable(order)) {
             throw new BusinessException("Une revision ne peut etre demandee qu'apres une livraison.", HttpStatus.BAD_REQUEST);
         }
 
@@ -330,11 +353,16 @@ public class OrderService {
         if (comment == null) {
             throw new BusinessException("Le motif de revision est obligatoire.", HttpStatus.BAD_REQUEST);
         }
+        if (safeRevisionCount(order.getRevisionCount()) >= safeMaxRevisionRounds(order.getMaxRevisionRounds())) {
+            throw new BusinessException("Le nombre maximum de revisions est atteint pour cette mission.", HttpStatus.BAD_REQUEST);
+        }
 
         order.setStatus(OrderStatus.REVISION);
         order.setRevisionRequest(comment);
+        order.setRevisionCount(safeRevisionCount(order.getRevisionCount()) + 1);
         order.setPaymentStatus(PaymentStatus.PENDING);
         order.setProgressPercentage(Math.max(70, Math.min(safeProgress(order.getProgressPercentage()), 95)));
+        moveClientValidationMilestoneToRevision(order);
 
         Order savedOrder = orderRepository.save(order);
         logActivity(
@@ -393,6 +421,8 @@ public class OrderService {
                 .notes(order.getNotes())
                 .deliveryNote(order.getDeliveryNote())
                 .revisionRequest(order.getRevisionRequest())
+                .revisionCount(safeRevisionCount(order.getRevisionCount()))
+                .maxRevisionRounds(safeMaxRevisionRounds(order.getMaxRevisionRounds()))
                 .deliveredAt(order.getDeliveredAt())
                 .attachments(safeList(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId()))
                         .stream()
@@ -425,6 +455,9 @@ public class OrderService {
                 .description(milestone.getDescription())
                 .amount(milestone.getAmount())
                 .deadline(milestone.getDeadline())
+                .timerDurationMinutes(milestone.getTimerDurationMinutes())
+                .timerStartedAt(milestone.getTimerStartedAt())
+                .timerCompletedAt(milestone.getTimerCompletedAt())
                 .status(milestone.getStatus())
                 .sortOrder(milestone.getSortOrder())
                 .createdAt(milestone.getCreatedAt())
@@ -454,6 +487,37 @@ public class OrderService {
             throw new UnauthorizedException("Acces refuse");
         }
         return order;
+    }
+
+    private boolean isClientDeliveryReviewable(Order order) {
+        if (order.getStatus() == OrderStatus.DELIVERED || order.getStatus() == OrderStatus.WAITING_CLIENT) {
+            return true;
+        }
+        if (order.getStatus() == OrderStatus.COMPLETED
+                || order.getStatus() == OrderStatus.CANCELLED
+                || order.getStatus() == OrderStatus.DISPUTED
+                || order.getStatus() == OrderStatus.REVISION) {
+            return false;
+        }
+
+        MissionMilestone validationMilestone = findClientValidationMilestone(order);
+        boolean validationIsWaitingClient = validationMilestone != null
+                && validationMilestone.getStatus() == MissionMilestoneStatus.WAITING_CLIENT;
+
+        return normalizeOptionalText(order.getDeliveryNote()) != null
+                || order.getDeliveredAt() != null
+                || validationIsWaitingClient
+                || hasDeliveryAttachment(order);
+    }
+
+    private boolean hasDeliveryAttachment(Order order) {
+        return safeList(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId()))
+                .stream()
+                .anyMatch(this::isDeliveryAttachment);
+    }
+
+    private boolean isDeliveryAttachment(Attachment attachment) {
+        return attachment != null && "DELIVERY_PROOF".equalsIgnoreCase(attachment.getAttachmentType());
     }
 
     private void ensureFreelancerOwnsOrder(Order order, Long freelancerId) {
@@ -487,6 +551,7 @@ public class OrderService {
                 .description("Clarification du besoin, livrables et planning.")
                 .amount(splitAmount(amount, "0.20"))
                 .deadline(order.getDueDate())
+                .timerDurationMinutes(240)
                 .status(MissionMilestoneStatus.PENDING)
                 .sortOrder(1)
                 .build());
@@ -496,6 +561,7 @@ public class OrderService {
                 .description("Production principale de la mission.")
                 .amount(splitAmount(amount, "0.60"))
                 .deadline(order.getDueDate())
+                .timerDurationMinutes(1440)
                 .status(MissionMilestoneStatus.PENDING)
                 .sortOrder(2)
                 .build());
@@ -505,9 +571,144 @@ public class OrderService {
                 .description("Livraison finale, retour client et paiement.")
                 .amount(splitAmount(amount, "0.20"))
                 .deadline(order.getDueDate())
+                .timerDurationMinutes(240)
                 .status(MissionMilestoneStatus.PENDING)
                 .sortOrder(3)
                 .build());
+    }
+
+    private void moveClientValidationMilestoneToWaitingClient(Order order) {
+        MissionMilestone milestone = findClientValidationMilestone(order);
+        if (milestone == null
+                || milestone.getStatus() == MissionMilestoneStatus.COMPLETED
+                || milestone.getStatus() == MissionMilestoneStatus.CANCELLED) {
+            return;
+        }
+
+        milestone.setStatus(MissionMilestoneStatus.WAITING_CLIENT);
+        if (milestone.getTimerStartedAt() == null) {
+            milestone.setTimerStartedAt(LocalDateTime.now());
+        }
+        milestone.setTimerCompletedAt(null);
+        missionMilestoneRepository.save(milestone);
+    }
+
+    private void completeClientValidationMilestone(Order order) {
+        MissionMilestone milestone = findClientValidationMilestone(order);
+        if (milestone == null || milestone.getStatus() == MissionMilestoneStatus.CANCELLED) {
+            return;
+        }
+
+        milestone.setStatus(MissionMilestoneStatus.COMPLETED);
+        applyMilestoneTimerState(milestone);
+        missionMilestoneRepository.save(milestone);
+    }
+
+    private void moveClientValidationMilestoneToRevision(Order order) {
+        MissionMilestone milestone = findClientValidationMilestone(order);
+        if (milestone == null || milestone.getStatus() == MissionMilestoneStatus.CANCELLED) {
+            return;
+        }
+
+        milestone.setStatus(MissionMilestoneStatus.IN_PROGRESS);
+        if (milestone.getTimerStartedAt() == null) {
+            milestone.setTimerStartedAt(LocalDateTime.now());
+        }
+        milestone.setTimerCompletedAt(null);
+        missionMilestoneRepository.save(milestone);
+    }
+
+    private boolean isClientValidatedMilestone(Order order, MissionMilestone milestone) {
+        MissionMilestone clientValidationMilestone = findClientValidationMilestone(order);
+        return clientValidationMilestone != null
+                && milestone.getId() != null
+                && milestone.getId().equals(clientValidationMilestone.getId());
+    }
+
+    private MissionMilestone findClientValidationMilestone(Order order) {
+        List<MissionMilestone> milestones = safeList(
+                missionMilestoneRepository.findByOrder_IdOrderBySortOrderAscCreatedAtAsc(order.getId()));
+        if (milestones.isEmpty()) {
+            return null;
+        }
+
+        return milestones.stream()
+                .filter(this::isDeliveryMilestone)
+                .findFirst()
+                .orElse(milestones.get(milestones.size() - 1));
+    }
+
+    private boolean isDeliveryMilestone(MissionMilestone milestone) {
+        String title = milestone.getTitle() != null ? milestone.getTitle().toLowerCase() : "";
+        return title.contains("livraison") || title.contains("validation");
+    }
+
+    private void applyMilestoneTimerState(MissionMilestone milestone) {
+        LocalDateTime now = LocalDateTime.now();
+        if (milestone.getStatus() == MissionMilestoneStatus.IN_PROGRESS && milestone.getTimerStartedAt() == null) {
+            milestone.setTimerStartedAt(now);
+        }
+        if (milestone.getStatus() == MissionMilestoneStatus.COMPLETED) {
+            if (milestone.getTimerStartedAt() == null) {
+                milestone.setTimerStartedAt(now);
+            }
+            if (milestone.getTimerCompletedAt() == null) {
+                milestone.setTimerCompletedAt(now);
+            }
+        }
+        if (milestone.getStatus() != MissionMilestoneStatus.COMPLETED && milestone.getTimerCompletedAt() != null) {
+            milestone.setTimerCompletedAt(null);
+        }
+    }
+
+    private void startOrderFromMilestoneIfNeeded(Order order, MissionMilestone milestone) {
+        if (order.getStatus() == OrderStatus.ACCEPTED && milestone.getStatus() == MissionMilestoneStatus.IN_PROGRESS) {
+            order.setStatus(OrderStatus.IN_PROGRESS);
+            if (order.getStartDate() == null) {
+                order.setStartDate(LocalDate.now());
+            }
+        }
+    }
+
+    private void refreshOrderProgressFromMilestones(Order order) {
+        List<MissionMilestone> milestones = safeList(
+                missionMilestoneRepository.findByOrder_IdOrderBySortOrderAscCreatedAtAsc(order.getId()));
+        if (milestones.isEmpty()) {
+            return;
+        }
+
+        double completedUnits = 0;
+        for (MissionMilestone milestone : milestones) {
+            if (milestone.getStatus() == MissionMilestoneStatus.COMPLETED) {
+                completedUnits += 1;
+            } else if (milestone.getStatus() == MissionMilestoneStatus.IN_PROGRESS
+                    || milestone.getStatus() == MissionMilestoneStatus.WAITING_CLIENT) {
+                completedUnits += 0.5;
+            }
+        }
+
+        int phaseProgress = (int) Math.round((completedUnits / milestones.size()) * 90);
+        int statusProgress = resolveProgressForStatus(order.getStatus(), 0);
+        int nextProgress = Math.max(statusProgress, phaseProgress);
+        if (order.getStatus() == OrderStatus.COMPLETED) {
+            nextProgress = 100;
+        } else if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.DISPUTED) {
+            nextProgress = safeProgress(order.getProgressPercentage());
+        }
+
+        validateProgress(nextProgress);
+        order.setProgressPercentage(nextProgress);
+        orderRepository.save(order);
+    }
+
+    private Integer normalizeTimerDuration(Integer value) {
+        if (value == null) {
+            return null;
+        }
+        if (value <= 0) {
+            throw new BusinessException("La duree du timer doit etre superieure a 0 minute.", HttpStatus.BAD_REQUEST);
+        }
+        return value;
     }
 
     private BigDecimal splitAmount(BigDecimal amount, String ratio) {
@@ -592,6 +793,14 @@ public class OrderService {
 
     private int safeProgress(Integer progress) {
         return progress == null ? 0 : progress;
+    }
+
+    private int safeRevisionCount(Integer revisionCount) {
+        return revisionCount != null ? Math.max(revisionCount, 0) : 0;
+    }
+
+    private int safeMaxRevisionRounds(Integer maxRevisionRounds) {
+        return maxRevisionRounds != null ? Math.max(maxRevisionRounds, 0) : 3;
     }
 
     private void validateProgress(int progress) {

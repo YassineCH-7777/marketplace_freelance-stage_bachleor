@@ -9,6 +9,7 @@ import AdminUsers from '@/features/admin/pages/AdminUsers';
 import Login from '@/features/auth/pages/Login';
 import Register from '@/features/auth/pages/Register';
 import ClientDashboard from '@/features/client/pages/ClientDashboard';
+import MyFavorites from '@/features/client/pages/MyFavorites';
 import ClientProfile from '@/features/client/pages/ClientProfile';
 import MyOrders from '@/features/client/pages/MyOrders';
 import FreelancerDashboard from '@/features/freelancer/pages/FreelancerDashboard';
@@ -64,6 +65,7 @@ export default function AppRoutes() {
       <Route element={<ClientRoute />}>
         <Route path="/client/dashboard" element={<ClientDashboard />} />
         <Route path="/client/orders" element={<MyOrders />} />
+        <Route path="/client/favorites" element={<MyFavorites />} />
         <Route path="/client/profile" element={<ClientProfile />} />
         <Route path="/client/requests" element={<MyServiceRequests />} />
         <Route path="/client/requests/new" element={<CreateServiceRequest />} />
@@ -84,4 +86,3 @@ export default function AppRoutes() {
     </Routes>
   );
 }
-

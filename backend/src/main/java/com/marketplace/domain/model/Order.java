@@ -78,6 +78,14 @@ public class Order {
     @Column(name = "revision_request")
     private String revisionRequest;
 
+    @Builder.Default
+    @Column(name = "revision_count", nullable = false)
+    private Integer revisionCount = 0;
+
+    @Builder.Default
+    @Column(name = "max_revision_rounds", nullable = false)
+    private Integer maxRevisionRounds = 3;
+
     @Column(name = "delivered_at")
     private LocalDateTime deliveredAt;
 

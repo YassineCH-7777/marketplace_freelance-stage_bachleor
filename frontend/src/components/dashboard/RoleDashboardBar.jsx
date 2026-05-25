@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FileText,
   FolderKanban,
+  Heart,
   LayoutDashboard,
   MessageSquare,
   Package,
@@ -196,6 +197,7 @@ export default function RoleDashboardBar() {
         ],
         navItems: [
           { icon: <Search size={16} />, label: 'Explorer les services', matchPrefix: true, to: '/services' },
+          { icon: <Heart size={16} />, label: 'Mes Favoris', to: '/client/favorites' },
           { icon: <FileText size={16} />, label: 'Mes Demandes', to: '/client/requests' },
           { icon: <Package size={16} />, label: 'Mes Commandes', to: '/client/orders' },
           { icon: <UserCheck size={16} />, label: 'Mon Profil', to: '/client/profile' },

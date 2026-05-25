@@ -36,6 +36,8 @@ public class OrderDto {
     private String notes;
     private String deliveryNote;
     private String revisionRequest;
+    private Integer revisionCount;
+    private Integer maxRevisionRounds;
     private LocalDateTime deliveredAt;
     private List<AttachmentDto> attachments;
     private List<MissionMilestoneDto> milestones;

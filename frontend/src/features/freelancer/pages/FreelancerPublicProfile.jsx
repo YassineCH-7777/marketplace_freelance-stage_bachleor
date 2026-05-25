@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Briefcase, Loader2, MapPin, MessageSquare } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Briefcase, Loader2, MapPin, MessageSquare } from 'lucide-react';
 import FreelancerProfileCard from '@/components/freelance/FreelancerProfileCard';
 import LocalTrustSection from '@/components/freelance/LocalTrustSection';
 import PortfolioSection from '@/components/freelance/PortfolioSection';
+import FavoriteButton from '@/components/common/FavoriteButton';
 import useAuth from '@/hooks/useAuth';
+import useClientFavorites from '@/hooks/useClientFavorites';
+import { addFreelancerFavorite, removeFreelancerFavorite } from '@/api/favoriteApi';
 import { createConversation } from '@/api/messageApi';
 import { getActiveServices, getFreelancerProfile } from '@/api/serviceApi';
 import { getFreelancerReviews } from '@/api/reviewApi';
@@ -25,11 +28,15 @@ export default function FreelancerPublicProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const { freelancerIds, removeFavorite, upsertFavorite } = useClientFavorites();
   const [profile, setProfile] = useState(null);
   const [services, setServices] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [contacting, setContacting] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const previewServices = services.slice(0, 3);
+  const hasMoreServices = services.length > previewServices.length;
 
   useEffect(() => {
     let isMounted = true;
@@ -81,6 +88,34 @@ export default function FreelancerPublicProfile() {
     }
   };
 
+  const handleToggleFreelancerFavorite = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    if (user?.role !== 'CLIENT') {
+      alert('Seuls les clients peuvent sauvegarder des favoris.');
+      return;
+    }
+
+    const isFavorite = freelancerIds.has(String(id));
+    setFavoriteLoading(true);
+    try {
+      if (isFavorite) {
+        await removeFreelancerFavorite(id);
+        removeFavorite({ type: 'FREELANCER', freelancerId: id });
+      } else {
+        const response = await addFreelancerFavorite(id);
+        upsertFavorite(response.data);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="dashboard-page freelancer-public-page">
@@ -125,6 +160,12 @@ export default function FreelancerPublicProfile() {
         />
 
         <div className="public-profile-actions">
+          <FavoriteButton
+            active={freelancerIds.has(String(id))}
+            loading={favoriteLoading}
+            onClick={handleToggleFreelancerFavorite}
+            label="Sauvegarder freelance"
+          />
           <button
             type="button"
             className="btn btn-primary"
@@ -146,21 +187,34 @@ export default function FreelancerPublicProfile() {
 
         <section className="card animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <div className="public-section-header">
-            <h2>Services proposes</h2>
-            <span className="badge badge-primary">
-              <Briefcase size={12} />
-              {services.length} service{services.length > 1 ? 's' : ''}
-            </span>
+            <div>
+              <h2>Services proposes</h2>
+              <p className="public-section-intro">
+                Les offres les plus utiles pour demarrer rapidement avec ce freelance.
+              </p>
+            </div>
+            <div className="public-section-actions">
+              <span className="badge badge-primary">
+                <Briefcase size={12} />
+                {services.length} service{services.length > 1 ? 's' : ''}
+              </span>
+              {hasMoreServices && (
+                <Link to={`/services?freelancerId=${id}`} className="btn btn-secondary btn-sm">
+                  Voir plus
+                  <ArrowRight size={15} />
+                </Link>
+              )}
+            </div>
           </div>
 
           {services.length > 0 ? (
             <div className="public-services-grid">
-              {services.map((service) => {
+              {previewServices.map((service) => {
                 const coverImageUrl = getServiceCoverImageUrl(service);
                 const description = stripServiceMediaSection(service.description);
 
                 return (
-                  <article className="card public-service-card" key={service.id}>
+                  <article className="public-service-card" key={service.id}>
                     {coverImageUrl && (
                       <img src={coverImageUrl} alt="" className="public-service-cover" />
                     )}
@@ -170,8 +224,8 @@ export default function FreelancerPublicProfile() {
                     </div>
                     <h3 className="service-card-title">{service.title}</h3>
                     <p>
-                      {description?.slice(0, 160)}
-                      {description?.length > 160 ? '...' : ''}
+                      {description?.slice(0, 110)}
+                      {description?.length > 110 ? '...' : ''}
                     </p>
                     <div className="service-meta-chips">
                       <span className="service-chip">

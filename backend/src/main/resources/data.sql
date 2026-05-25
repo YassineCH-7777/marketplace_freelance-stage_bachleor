@@ -269,6 +269,97 @@ FROM orders o
 WHERE o.notes = 'Projet en cours de développement, phase de design validée.'
   AND NOT EXISTS (SELECT 1 FROM mission_milestones mm WHERE mm.order_id = o.id AND mm.sort_order = 3);
 
+-- Timers de phases pour la mission active : Recherche terminee, Execution en cours, Livraison a venir.
+UPDATE mission_milestones mm
+SET
+    title = 'Recherche',
+    description = 'Analyse du besoin, recherche de references et validation de la direction.',
+    timer_duration_minutes = 180,
+    timer_started_at = COALESCE(mm.timer_started_at, TIMESTAMP '2024-05-01 09:00:00'),
+    timer_completed_at = COALESCE(mm.timer_completed_at, TIMESTAMP '2024-05-01 11:45:00'),
+    status = 'COMPLETED'
+FROM orders o
+WHERE mm.order_id = o.id
+  AND o.service_id = (SELECT id FROM services WHERE slug = 'site-web-professionnel-react')
+  AND mm.sort_order = 1;
+
+UPDATE mission_milestones mm
+SET
+    timer_duration_minutes = 1440,
+    timer_started_at = COALESCE(mm.timer_started_at, CURRENT_TIMESTAMP - INTERVAL '3 hours'),
+    timer_completed_at = NULL,
+    status = 'IN_PROGRESS'
+FROM orders o
+WHERE mm.order_id = o.id
+  AND o.service_id = (SELECT id FROM services WHERE slug = 'site-web-professionnel-react')
+  AND mm.sort_order = 2;
+
+UPDATE mission_milestones mm
+SET
+    timer_duration_minutes = 240,
+    timer_started_at = NULL,
+    timer_completed_at = NULL,
+    status = 'PENDING'
+FROM orders o
+WHERE mm.order_id = o.id
+  AND o.service_id = (SELECT id FROM services WHERE slug = 'site-web-professionnel-react')
+  AND mm.sort_order = 3;
+
+-- Jalons times pour la mission terminee, utiles pour verifier le rendu cote client.
+INSERT INTO mission_milestones (
+    order_id,
+    title,
+    description,
+    amount,
+    deadline,
+    timer_duration_minutes,
+    timer_started_at,
+    timer_completed_at,
+    status,
+    sort_order
+)
+SELECT
+    o.id,
+    'Diagnostic',
+    'Recherche de la panne et verification du reseau local.',
+    10.00,
+    o.due_date,
+    60,
+    TIMESTAMP '2024-01-10 09:00:00',
+    TIMESTAMP '2024-01-10 09:45:00',
+    'COMPLETED',
+    1
+FROM orders o
+WHERE o.service_id = (SELECT id FROM services WHERE slug = 'support-informatique-pro')
+  AND NOT EXISTS (SELECT 1 FROM mission_milestones mm WHERE mm.order_id = o.id AND mm.sort_order = 1);
+
+INSERT INTO mission_milestones (
+    order_id,
+    title,
+    description,
+    amount,
+    deadline,
+    timer_duration_minutes,
+    timer_started_at,
+    timer_completed_at,
+    status,
+    sort_order
+)
+SELECT
+    o.id,
+    'Mise en service',
+    'Correction, tests imprimante et validation avec le client.',
+    30.00,
+    o.due_date,
+    120,
+    TIMESTAMP '2024-01-10 10:00:00',
+    TIMESTAMP '2024-01-10 11:20:00',
+    'COMPLETED',
+    2
+FROM orders o
+WHERE o.service_id = (SELECT id FROM services WHERE slug = 'support-informatique-pro')
+  AND NOT EXISTS (SELECT 1 FROM mission_milestones mm WHERE mm.order_id = o.id AND mm.sort_order = 2);
+
 INSERT INTO mission_activities (order_id, actor_user_id, type, title, details, progress_snapshot, status_snapshot)
 SELECT o.id, u.id, 'STARTED', 'Mission demarree', 'Phase de design validee, production en cours.', o.progress_percentage, o.status
 FROM orders o
@@ -276,6 +367,19 @@ JOIN freelancer_profiles fp ON o.freelancer_id = fp.id
 JOIN users u ON fp.user_id = u.id
 WHERE o.notes = 'Projet en cours de développement, phase de design validée.'
   AND NOT EXISTS (SELECT 1 FROM mission_activities ma WHERE ma.order_id = o.id AND ma.type = 'STARTED');
+
+INSERT INTO mission_activities (order_id, actor_user_id, type, title, details, progress_snapshot, status_snapshot)
+SELECT o.id, u.id, 'MILESTONE_UPDATED', 'Phase Recherche terminee', 'La recherche est terminee et l avancement de la mission a ete mis a jour.', 60, o.status
+FROM orders o
+JOIN freelancer_profiles fp ON o.freelancer_id = fp.id
+JOIN users u ON fp.user_id = u.id
+WHERE o.service_id = (SELECT id FROM services WHERE slug = 'site-web-professionnel-react')
+  AND NOT EXISTS (
+      SELECT 1 FROM mission_activities ma
+      WHERE ma.order_id = o.id
+        AND ma.type = 'MILESTONE_UPDATED'
+        AND ma.title = 'Phase Recherche terminee'
+  );
 
 INSERT INTO mission_activities (order_id, actor_user_id, type, title, details, progress_snapshot, status_snapshot)
 SELECT o.id, u.id, 'CLIENT_ACCEPTED', 'Livraison validee par le client', 'Mission finalisee et paiement marque comme libere.', o.progress_percentage, o.status

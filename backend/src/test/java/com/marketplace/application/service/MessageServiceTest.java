@@ -113,6 +113,7 @@ class MessageServiceTest {
         assertThat(result.getId()).isEqualTo(77L);
         assertThat(result.getContent()).isEqualTo("Bonjour, pouvez-vous livrer en 3 jours ?");
         assertThat(result.isRead()).isFalse();
+        assertThat(result.isImportant()).isFalse();
         assertThat(conversation.getLastMessageAt()).isNotNull();
         verify(notificationService).createNotification(
                 eq(9L),
@@ -157,6 +158,29 @@ class MessageServiceTest {
         verify(messageRepository).markConversationAsRead(44L, 5L);
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getSenderId()).isEqualTo(9L);
+    }
+
+    @Test
+    void updateMessageImportanceMarksMessageForParticipants() {
+        User client = user(5L, "client@marketplace.com", UserRole.CLIENT);
+        User freelancerUser = user(9L, "freelancer@marketplace.com", UserRole.FREELANCER);
+        Conversation conversation = conversation(44L, client, freelancerUser);
+        Message message = Message.builder()
+                .id(88L)
+                .conversation(conversation)
+                .sender(client)
+                .content("Point important pour la livraison.")
+                .isRead(false)
+                .createdAt(LocalDateTime.of(2026, 4, 26, 11, 0))
+                .build();
+
+        when(messageRepository.findById(88L)).thenReturn(Optional.of(message));
+        when(messageRepository.save(message)).thenReturn(message);
+
+        MessageDto result = messageService.updateMessageImportance(88L, 9L, true);
+
+        assertThat(message.isImportant()).isTrue();
+        assertThat(result.isImportant()).isTrue();
     }
 
     @Test

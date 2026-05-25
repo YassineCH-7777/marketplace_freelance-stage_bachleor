@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   CalendarDays,
   CheckCircle2,
@@ -9,7 +10,9 @@ import {
   GitBranch,
   MessageSquare,
   PackageCheck,
+  PlayCircle,
   RotateCcw,
+  TimerReset,
   UserRound,
 } from 'lucide-react';
 import AttachmentList from '@/components/common/AttachmentList';
@@ -19,10 +22,13 @@ import {
   formatOrderDate,
   formatPlanningDate,
   getMilestoneStatusMeta,
+  getMilestoneTimerMeta,
   getMissionChecklist,
   getMissionProgress,
   getOrderStatusMeta,
   getPaymentStatusMeta,
+  hasClientReviewableDelivery,
+  hasDeliveryAttachment,
 } from '@/utils/orderExecution';
 
 export default function MissionExecutionCard({
@@ -31,10 +37,18 @@ export default function MissionExecutionCard({
   onAcceptDelivery,
   onManage,
   onMessage,
+  onMilestoneUpdate,
   onRequestRevision,
   onReview,
+  savingMilestoneId,
 }) {
-  const statusMeta = getOrderStatusMeta(order.status);
+  const [, setTimerTick] = useState(0);
+  const reviewableDelivery = hasClientReviewableDelivery(order);
+  const effectiveStatus =
+    role === 'client' && reviewableDelivery && !['DELIVERED', 'WAITING_CLIENT'].includes(order.status)
+      ? 'WAITING_CLIENT'
+      : order.status;
+  const statusMeta = getOrderStatusMeta(effectiveStatus);
   const paymentMeta = getPaymentStatusMeta(order.paymentStatus);
   const progress = getMissionProgress(order);
   const checklist = getMissionChecklist(order);
@@ -42,8 +56,17 @@ export default function MissionExecutionCard({
   const counterpartValue = role === 'freelancer'
     ? order.clientEmail
     : order.freelancerEmail || `Freelance #${order.freelancerId}`;
-  const canClientReviewDelivery = role === 'client' && ['DELIVERED', 'WAITING_CLIENT'].includes(order.status);
+  const canClientReviewDelivery = role === 'client' && reviewableDelivery;
+  const hasDeliveryFile = hasDeliveryAttachment(order);
+  const revisionCount = Number(order.revisionCount) || 0;
+  const maxRevisionRounds = Number.isFinite(Number(order.maxRevisionRounds)) ? Number(order.maxRevisionRounds) : 3;
+  const canClientRequestRevision = canClientReviewDelivery && revisionCount < maxRevisionRounds;
   const canFreelancerManage = role === 'freelancer' && activeMissionStatuses.includes(order.status);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setTimerTick((tick) => tick + 1), 60000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   return (
     <article className="mission-card card animate-fade-in-up">
@@ -111,13 +134,53 @@ export default function MissionExecutionCard({
             <GitBranch size={14} /> Jalons
           </span>
           <div className="mission-milestone-list">
-            {order.milestones.map((milestone) => {
+            {order.milestones.map((milestone, index) => {
               const milestoneMeta = getMilestoneStatusMeta(milestone.status);
+              const timerMeta = getMilestoneTimerMeta(milestone);
+              const isClientValidatedMilestone =
+                /livraison|validation/i.test(milestone.title || '') || index === order.milestones.length - 1;
+              const canStartMilestone = canFreelancerManage && milestone.status === 'PENDING';
+              const canCompleteMilestone =
+                canFreelancerManage
+                && !isClientValidatedMilestone
+                && ['IN_PROGRESS', 'WAITING_CLIENT'].includes(milestone.status);
+              const isSavingMilestone = savingMilestoneId === milestone.id;
+
               return (
                 <div className="mission-milestone-item" key={milestone.id || `${order.id}-${milestone.sortOrder}`}>
-                  <div>
+                  <div className="mission-milestone-copy">
                     <strong>{milestone.title}</strong>
                     <span>{formatPlanningDate(milestone.deadline)}</span>
+                    <span className={`mission-milestone-timer ${timerMeta.tone}`}>
+                      <Clock3 size={12} /> {timerMeta.label}
+                    </span>
+                    {canFreelancerManage && onMilestoneUpdate && (canStartMilestone || canCompleteMilestone) && (
+                      <div className="mission-milestone-actions">
+                        {canStartMilestone && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => onMilestoneUpdate(order, milestone, 'IN_PROGRESS')}
+                            disabled={isSavingMilestone}
+                          >
+                            <PlayCircle size={13} /> Demarrer
+                          </button>
+                        )}
+                        {canCompleteMilestone && (
+                          <button
+                            type="button"
+                            className="btn btn-accept btn-xs"
+                            onClick={() => onMilestoneUpdate(order, milestone, 'COMPLETED')}
+                            disabled={isSavingMilestone}
+                          >
+                            <TimerReset size={13} /> Terminer
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {canFreelancerManage && isClientValidatedMilestone && milestone.status === 'WAITING_CLIENT' && (
+                      <span className="mission-milestone-helper">Validation finale par le client</span>
+                    )}
                   </div>
                   <span className={`mission-milestone-status ${milestoneMeta.className}`}>
                     {milestoneMeta.label}
@@ -134,7 +197,12 @@ export default function MissionExecutionCard({
           <span className="mission-meta-label">
             <PackageCheck size={14} /> Livraison
           </span>
-          <p>{order.deliveryNote || 'Aucune livraison n a encore ete partagee.'}</p>
+          <p>
+            {order.deliveryNote
+              || (hasDeliveryFile
+                ? 'Livraison partagee via les fichiers joints ci-dessous.'
+                : 'Aucune livraison n a encore ete partagee.')}
+          </p>
           {order.deliveredAt && <p>Livree le : {formatOrderDate(order.deliveredAt)}</p>}
           <AttachmentList attachments={order.attachments || []} compact />
         </div>
@@ -144,6 +212,7 @@ export default function MissionExecutionCard({
           </span>
           <p>{order.notes || 'Aucun suivi n a encore ete partage pour cette mission.'}</p>
           {order.revisionRequest && <p>Revision : {order.revisionRequest}</p>}
+          <p>Revisions : {revisionCount} / {maxRevisionRounds}</p>
         </div>
       </div>
 
@@ -167,7 +236,7 @@ export default function MissionExecutionCard({
       )}
 
       <div className="mission-actions">
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => downloadMissionReport(order, role)}>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => void downloadMissionReport(order)}>
           <Download size={14} /> Telecharger le compte-rendu
         </button>
 
@@ -182,8 +251,14 @@ export default function MissionExecutionCard({
             <button type="button" className="btn btn-accept btn-sm" onClick={() => onAcceptDelivery(order)}>
               <CheckCircle2 size={14} /> Valider la livraison
             </button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onRequestRevision(order)}>
-              <RotateCcw size={14} /> Demander revision
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => onRequestRevision(order)}
+              disabled={!canClientRequestRevision}
+              title={canClientRequestRevision ? undefined : 'Nombre maximum de revisions atteint'}
+            >
+              <RotateCcw size={14} /> {canClientRequestRevision ? 'Demander revision' : 'Revisions epuisees'}
             </button>
           </>
         )}

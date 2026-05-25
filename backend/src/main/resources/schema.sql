@@ -373,6 +373,30 @@ CREATE TABLE IF NOT EXISTS service_images (
 );
 
 -- =========================================================
+-- 8B) TABLE CLIENT FAVORITES
+-- =========================================================
+CREATE TABLE IF NOT EXISTS client_favorites (
+    id             BIGSERIAL PRIMARY KEY,
+    client_id      BIGINT NOT NULL,
+    service_id     BIGINT,
+    freelancer_id  BIGINT,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_client_favorites_client
+        FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_client_favorites_service
+        FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_client_favorites_freelancer
+        FOREIGN KEY (freelancer_id) REFERENCES freelancer_profiles(id) ON DELETE CASCADE,
+
+    CONSTRAINT chk_client_favorites_context CHECK (num_nonnulls(service_id, freelancer_id) = 1),
+    CONSTRAINT uq_client_favorites_service UNIQUE (client_id, service_id),
+    CONSTRAINT uq_client_favorites_freelancer UNIQUE (client_id, freelancer_id)
+);
+
+-- =========================================================
 -- 9) TABLE ORDER REQUESTS
 -- =========================================================
 CREATE TABLE IF NOT EXISTS order_requests (
@@ -466,6 +490,8 @@ CREATE TABLE IF NOT EXISTS orders (
     notes               TEXT,
     delivery_note       TEXT,
     revision_request    TEXT,
+    revision_count      INT NOT NULL DEFAULT 0,
+    max_revision_rounds INT NOT NULL DEFAULT 3,
     delivered_at        TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -493,7 +519,14 @@ ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS payment_status payment_status NOT NULL DEFAULT 'UNPAID',
     ADD COLUMN IF NOT EXISTS delivery_note TEXT,
     ADD COLUMN IF NOT EXISTS revision_request TEXT,
+    ADD COLUMN IF NOT EXISTS revision_count INT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS max_revision_rounds INT NOT NULL DEFAULT 3,
     ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+
+UPDATE orders
+SET
+    revision_count = COALESCE(revision_count, 0),
+    max_revision_rounds = COALESCE(max_revision_rounds, 3);
 
 UPDATE orders
 SET progress_percentage = CASE
@@ -510,6 +543,16 @@ BEGIN
         ALTER TABLE orders
             ADD CONSTRAINT chk_orders_progress CHECK (progress_percentage BETWEEN 0 AND 100);
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_orders_revision_count') THEN
+        ALTER TABLE orders
+            ADD CONSTRAINT chk_orders_revision_count CHECK (revision_count >= 0);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_orders_max_revision_rounds') THEN
+        ALTER TABLE orders
+            ADD CONSTRAINT chk_orders_max_revision_rounds CHECK (max_revision_rounds >= 0);
+    END IF;
 END $$;
 
 -- =========================================================
@@ -522,6 +565,9 @@ CREATE TABLE IF NOT EXISTS mission_milestones (
     description     TEXT,
     amount          NUMERIC(12,2),
     deadline        DATE,
+    timer_duration_minutes INT,
+    timer_started_at       TIMESTAMPTZ,
+    timer_completed_at     TIMESTAMPTZ,
     status          mission_milestone_status NOT NULL DEFAULT 'PENDING',
     sort_order      INT NOT NULL DEFAULT 0,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -531,8 +577,26 @@ CREATE TABLE IF NOT EXISTS mission_milestones (
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
 
     CONSTRAINT chk_mission_milestones_title_not_empty CHECK (char_length(trim(title)) >= 2),
-    CONSTRAINT chk_mission_milestones_amount CHECK (amount IS NULL OR amount >= 0)
+    CONSTRAINT chk_mission_milestones_amount CHECK (amount IS NULL OR amount >= 0),
+    CONSTRAINT chk_mission_milestones_timer_duration CHECK (
+        timer_duration_minutes IS NULL OR timer_duration_minutes > 0
+    )
 );
+
+ALTER TABLE mission_milestones
+    ADD COLUMN IF NOT EXISTS timer_duration_minutes INT,
+    ADD COLUMN IF NOT EXISTS timer_started_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS timer_completed_at TIMESTAMPTZ;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_mission_milestones_timer_duration') THEN
+        ALTER TABLE mission_milestones
+            ADD CONSTRAINT chk_mission_milestones_timer_duration CHECK (
+                timer_duration_minutes IS NULL OR timer_duration_minutes > 0
+            );
+    END IF;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_mission_milestones_order_sort
     ON mission_milestones(order_id, sort_order);
@@ -604,6 +668,7 @@ CREATE TABLE IF NOT EXISTS messages (
     sender_user_id      BIGINT NOT NULL,
     content             TEXT NOT NULL,
     is_read             BOOLEAN NOT NULL DEFAULT FALSE,
+    is_important        BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_messages_conversation
@@ -614,6 +679,9 @@ CREATE TABLE IF NOT EXISTS messages (
 
     CONSTRAINT chk_messages_content_not_empty CHECK (char_length(trim(content)) >= 1)
 );
+
+ALTER TABLE messages
+    ADD COLUMN IF NOT EXISTS is_important BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- =========================================================
 -- 13) TABLE REVIEWS
@@ -751,6 +819,11 @@ CREATE INDEX IF NOT EXISTS idx_services_created_at ON services(created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_service_images_service_id ON service_images(service_id);
 
+CREATE INDEX IF NOT EXISTS idx_client_favorites_client_id ON client_favorites(client_id);
+CREATE INDEX IF NOT EXISTS idx_client_favorites_service_id ON client_favorites(service_id);
+CREATE INDEX IF NOT EXISTS idx_client_favorites_freelancer_id ON client_favorites(freelancer_id);
+CREATE INDEX IF NOT EXISTS idx_client_favorites_created_at ON client_favorites(created_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_order_requests_client_id ON order_requests(client_id);
 CREATE INDEX IF NOT EXISTS idx_order_requests_service_id ON order_requests(service_id);
 CREATE INDEX IF NOT EXISTS idx_order_requests_status ON order_requests(status);
@@ -785,6 +858,7 @@ CREATE INDEX IF NOT EXISTS idx_conversations_last_message_at ON conversations(la
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_is_read ON messages(is_read);
+CREATE INDEX IF NOT EXISTS idx_messages_is_important ON messages(is_important);
 
 CREATE INDEX IF NOT EXISTS idx_reviews_freelancer_id ON reviews(freelancer_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_client_id ON reviews(client_id);
@@ -959,6 +1033,7 @@ CREATE TABLE IF NOT EXISTS proposals (
     message                 TEXT NOT NULL,
     proposed_price          NUMERIC(12,2) NOT NULL,
     estimated_days          INT NOT NULL,
+    proposed_steps          TEXT[] NOT NULL DEFAULT '{}',
     portfolio_url           TEXT,
     status                  proposal_status NOT NULL DEFAULT 'PENDING',
     created_at              TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -976,6 +1051,9 @@ CREATE TABLE IF NOT EXISTS proposals (
 
     CONSTRAINT uq_proposals_request_freelancer UNIQUE (service_request_id, freelancer_id)
 );
+
+ALTER TABLE proposals
+    ADD COLUMN IF NOT EXISTS proposed_steps TEXT[] NOT NULL DEFAULT '{}';
 
 -- =========================================================
 -- 21B) TABLE ATTACHMENTS (pieces jointes)

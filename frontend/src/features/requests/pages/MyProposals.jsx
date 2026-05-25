@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMyProposals, withdrawProposal } from '@/api/requestApi';
-import { FileText, ChevronRight, Coins, Clock, XCircle } from 'lucide-react';
+import { FileText, ChevronRight, Coins, Clock, ListChecks, XCircle } from 'lucide-react';
 import '@/styles/requests.css';
 
 const statusMap = {
@@ -85,6 +85,12 @@ export default function MyProposals() {
                     <span className="request-meta-item"><Coins size={12} /> {p.proposedPrice} MAD</span>
                     <span className="request-meta-item"><Clock size={12} /> {p.estimatedDays} jours</span>
                   </div>
+                  {p.proposedSteps?.length > 0 && (
+                    <div className="my-proposal-steps">
+                      <ListChecks size={13} />
+                      <span>{p.proposedSteps.slice(0, 2).join(' / ')}</span>
+                    </div>
+                  )}
                 </Link>
                 <div className="my-proposal-actions">
                   {p.status === 'PENDING' && (

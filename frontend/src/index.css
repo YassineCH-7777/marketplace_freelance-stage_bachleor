@@ -562,6 +562,52 @@ textarea.form-input:focus {
   background: oklch(1 0 0 / 18%);
 }
 
+.favorite-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.4rem;
+  padding: 0 var(--space-4);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
+}
+
+.favorite-button:hover {
+  color: #be123c;
+  border-color: #fecdd3;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.favorite-button.is-active {
+  color: #be123c;
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.favorite-button.is-compact {
+  width: 2.4rem;
+  height: 2.4rem;
+  min-height: 0;
+  padding: 0;
+  border-radius: var(--radius-full);
+}
+
+.favorite-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+  transform: none;
+}
+
 .stagger > *:nth-child(1) {
   animation-delay: 0.08s;
 }

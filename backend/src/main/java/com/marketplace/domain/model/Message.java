@@ -30,8 +30,13 @@ public class Message {
     @Column(nullable = false, length = 2000)
     private String content;
 
+    @Builder.Default
     @Column(nullable = false)
     private boolean isRead = false;
+
+    @Builder.Default
+    @Column(name = "is_important", nullable = false)
+    private boolean important = false;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

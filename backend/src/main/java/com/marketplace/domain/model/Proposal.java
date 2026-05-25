@@ -10,6 +10,8 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "proposals")
@@ -40,6 +42,11 @@ public class Proposal {
 
     @Column(name = "estimated_days", nullable = false)
     private Integer estimatedDays;
+
+    @Builder.Default
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "proposed_steps", nullable = false, columnDefinition = "text[]")
+    private List<String> proposedSteps = new ArrayList<>();
 
     @Column(name = "portfolio_url")
     private String portfolioUrl;

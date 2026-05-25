@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getFreelancerOrders, updateFreelancerOrderExecution } from '@/api/userApi';
+import { getFreelancerOrders, updateFreelancerMissionMilestone, updateFreelancerOrderExecution } from '@/api/userApi';
 import { createOrderConversation } from '@/api/messageApi';
 import { uploadOrderAttachments } from '@/api/attachmentApi';
 import MissionExecutionCard from '@/components/orders/MissionExecutionCard';
@@ -15,6 +15,7 @@ export default function FreelancerOrders() {
   const [loading, setLoading] = useState(true);
   const [activeMission, setActiveMission] = useState(null);
   const [savingMission, setSavingMission] = useState(false);
+  const [savingMilestoneId, setSavingMilestoneId] = useState(null);
 
   const sortedOrders = useMemo(
     () =>
@@ -30,17 +31,23 @@ export default function FreelancerOrders() {
     { icon: <FileText size={22} />, value: orders.filter((order) => ['DELIVERED', 'COMPLETED'].includes(order.status)).length, label: 'Livraisons envoyees', color: 'green' },
   ];
 
-  const fetchOrders = () => {
-    setLoading(true);
-    getFreelancerOrders()
+  const fetchOrders = useCallback((showLoader = true) => {
+    if (showLoader) {
+      setLoading(true);
+    }
+    return getFreelancerOrders()
       .then((response) => setOrders(response.data))
       .catch(() => {})
-      .finally(() => setLoading(false));
-  };
+      .finally(() => {
+        if (showLoader) {
+          setLoading(false);
+        }
+      });
+  }, []);
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [fetchOrders]);
 
   const handleMissionUpdate = async (payload) => {
     if (!activeMission) {
@@ -84,6 +91,19 @@ export default function FreelancerOrders() {
       navigate('/messages', { state: { conversationId: response.data.id } });
     } catch (error) {
       alert(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
+    }
+  };
+
+  const handleMilestoneUpdate = async (order, milestone, status) => {
+    setSavingMilestoneId(milestone.id);
+    try {
+      await updateFreelancerMissionMilestone(order.id, milestone.id, { status });
+      await fetchOrders(false);
+      alert(status === 'COMPLETED' ? 'Phase terminee et avancement mis a jour.' : 'Timer de phase demarre.');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de la mise a jour de la phase');
+    } finally {
+      setSavingMilestoneId(null);
     }
   };
 
@@ -136,6 +156,8 @@ export default function FreelancerOrders() {
                 role="freelancer"
                 onManage={setActiveMission}
                 onMessage={handleMessageClient}
+                onMilestoneUpdate={handleMilestoneUpdate}
+                savingMilestoneId={savingMilestoneId}
               />
             ))}
           </div>

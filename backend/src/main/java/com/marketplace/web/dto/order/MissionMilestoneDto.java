@@ -20,6 +20,9 @@ public class MissionMilestoneDto {
     private String description;
     private BigDecimal amount;
     private LocalDate deadline;
+    private Integer timerDurationMinutes;
+    private LocalDateTime timerStartedAt;
+    private LocalDateTime timerCompletedAt;
     private MissionMilestoneStatus status;
     private Integer sortOrder;
     private LocalDateTime createdAt;

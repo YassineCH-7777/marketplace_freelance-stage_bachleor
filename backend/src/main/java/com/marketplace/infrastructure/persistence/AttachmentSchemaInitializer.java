@@ -1,21 +1,28 @@
 package com.marketplace.infrastructure.persistence;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import javax.sql.DataSource;
+
 @Component
-@ConditionalOnBean(JdbcTemplate.class)
 @RequiredArgsConstructor
 public class AttachmentSchemaInitializer implements ApplicationRunner {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final ObjectProvider<DataSource> dataSourceProvider;
 
     @Override
     public void run(ApplicationArguments args) {
+        DataSource dataSource = dataSourceProvider.getIfAvailable();
+        if (dataSource == null) {
+            return;
+        }
+
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS attachments (
                     id                  BIGSERIAL PRIMARY KEY,

@@ -23,6 +23,10 @@ public class MessageDto {
 
     @JsonProperty("isRead")
     private boolean isRead;
+
+    @JsonProperty("isImportant")
+    private boolean isImportant;
+
     private List<AttachmentDto> attachments;
     private LocalDateTime createdAt;
 }

@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -66,12 +67,15 @@ public class ProposalService {
             throw new BusinessException("Le delai estime est obligatoire (minimum 1 jour).", HttpStatus.BAD_REQUEST);
         }
 
+        List<String> proposedSteps = normalizeProposedSteps(dto.getProposedSteps());
+
         Proposal proposal = Proposal.builder()
                 .serviceRequest(serviceRequest)
                 .freelancer(freelancer)
                 .message(message)
                 .proposedPrice(dto.getProposedPrice())
                 .estimatedDays(dto.getEstimatedDays())
+                .proposedSteps(proposedSteps)
                 .portfolioUrl(normalizeOptionalText(dto.getPortfolioUrl()))
                 .status(ProposalStatus.PENDING)
                 .build();
@@ -171,8 +175,8 @@ public class ProposalService {
                 .build();
         Order savedOrder = orderRepository.save(order);
 
-        // Create default milestones
-        createDefaultMilestones(savedOrder);
+        // Create milestones from the freelancer's custom offer when available.
+        createMilestonesFromProposal(savedOrder, proposal);
 
         // Log activity
         missionActivityRepository.save(MissionActivity.builder()
@@ -284,6 +288,7 @@ public class ProposalService {
                 .message(proposal.getMessage())
                 .proposedPrice(proposal.getProposedPrice())
                 .estimatedDays(proposal.getEstimatedDays())
+                .proposedSteps(proposal.getProposedSteps() != null ? proposal.getProposedSteps() : List.of())
                 .portfolioUrl(proposal.getPortfolioUrl())
                 .status(proposal.getStatus())
                 .createdAt(proposal.getCreatedAt())
@@ -291,6 +296,35 @@ public class ProposalService {
     }
 
     // --- Milestones ---
+
+    private void createMilestonesFromProposal(Order order, Proposal proposal) {
+        List<String> steps = proposal.getProposedSteps() != null ? proposal.getProposedSteps() : List.of();
+        if (steps.isEmpty()) {
+            createDefaultMilestones(order);
+            return;
+        }
+
+        BigDecimal amount = order.getAgreedPrice() != null ? order.getAgreedPrice() : BigDecimal.ZERO;
+        BigDecimal stepAmount = amount.divide(new BigDecimal(steps.size()), 2, RoundingMode.HALF_UP);
+        BigDecimal allocated = BigDecimal.ZERO;
+
+        for (int index = 0; index < steps.size(); index++) {
+            boolean isLast = index == steps.size() - 1;
+            BigDecimal milestoneAmount = isLast ? amount.subtract(allocated) : stepAmount;
+            allocated = allocated.add(milestoneAmount);
+
+            missionMilestoneRepository.save(MissionMilestone.builder()
+                    .order(order)
+                    .title(steps.get(index))
+                    .description("Etape proposee dans l'offre personnalisee du freelance.")
+                    .amount(milestoneAmount)
+                    .deadline(order.getDueDate())
+                    .timerDurationMinutes(resolveProposalStepTimerMinutes(proposal, steps.size()))
+                    .status(MissionMilestoneStatus.PENDING)
+                    .sortOrder(index + 1)
+                    .build());
+        }
+    }
 
     private void createDefaultMilestones(Order order) {
         BigDecimal amount = order.getAgreedPrice() != null ? order.getAgreedPrice() : BigDecimal.ZERO;
@@ -301,6 +335,7 @@ public class ProposalService {
                 .description("Clarification du besoin, livrables et planning.")
                 .amount(splitAmount(amount, "0.20"))
                 .deadline(order.getDueDate())
+                .timerDurationMinutes(240)
                 .status(MissionMilestoneStatus.PENDING)
                 .sortOrder(1)
                 .build());
@@ -310,6 +345,7 @@ public class ProposalService {
                 .description("Production principale de la mission.")
                 .amount(splitAmount(amount, "0.60"))
                 .deadline(order.getDueDate())
+                .timerDurationMinutes(1440)
                 .status(MissionMilestoneStatus.PENDING)
                 .sortOrder(2)
                 .build());
@@ -319,9 +355,16 @@ public class ProposalService {
                 .description("Livraison finale, retour client et paiement.")
                 .amount(splitAmount(amount, "0.20"))
                 .deadline(order.getDueDate())
+                .timerDurationMinutes(240)
                 .status(MissionMilestoneStatus.PENDING)
                 .sortOrder(3)
                 .build());
+    }
+
+    private int resolveProposalStepTimerMinutes(Proposal proposal, int stepCount) {
+        int safeStepCount = Math.max(stepCount, 1);
+        int safeEstimatedDays = proposal.getEstimatedDays() != null ? Math.max(proposal.getEstimatedDays(), 1) : 1;
+        return Math.max(60, (safeEstimatedDays * 24 * 60) / safeStepCount);
     }
 
     private BigDecimal splitAmount(BigDecimal amount, String ratio) {
@@ -335,6 +378,30 @@ public class ProposalService {
         if (normalized == null) {
             throw new BusinessException(errorMessage, HttpStatus.BAD_REQUEST);
         }
+        return normalized;
+    }
+
+    private List<String> normalizeProposedSteps(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+
+        List<String> normalized = new ArrayList<>();
+        for (String value : values) {
+            String step = normalizeOptionalText(value);
+            if (step == null) {
+                continue;
+            }
+            if (step.length() > 160) {
+                throw new BusinessException("Chaque etape proposee doit rester sous 160 caracteres.", HttpStatus.BAD_REQUEST);
+            }
+            normalized.add(step);
+        }
+
+        if (normalized.size() > 6) {
+            throw new BusinessException("Vous pouvez proposer 6 etapes maximum.", HttpStatus.BAD_REQUEST);
+        }
+
         return normalized;
     }
 

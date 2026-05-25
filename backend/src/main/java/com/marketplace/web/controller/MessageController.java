@@ -50,4 +50,12 @@ public class MessageController {
             @RequestBody MessageDto dto) {
         return ResponseEntity.ok(messageService.sendMessage(id, user.getId(), dto.getContent()));
     }
+
+    @PutMapping("/{id}/important")
+    public ResponseEntity<MessageDto> updateMessageImportance(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user,
+            @RequestBody MessageDto dto) {
+        return ResponseEntity.ok(messageService.updateMessageImportance(id, user.getId(), dto.isImportant()));
+    }
 }

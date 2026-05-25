@@ -13,6 +13,7 @@ import java.util.Optional;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByConversation_IdOrderByCreatedAtAsc(Long conversationId);
+    List<Message> findByConversation_IdAndImportantTrueOrderByCreatedAtAsc(Long conversationId);
     Optional<Message> findTopByConversation_IdOrderByCreatedAtDesc(Long conversationId);
 
     @Query("""

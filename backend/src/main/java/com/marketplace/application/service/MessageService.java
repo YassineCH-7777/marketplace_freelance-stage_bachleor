@@ -149,6 +149,18 @@ public class MessageService {
         return mapToMessageDto(saveMessage(conversation, sender, content, true));
     }
 
+    @Transactional
+    public MessageDto updateMessageImportance(Long messageId, Long userId, boolean important) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Message introuvable"));
+        if (!isParticipant(message.getConversation(), userId)) {
+            throw new UnauthorizedException("Acces refuse");
+        }
+
+        message.setImportant(important);
+        return mapToMessageDto(messageRepository.save(message));
+    }
+
     private Message saveMessage(Conversation conversation, User sender, String content, boolean notifyRecipient) {
         String normalizedContent = normalizeMessageContent(content);
         Message message = Message.builder()
@@ -258,6 +270,7 @@ public class MessageService {
                 .senderEmail(message.getSender().getEmail())
                 .content(message.getContent())
                 .isRead(message.isRead())
+                .isImportant(message.isImportant())
                 .attachments(safeList(attachmentRepository.findByMessage_IdOrderByCreatedAtAsc(message.getId()))
                         .stream()
                         .map(AttachmentDto::from)

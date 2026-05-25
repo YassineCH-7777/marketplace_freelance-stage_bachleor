@@ -13,6 +13,7 @@ import com.marketplace.domain.enums.UserStatus;
 import com.marketplace.application.service.AiDraftService;
 import com.marketplace.infrastructure.persistence.AttachmentRepository;
 import com.marketplace.infrastructure.persistence.CategoryRepository;
+import com.marketplace.infrastructure.persistence.ClientFavoriteRepository;
 import com.marketplace.infrastructure.persistence.ConversationRepository;
 import com.marketplace.infrastructure.persistence.FreelancerProfileRepository;
 import com.marketplace.infrastructure.persistence.MissionActivityRepository;
@@ -124,6 +125,9 @@ class ApiIntegrationTest {
 
     @MockBean
     private AttachmentRepository attachmentRepository;
+
+    @MockBean
+    private ClientFavoriteRepository clientFavoriteRepository;
 
     @MockBean
     private AiDraftService aiDraftService;

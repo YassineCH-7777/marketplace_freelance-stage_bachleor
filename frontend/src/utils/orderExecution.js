@@ -1,3 +1,5 @@
+import { getMissionReportPdf } from '@/api/orderApi';
+
 export const activeMissionStatuses = ['ACCEPTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'DELIVERED', 'REVISION'];
 
 export function getOrderStatusMeta(status) {
@@ -36,6 +38,29 @@ export function getPaymentStatusMeta(status) {
   }
 }
 
+export function hasDeliveryAttachment(order) {
+  return (order?.attachments || []).some((attachment) => attachment.attachmentType === 'DELIVERY_PROOF');
+}
+
+export function hasClientReviewableDelivery(order) {
+  if (!order || ['COMPLETED', 'CANCELLED', 'DISPUTED', 'REVISION'].includes(order.status)) {
+    return false;
+  }
+
+  if (['DELIVERED', 'WAITING_CLIENT'].includes(order.status)) {
+    return true;
+  }
+
+  const hasDeliveryEvidence = Boolean(order.deliveryNote) || Boolean(order.deliveredAt) || hasDeliveryAttachment(order);
+  const hasWaitingClientMilestone = (order.milestones || []).some((milestone, index, milestones) => {
+    const title = milestone.title || '';
+    const isDeliveryMilestone = /livraison|validation/i.test(title) || index === milestones.length - 1;
+    return isDeliveryMilestone && milestone.status === 'WAITING_CLIENT';
+  });
+
+  return hasDeliveryEvidence || hasWaitingClientMilestone;
+}
+
 export function getMissionProgress(order) {
   const explicitProgress = Number(order?.progressPercentage);
   if (Number.isFinite(explicitProgress)) {
@@ -57,6 +82,66 @@ export function getMilestoneStatusMeta(status) {
     default:
       return { label: 'A faire', className: 'is-pending' };
   }
+}
+
+export function formatTimerDuration(totalMinutes) {
+  const safeMinutes = Math.max(0, Number(totalMinutes) || 0);
+  const days = Math.floor(safeMinutes / (60 * 24));
+  const hours = Math.floor((safeMinutes % (60 * 24)) / 60);
+  const minutes = safeMinutes % 60;
+
+  if (days > 0) {
+    return `${days}j ${hours}h`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}min`;
+  }
+  return `${minutes}min`;
+}
+
+export function getMilestoneTimerMeta(milestone) {
+  if (!milestone) {
+    return { label: 'Timer non defini', tone: 'is-pending' };
+  }
+
+  if (milestone.status === 'COMPLETED') {
+    if (milestone.timerStartedAt && milestone.timerCompletedAt) {
+      const elapsedMinutes = Math.max(
+        0,
+        Math.round((new Date(milestone.timerCompletedAt) - new Date(milestone.timerStartedAt)) / 60000),
+      );
+      return { label: `Terminee en ${formatTimerDuration(elapsedMinutes)}`, tone: 'is-done' };
+    }
+    return { label: 'Phase terminee', tone: 'is-done' };
+  }
+
+  if (!milestone.timerStartedAt) {
+    if (milestone.timerDurationMinutes) {
+      return { label: `Prevu: ${formatTimerDuration(milestone.timerDurationMinutes)}`, tone: 'is-pending' };
+    }
+    if (milestone.deadline) {
+      return { label: `Avant le ${formatPlanningDate(milestone.deadline)}`, tone: 'is-pending' };
+    }
+    return { label: 'Timer non defini', tone: 'is-pending' };
+  }
+
+  const startedAt = new Date(milestone.timerStartedAt);
+  const targetDate = milestone.timerDurationMinutes
+    ? new Date(startedAt.getTime() + Number(milestone.timerDurationMinutes) * 60000)
+    : milestone.deadline
+      ? new Date(`${milestone.deadline}T23:59:59`)
+      : null;
+
+  if (!targetDate) {
+    return { label: 'Timer en cours', tone: 'is-active' };
+  }
+
+  const diffMinutes = Math.ceil((targetDate - new Date()) / 60000);
+  if (diffMinutes <= 0) {
+    return { label: 'Temps depasse', tone: 'is-overdue' };
+  }
+
+  return { label: `${formatTimerDuration(diffMinutes)} restantes`, tone: 'is-active' };
 }
 
 export function getMissionChecklist(order) {
@@ -98,57 +183,37 @@ export function formatPlanningDate(value) {
   });
 }
 
-export function downloadMissionReport(order, role) {
-  const counterpartLabel = role === 'freelancer' ? 'Client' : 'Freelance';
-  const counterpartValue = role === 'freelancer' ? order.clientEmail : order.freelancerEmail || `#${order.freelancerId}`;
-  const statusMeta = getOrderStatusMeta(order.status);
-  const paymentMeta = getPaymentStatusMeta(order.paymentStatus);
-  const milestoneLines = (order.milestones || [])
-    .map((milestone) => `- ${milestone.title}: ${getMilestoneStatusMeta(milestone.status).label}`)
-    .join('\n');
-  const activityLines = (order.activities || [])
-    .map((activity) => `- ${formatOrderDate(activity.createdAt)}: ${activity.title}${activity.details ? ` (${activity.details})` : ''}`)
-    .join('\n');
+export async function downloadMissionReport(order) {
+  try {
+    const response = await getMissionReportPdf(order.id);
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
 
-  const content = [
-    `Compte-rendu de mission - ${order.serviceTitle}`,
-    '',
-    `Commande: #${order.id}`,
-    `${counterpartLabel}: ${counterpartValue}`,
-    `Montant: ${order.amount} MAD`,
-    `Statut: ${statusMeta.label}`,
-    `Progression: ${getMissionProgress(order)}%`,
-    `Paiement: ${paymentMeta.label}`,
-    `Creee le: ${formatOrderDate(order.createdAt)}`,
-    `Derniere mise a jour: ${formatOrderDate(order.updatedAt || order.createdAt)}`,
-    `Debut: ${formatPlanningDate(order.startDate)}`,
-    `Echeance: ${formatPlanningDate(order.dueDate)}`,
-    `Fin: ${formatPlanningDate(order.endDate)}`,
-    '',
-    'Brief initial:',
-    order.requestMessage || 'Aucun brief initial partage.',
-    '',
-    'Jalons:',
-    milestoneLines || 'Aucun jalon renseigne.',
-    '',
-    'Livraison:',
-    order.deliveryNote || 'Aucune livraison partagee.',
-    '',
-    'Demande de revision:',
-    order.revisionRequest || 'Aucune demande de revision.',
-    '',
-    'Timeline:',
-    activityLines || 'Aucune activite enregistree.',
-    '',
-    'Suivi ou compte-rendu:',
-    order.notes || 'Aucun suivi n a encore ete partage.',
-  ].join('\n');
+    link.href = url;
+    link.download = `rapport-mission-${order.id}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    alert(await resolveDownloadErrorMessage(error));
+  }
+}
 
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `mission-${order.id}.txt`;
-  link.click();
-  window.URL.revokeObjectURL(url);
+async function resolveDownloadErrorMessage(error) {
+  const fallbackMessage = 'Impossible de telecharger le rapport PDF.';
+  const data = error.response?.data;
+
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const parsed = JSON.parse(text);
+      return parsed.message || parsed.details || fallbackMessage;
+    } catch {
+      return fallbackMessage;
+    }
+  }
+
+  return data?.message || data?.details || fallbackMessage;
 }
