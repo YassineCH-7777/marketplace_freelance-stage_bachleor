@@ -18,6 +18,7 @@ import { getActiveServices, getRecommendedServices } from '@/api/serviceApi';
 import { addServiceFavorite, removeServiceFavorite } from '@/api/favoriteApi';
 import FavoriteButton from '@/components/common/FavoriteButton';
 import GoogleLocationInput from '@/components/common/GoogleLocationInput';
+import MatchingAssistant from '@/components/services/MatchingAssistant';
 import useAuth from '@/hooks/useAuth';
 import useClientFavorites from '@/hooks/useClientFavorites';
 import {
@@ -491,6 +492,39 @@ export default function Services() {
     updateSearchParams();
   };
 
+  const handleApplyMatchingFilters = (filters) => {
+    const nextKeyword = filters.keyword || '';
+    const nextCity = filters.city || '';
+    const nextCategoryName = filters.categoryName || '';
+    const nextMaxPrice = filters.maxPrice ? String(filters.maxPrice) : '';
+    const nextSort = filters.sort || 'recommended';
+
+    setKeyword(nextKeyword);
+    setCity(nextCity);
+    setSearchPlaceId('');
+    setSearchLatitude(null);
+    setSearchLongitude(null);
+    setCategoryName(nextCategoryName);
+    setMinPrice('');
+    setMaxPrice(nextMaxPrice);
+    setSort(nextSort);
+    updateSearchParams({
+      keyword: nextKeyword,
+      city: nextCity,
+      placeId: '',
+      lat: null,
+      lng: null,
+      categoryName: nextCategoryName,
+      minPrice: '',
+      maxPrice: nextMaxPrice,
+      sort: nextSort,
+    });
+
+    window.setTimeout(() => {
+      document.getElementById('services-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  };
+
   const handleSelectChange = (setter, key) => (event) => {
     setter(event.target.value);
     updateSearchParams({ [key]: event.target.value });
@@ -613,6 +647,8 @@ export default function Services() {
             </div>
           ))}
         </section>
+
+        <MatchingAssistant defaultCity={preferredSearchCity} onApplyFilters={handleApplyMatchingFilters} />
 
         <form className="services-toolbar" onSubmit={handleSearch}>
           <div className="services-toolbar-search">

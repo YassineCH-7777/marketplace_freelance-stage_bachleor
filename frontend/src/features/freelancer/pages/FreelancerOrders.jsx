@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getFreelancerOrders, updateFreelancerMissionMilestone, updateFreelancerOrderExecution } from '@/api/userApi';
+import {
+  getFreelancerOrders,
+  openFreelancerOrderDispute,
+  updateFreelancerMissionMilestone,
+  updateFreelancerOrderExecution,
+} from '@/api/userApi';
 import { createOrderConversation } from '@/api/messageApi';
 import { uploadOrderAttachments } from '@/api/attachmentApi';
 import MissionExecutionCard from '@/components/orders/MissionExecutionCard';
 import MissionUpdateModal from '@/components/orders/MissionUpdateModal';
 import { activeMissionStatuses } from '@/utils/orderExecution';
-import { ClipboardCheck, FileText, Loader2, Package, Rocket } from 'lucide-react';
+import { AlertTriangle, ClipboardCheck, FileText, Loader2, Package, Rocket, X } from 'lucide-react';
 import '@/styles/dashboard.css';
 
 export default function FreelancerOrders() {
@@ -14,8 +19,11 @@ export default function FreelancerOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeMission, setActiveMission] = useState(null);
+  const [disputeModal, setDisputeModal] = useState(null);
+  const [disputeReason, setDisputeReason] = useState('');
   const [savingMission, setSavingMission] = useState(false);
   const [savingMilestoneId, setSavingMilestoneId] = useState(null);
+  const [submittingDispute, setSubmittingDispute] = useState(false);
 
   const sortedOrders = useMemo(
     () =>
@@ -107,6 +115,37 @@ export default function FreelancerOrders() {
     }
   };
 
+  const openDisputeModal = (order) => {
+    setDisputeModal(order);
+    setDisputeReason(order.disputeReason || '');
+  };
+
+  const closeDisputeModal = () => {
+    setDisputeModal(null);
+    setDisputeReason('');
+    setSubmittingDispute(false);
+  };
+
+  const handleOpenDispute = async (event) => {
+    event.preventDefault();
+    if (!disputeModal) {
+      return;
+    }
+
+    setSubmittingDispute(true);
+    try {
+      const response = await openFreelancerOrderDispute(disputeModal.id, { reason: disputeReason });
+      setOrders((currentOrders) =>
+        currentOrders.map((entry) => (entry.id === response.data.id ? response.data : entry)),
+      );
+      alert('Litige ouvert. Un administrateur pourra arbitrer la mission.');
+      closeDisputeModal();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de l ouverture du litige');
+      setSubmittingDispute(false);
+    }
+  };
+
   return (
     <div className="dashboard-page">
       <div className="container">
@@ -157,6 +196,7 @@ export default function FreelancerOrders() {
                 onManage={setActiveMission}
                 onMessage={handleMessageClient}
                 onMilestoneUpdate={handleMilestoneUpdate}
+                onOpenDispute={openDisputeModal}
                 savingMilestoneId={savingMilestoneId}
               />
             ))}
@@ -171,6 +211,53 @@ export default function FreelancerOrders() {
             onSubmit={handleMissionUpdate}
             submitting={savingMission}
           />
+        )}
+
+        {disputeModal && (
+          <div className="modal-overlay" onClick={closeDisputeModal}>
+            <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">Ouvrir un litige</h2>
+                <button className="modal-close" onClick={closeDisputeModal}>
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="delivery-confirmation-note">
+                <strong>{disputeModal.serviceTitle}</strong>
+                <p>Decrivez le blocage, les elements deja livres et la decision attendue de l admin.</p>
+              </div>
+
+              <form className="modal-form" onSubmit={handleOpenDispute}>
+                <div className="form-group">
+                  <label className="form-label">Motif du litige</label>
+                  <textarea
+                    className="form-textarea"
+                    value={disputeReason}
+                    onChange={(event) => setDisputeReason(event.target.value)}
+                    placeholder="Exemple : le client refuse la livraison malgre les corrections demandees et les preuves fournies."
+                    rows={5}
+                  />
+                </div>
+
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-secondary" onClick={closeDisputeModal}>
+                    Annuler
+                  </button>
+                  <button type="submit" className="btn btn-refuse" disabled={submittingDispute}>
+                    {submittingDispute ? (
+                      <>
+                        <Loader2 size={16} className="spinner" /> Ouverture...
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle size={16} /> Ouvrir le litige
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -2,6 +2,7 @@ package com.marketplace.web.controller;
 
 import com.marketplace.web.dto.order.OrderDto;
 import com.marketplace.web.dto.order.OrderClientDecisionDto;
+import com.marketplace.web.dto.order.OrderDisputeRequestDto;
 import com.marketplace.web.dto.order.OrderRequestDto;
 import com.marketplace.web.dto.favorite.FavoriteDto;
 import com.marketplace.web.dto.request.ProposalDto;
@@ -72,6 +73,14 @@ public class ClientController {
             @AuthenticationPrincipal User user,
             @RequestBody OrderClientDecisionDto dto) {
         return ResponseEntity.ok(orderService.requestRevision(id, user.getId(), dto));
+    }
+
+    @PutMapping("/orders/{id}/dispute")
+    public ResponseEntity<OrderDto> openDispute(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user,
+            @RequestBody OrderDisputeRequestDto dto) {
+        return ResponseEntity.ok(orderService.openClientDispute(id, user.getId(), dto));
     }
 
     @PostMapping("/reviews")

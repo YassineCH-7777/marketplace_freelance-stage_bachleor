@@ -89,6 +89,25 @@ public class Order {
     @Column(name = "delivered_at")
     private LocalDateTime deliveredAt;
 
+    @Column(name = "dispute_reason")
+    private String disputeReason;
+
+    @Column(name = "dispute_admin_notes")
+    private String disputeAdminNotes;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dispute_opened_by_id")
+    private User disputeOpenedBy;
+
+    @Column(name = "dispute_opened_at")
+    private LocalDateTime disputeOpenedAt;
+
+    @Column(name = "dispute_resolved_at")
+    private LocalDateTime disputeResolvedAt;
+
+    @Column(name = "dispute_resolution")
+    private String disputeResolution;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Builder.Default

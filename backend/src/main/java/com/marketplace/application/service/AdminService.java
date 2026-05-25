@@ -204,10 +204,19 @@ public class AdminService {
     }
 
     private OrderDto mapToOrderDto(Order order) {
+        String serviceTitle = null;
+        Long serviceId = null;
+        if (order.getService() != null) {
+            serviceId = order.getService().getId();
+            serviceTitle = order.getService().getTitle();
+        } else if (order.getProposal() != null && order.getProposal().getServiceRequest() != null) {
+            serviceTitle = order.getProposal().getServiceRequest().getTitle();
+        }
+
         return OrderDto.builder()
                 .id(order.getId())
-                .serviceId(order.getService().getId())
-                .serviceTitle(order.getService().getTitle())
+                .serviceId(serviceId)
+                .serviceTitle(serviceTitle)
                 .clientId(order.getClient().getId())
                 .clientEmail(order.getClient().getEmail())
                 .freelancerId(order.getFreelancer().getUser().getId())
@@ -224,6 +233,13 @@ public class AdminService {
                 .deliveryNote(order.getDeliveryNote())
                 .revisionRequest(order.getRevisionRequest())
                 .deliveredAt(order.getDeliveredAt())
+                .disputeReason(order.getDisputeReason())
+                .disputeAdminNotes(order.getDisputeAdminNotes())
+                .disputeOpenedById(order.getDisputeOpenedBy() != null ? order.getDisputeOpenedBy().getId() : null)
+                .disputeOpenedByEmail(order.getDisputeOpenedBy() != null ? order.getDisputeOpenedBy().getEmail() : null)
+                .disputeOpenedAt(order.getDisputeOpenedAt())
+                .disputeResolvedAt(order.getDisputeResolvedAt())
+                .disputeResolution(order.getDisputeResolution())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .build();

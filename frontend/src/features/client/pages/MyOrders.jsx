@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ClipboardList, FileText, Loader2, Package, Star, X } from 'lucide-react';
-import { acceptOrderDelivery, getClientOrders, requestOrderRevision } from '@/api/orderApi';
+import { AlertTriangle, CheckCircle2, ClipboardList, FileText, Loader2, Package, Star, X } from 'lucide-react';
+import { acceptOrderDelivery, getClientOrders, openClientOrderDispute, requestOrderRevision } from '@/api/orderApi';
 import { leaveReview } from '@/api/reviewApi';
 import MissionExecutionCard from '@/components/orders/MissionExecutionCard';
 import { activeMissionStatuses } from '@/utils/orderExecution';
@@ -57,6 +57,8 @@ export default function MyOrders() {
   const [deliveryComment, setDeliveryComment] = useState('');
   const [revisionModal, setRevisionModal] = useState(null);
   const [revisionComment, setRevisionComment] = useState('');
+  const [disputeModal, setDisputeModal] = useState(null);
+  const [disputeReason, setDisputeReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const sortedOrders = useMemo(
@@ -195,6 +197,35 @@ export default function MyOrders() {
     }
   };
 
+  const openDisputeModal = (order) => {
+    setDisputeModal(order);
+    setDisputeReason(order.disputeReason || '');
+  };
+
+  const closeDisputeModal = () => {
+    setDisputeModal(null);
+    setDisputeReason('');
+    setSubmitting(false);
+  };
+
+  const handleOpenDispute = async (event) => {
+    event.preventDefault();
+    if (!disputeModal) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await openClientOrderDispute(disputeModal.id, { reason: disputeReason });
+      updateOrderInState(response.data);
+      alert('Litige ouvert. Un administrateur pourra arbitrer la mission.');
+      closeDisputeModal();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors de l ouverture du litige');
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="dashboard-page">
       <div className="container">
@@ -243,6 +274,7 @@ export default function MyOrders() {
                 order={order}
                 role="client"
                 onAcceptDelivery={openDeliveryModal}
+                onOpenDispute={openDisputeModal}
                 onRequestRevision={openRevisionModal}
                 onReview={openReviewModal}
               />
@@ -451,6 +483,53 @@ export default function MyOrders() {
                       </>
                     ) : (
                       'Envoyer la revision'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {disputeModal && (
+          <div className="modal-overlay" onClick={closeDisputeModal}>
+            <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">Ouvrir un litige</h2>
+                <button className="modal-close" onClick={closeDisputeModal}>
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="delivery-confirmation-note">
+                <strong>{disputeModal.serviceTitle}</strong>
+                <p>Expliquez le probleme de facon factuelle pour aider l admin a arbitrer la mission.</p>
+              </div>
+
+              <form className="modal-form" onSubmit={handleOpenDispute}>
+                <div className="form-group">
+                  <label className="form-label">Motif du litige</label>
+                  <textarea
+                    className="form-textarea"
+                    value={disputeReason}
+                    onChange={(event) => setDisputeReason(event.target.value)}
+                    placeholder="Exemple : la livraison ne correspond pas au brief, les fichiers sources manquent et le delai est depasse."
+                    rows={5}
+                  />
+                </div>
+
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-secondary" onClick={closeDisputeModal}>
+                    Annuler
+                  </button>
+                  <button type="submit" className="btn btn-refuse" disabled={submitting}>
+                    {submitting ? (
+                      <>
+                        <Loader2 size={16} className="spinner" /> Ouverture...
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle size={16} /> Ouvrir le litige
+                      </>
                     )}
                   </button>
                 </div>

@@ -281,7 +281,6 @@ export default function AiAssistantPanel({
         />
         <button type="submit" className="btn btn-primary" disabled={!input.trim() || !webhookUrl || sending}>
           {sending ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}
-          Envoyer
         </button>
       </form>
     </section>

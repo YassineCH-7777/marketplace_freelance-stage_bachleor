@@ -2,16 +2,20 @@ package com.marketplace.web.controller;
 
 import com.marketplace.web.dto.admin.AdminStatsDto;
 import com.marketplace.web.dto.admin.AdminSystemNotificationRequest;
+import com.marketplace.web.dto.order.AdminDisputeDecisionDto;
 import com.marketplace.web.dto.order.OrderDto;
 import com.marketplace.web.dto.admin.ReportDto;
 import com.marketplace.web.dto.service.CategoryDto;
 import com.marketplace.web.dto.service.ServiceDto;
 import com.marketplace.web.dto.user.UserDto;
 import com.marketplace.domain.enums.ServiceStatus;
+import com.marketplace.domain.model.User;
 import com.marketplace.application.service.AdminService;
+import com.marketplace.application.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,6 +28,7 @@ import java.util.Map;
 public class AdminController {
 
     private final AdminService adminService;
+    private final OrderService orderService;
 
     // --- Statistics ---
     @GetMapping("/stats")
@@ -81,6 +86,14 @@ public class AdminController {
     @GetMapping("/orders")
     public ResponseEntity<List<OrderDto>> getAllOrders() {
         return ResponseEntity.ok(adminService.getAllOrders());
+    }
+
+    @PutMapping("/orders/{id}/dispute")
+    public ResponseEntity<OrderDto> resolveOrderDispute(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user,
+            @RequestBody AdminDisputeDecisionDto dto) {
+        return ResponseEntity.ok(orderService.resolveAdminDispute(id, user.getId(), dto));
     }
 
     // --- System notifications ---

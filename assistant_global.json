@@ -1,0 +1,307 @@
+{
+  "name": "Assistant Global - Marketplace Freelance",
+  "nodes": [
+    {
+      "id": "7c0c5669-f4c1-4d46-bd38-1a8a6f0a0001",
+      "name": "Chat Trigger - Global",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -800,
+        -40
+      ],
+      "webhookId": "97c1a41f-8ef0-4d63-a924-92eb634384d3",
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "authentication": "none",
+        "options": {
+          "responseMode": "responseNode",
+          "loadPreviousSession": "memory",
+          "allowedOrigins": "*"
+        }
+      }
+    },
+    {
+      "id": "59c70c6b-d2da-4eb4-b038-1a8a6f0a0002",
+      "name": "Memory - Global",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        -600,
+        240
+      ],
+      "parameters": {
+        "tableName": "chat_memory_global",
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.metadata.sessionId || $json.sessionId || ('global-' + ($json.metadata.userId || $json.metadata.email || 'guest')) }}",
+        "contextWindowLength": 12
+      },
+      "credentials": {
+        "postgres": {
+          "id": "",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "cf5fae7c-7cb6-4e28-b743-1a8a6f0a0003",
+      "name": "AI Agent - Global",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -440,
+        -40
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "Tu es l'assistant global d'une marketplace freelance locale.\n\nTu es disponible des le debut de l'application, meme quand l'utilisateur n'est pas connecte. Ton role est d'orienter vite et utilement :\n- aider un client a trouver un freelance ou un service,\n- transformer une idee en brief clair,\n- guider un freelance qui veut proposer ses services,\n- generer une meilleure offre service pour un freelance,\n- expliquer le fonctionnement de la plateforme,\n- proposer la prochaine action la plus directe.\n\nTu peux recevoir des metadata : role, userId, email, city, pathname, source, sessionId. Utilise metadata.city si la ville manque. Utilise metadata.role seulement comme contexte, mais reste capable d'aider un visiteur sans role.\n\nIntentions possibles :\n- find_service : l'utilisateur cherche un service, un freelance, une offre ou une recommandation.\n- create_brief : l'utilisateur veut structurer un besoin client.\n- service_optimizer : l'utilisateur veut ameliorer une offre service, un titre, une description, un prix ou des mots-cles.\n- become_freelance : l'utilisateur veut proposer ses services, creer un profil ou vendre ses competences.\n- account_help : l'utilisateur veut creer un compte, s'inscrire, se connecter ou recuperer l'acces.\n- platform_help : l'utilisateur demande comment ca marche, paiement, litige, mission, navigation, messages ou notifications.\n- client_brief : utilisateur client connecte avec besoin de mission.\n- freelance_profile : utilisateur freelance connecte avec besoin de profil.\n- unknown : message trop vague.\n\nRegles generales :\n1. Ne bloque jamais le premier message avec trop de questions. Propose toujours une action utile si le texte est exploitable.\n2. Retourne toujours un JSON strict. N'ajoute aucun texte hors JSON.\n3. Utilise status ready quand une orientation, un brief, un profil, une offre service ou une recommandation peut etre proposee.\n4. Utilise status need_more_info seulement si le message est vraiment inexploitable.\n5. Pour un besoin client, deduis si possible : category, city, mode, budget, deadline_days, objective, deliverables.\n6. Pour trouver des services, appelle l'outil Tool - Match Public Services seulement si le message parle clairement d'un service, freelance, projet client, budget, delai ou categorie. Ne l'appelle jamais pour une salutation, une creation de compte, une connexion, un profil, une notification, un litige ou une question generale.\n7. Pour choisir une categorie valide, appelle Tool - Read Marketplace Categories.\n8. Pour un freelance, propose un brouillon de profil : headline, professional_bio, skills, city, availability, hourly_rate, portfolio_url, primary_categories, remote_mode, profile_completion_score.\n9. Pour optimiser une offre service, genere : title, short_description, description, suggested_price, keywords, category, delivery_time_days, execution_mode, deliverables. Le prix doit etre conseille en MAD et rester realiste pour le marche local.\n10. L'assistant global ne sauvegarde pas directement. Il oriente vers /register, /login, /services, /services#matching-assistant, /client/requests, /client/orders, /freelancer/profile, /freelancer/services, /messages ou /notifications selon le cas.\n11. Si une information manque, mets null ou [] et ajoute le champ dans missing_fields.\n12. Ne donne pas de promesse de paiement ou de resultat garanti. Reste concret, simple et professionnel.\n\nFormat besoin/matching :\n{\n  \"status\": \"ready\",\n  \"intent\": \"find_service\",\n  \"assistant_message\": \"...\",\n  \"brief\": {\n    \"category\": \"...\",\n    \"city\": \"...\",\n    \"mode\": \"local|remote|hybride|null\",\n    \"budget\": 0,\n    \"deadline_days\": 0,\n    \"objective\": \"...\",\n    \"deliverables\": [\"...\"]\n  },\n  \"profile\": null,\n  \"service_draft\": null,\n  \"recommendations\": [\n    {\n      \"service_id\": 1,\n      \"title\": \"...\",\n      \"score\": 0.9,\n      \"reasons\": [\"...\"],\n      \"price\": 0,\n      \"city\": \"...\"\n    }\n  ],\n  \"navigation\": {\n    \"primary_label\": \"Ouvrir le matching\",\n    \"primary_path\": \"/services#matching-assistant\",\n    \"secondary_label\": \"Explorer les services\",\n    \"secondary_path\": \"/services\"\n  },\n  \"missing_fields\": [\"...\"],\n  \"next_action\": \"open_matching\"\n}\n\nFormat optimisation service :\n{\n  \"status\": \"ready\",\n  \"intent\": \"service_optimizer\",\n  \"assistant_message\": \"Voici une offre plus claire et plus vendeuse, a ajuster avant publication.\",\n  \"brief\": null,\n  \"profile\": null,\n  \"service_draft\": {\n    \"title\": \"...\",\n    \"short_description\": \"...\",\n    \"description\": \"...\",\n    \"suggested_price\": 0,\n    \"keywords\": [\"...\"],\n    \"category\": \"...\",\n    \"delivery_time_days\": 0,\n    \"execution_mode\": \"local|remote|hybride|null\",\n    \"deliverables\": [\"...\"]\n  },\n  \"recommendations\": [],\n  \"navigation\": {\n    \"primary_label\": \"Publier un service\",\n    \"primary_path\": \"/freelancer/services\",\n    \"secondary_label\": \"Completer mon profil\",\n    \"secondary_path\": \"/freelancer/profile\"\n  },\n  \"missing_fields\": [],\n  \"next_action\": \"review_service_draft\"\n}\n\nFormat profil freelance :\n{\n  \"status\": \"ready\",\n  \"intent\": \"become_freelance\",\n  \"assistant_message\": \"...\",\n  \"brief\": null,\n  \"profile\": {\n    \"headline\": \"...\",\n    \"professional_bio\": \"...\",\n    \"skills\": [\"...\"],\n    \"city\": \"...\",\n    \"availability\": \"AVAILABLE\",\n    \"hourly_rate\": 0,\n    \"portfolio_url\": null,\n    \"primary_categories\": [\"...\"],\n    \"remote_mode\": \"local|remote|hybride|null\",\n    \"profile_completion_score\": 0\n  },\n  \"service_draft\": null,\n  \"recommendations\": [],\n  \"navigation\": {\n    \"primary_label\": \"Creer un compte freelance\",\n    \"primary_path\": \"/register\",\n    \"secondary_label\": \"Voir les services\",\n    \"secondary_path\": \"/services\"\n  },\n  \"missing_fields\": [\"hourly_rate\", \"portfolio_url\"],\n  \"next_action\": \"create_freelance_account\"\n}\n\nFormat creation de compte / connexion :\n{\n  \"status\": \"ready\",\n  \"intent\": \"account_help\",\n  \"assistant_message\": \"Pour creer un compte, ouvrez la page d'inscription, choisissez votre role puis completez les informations demandees.\",\n  \"brief\": null,\n  \"profile\": null,\n  \"service_draft\": null,\n  \"recommendations\": [],\n  \"navigation\": {\n    \"primary_label\": \"Creer un compte\",\n    \"primary_path\": \"/register\",\n    \"secondary_label\": \"Se connecter\",\n    \"secondary_path\": \"/login\"\n  },\n  \"missing_fields\": [],\n  \"next_action\": \"open_register\"\n}\n\nFormat aide plateforme :\n{\n  \"status\": \"ready\",\n  \"intent\": \"platform_help\",\n  \"assistant_message\": \"...\",\n  \"brief\": null,\n  \"profile\": null,\n  \"service_draft\": null,\n  \"recommendations\": [],\n  \"navigation\": {\n    \"primary_label\": \"Explorer les services\",\n    \"primary_path\": \"/services\",\n    \"secondary_label\": \"Creer un compte\",\n    \"secondary_path\": \"/register\"\n  },\n  \"missing_fields\": [],\n  \"next_action\": \"explain_platform\"\n}\n\nFormat si inexploitable :\n{\n  \"status\": \"need_more_info\",\n  \"intent\": \"unknown\",\n  \"assistant_message\": \"Expliquez en une phrase ce que vous voulez faire : creer un compte, vous connecter, chercher un service, publier une offre, suivre une mission ou demander une aide sur la plateforme.\",\n  \"brief\": null,\n  \"profile\": null,\n  \"service_draft\": null,\n  \"recommendations\": [],\n  \"navigation\": {\n    \"primary_label\": \"Explorer les services\",\n    \"primary_path\": \"/services\",\n    \"secondary_label\": \"Assistant matching\",\n    \"secondary_path\": \"/services#matching-assistant\"\n  },\n  \"missing_fields\": [\"objective\"],\n  \"next_action\": \"ask_clarification\"\n}"
+        }
+      }
+    },
+    {
+      "id": "aa3f51f4-9d51-4bbf-90a2-1a8a6f0a0004",
+      "name": "Model - Groq Global",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        240
+      ],
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.25
+        }
+      },
+      "credentials": {
+        "groqApi": {
+          "id": "",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "id": "0eb9af93-88b7-4d21-8213-1a8a6f0a0005",
+      "name": "Tool - Read Marketplace Categories",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        -250,
+        240
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, slug\nFROM categories\nWHERE is_active = true\nORDER BY name;",
+        "options": {},
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to list active marketplace categories before choosing a category for a client brief or a freelancer profile."
+      },
+      "credentials": {
+        "postgres": {
+          "id": "",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "b13c6a41-61ab-44bc-a30b-1a8a6f0a0006",
+      "name": "Tool - Match Public Services",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        -20,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.BACKEND_API_URL || 'http://localhost:8080') + '/api/public/recommendations/match' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  need: $fromAI('matching_need', 'Client need or search query written in natural language', 'json'),\n  city: $fromAI('matching_city', 'Preferred city, or null if unknown', 'json'),\n  maxBudget: $fromAI('matching_max_budget', 'Maximum budget as number, or null if unknown', 'json'),\n  maxDeliveryDays: $fromAI('matching_max_delivery_days', 'Maximum delivery delay in days as number, or null if unknown', 'json'),\n  executionMode: $fromAI('matching_execution_mode', 'local, remote, hybride, or null if unknown', 'json'),\n  limit: 3\n} }}",
+        "options": {},
+        "descriptionType": "manual",
+        "toolDescription": "Find the best public services for a visitor or client need. Call it when the message contains a service search, freelance matching request, brief idea, category, budget, city, or delivery deadline. Use the returned recommendations in the final JSON. Do not invent service IDs."
+      }
+    },
+    {
+      "id": "e9a90c49-f72a-4521-971b-1a8a6f0a0007",
+      "name": "Parse Agent Output - Global",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        -40
+      ],
+      "parameters": {
+        "jsCode": "function parseJson(value) {\n  if (value && typeof value === 'object') return value;\n  const text = String(value || '').trim();\n  if (!text) return null;\n\n  try {\n    return JSON.parse(text);\n  } catch (error) {\n    const fenced = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/i);\n    const object = text.match(/\\{[\\s\\S]*\\}/);\n    const candidate = fenced?.[1] || object?.[0];\n    if (!candidate) return null;\n\n    try {\n      return JSON.parse(candidate);\n    } catch (nestedError) {\n      return null;\n    }\n  }\n}\n\nfunction asArray(value) {\n  return Array.isArray(value) ? value.filter(Boolean) : [];\n}\n\nfunction normalizeNumber(value) {\n  const numberValue = Number(value);\n  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null;\n}\n\nfunction normalizeNavigation(value, intent) {\n  if (value && value.primary_path) return value;\n\n  if (intent === 'account_help' || intent === 'login_help') {\n    return {\n      primary_label: intent === 'login_help' ? 'Se connecter' : 'Creer un compte',\n      primary_path: intent === 'login_help' ? '/login' : '/register',\n      secondary_label: intent === 'login_help' ? 'Creer un compte' : 'Se connecter',\n      secondary_path: intent === 'login_help' ? '/register' : '/login'\n    };\n  }\n\n  if (intent === 'service_optimizer') {\n    return {\n      primary_label: 'Publier un service',\n      primary_path: '/freelancer/services',\n      secondary_label: 'Completer mon profil',\n      secondary_path: '/freelancer/profile'\n    };\n  }\n\n  if (intent === 'become_freelance' || intent === 'freelance_profile') {\n    return {\n      primary_label: 'Creer un compte freelance',\n      primary_path: '/register',\n      secondary_label: 'Explorer les services',\n      secondary_path: '/services'\n    };\n  }\n\n  if (intent === 'platform_help') {\n    return {\n      primary_label: 'Creer un compte',\n      primary_path: '/register',\n      secondary_label: 'Se connecter',\n      secondary_path: '/login'\n    };\n  }\n\n  return {\n    primary_label: 'Ouvrir le matching',\n    primary_path: '/services#matching-assistant',\n    secondary_label: 'Explorer les services',\n    secondary_path: '/services'\n  };\n}\n\nfunction formatBrief(brief) {\n  if (!brief) return '';\n\n  return [\n    'Brouillon de besoin :',\n    `- Categorie : ${brief.category || 'a confirmer'}`,\n    `- Ville : ${brief.city || 'a confirmer'}`,\n    `- Mode : ${brief.mode || 'a confirmer'}`,\n    `- Budget : ${brief.budget ?? 'a confirmer'} MAD`,\n    `- Delai : ${brief.deadline_days ?? 'a confirmer'} jours`,\n    `- Objectif : ${brief.objective || 'a confirmer'}`,\n    `- Livrables : ${asArray(brief.deliverables).length ? asArray(brief.deliverables).join(', ') : 'a confirmer'}`\n  ].join('\\n');\n}\n\nfunction formatProfile(profile) {\n  if (!profile) return '';\n\n  return [\n    'Brouillon de profil freelance :',\n    `- Headline : ${profile.headline || 'a confirmer'}`,\n    `- Bio : ${profile.professional_bio || 'a confirmer'}`,\n    `- Competences : ${asArray(profile.skills).length ? asArray(profile.skills).join(', ') : 'a confirmer'}`,\n    `- Ville : ${profile.city || 'a confirmer'}`,\n    `- Disponibilite : ${profile.availability || 'a confirmer'}`,\n    `- Tarif horaire : ${profile.hourly_rate ?? 'a confirmer'} MAD`,\n    `- Portfolio : ${profile.portfolio_url || 'a confirmer'}`,\n    `- Categories : ${asArray(profile.primary_categories).length ? asArray(profile.primary_categories).join(', ') : 'a confirmer'}`,\n    `- Mode : ${profile.remote_mode || 'a confirmer'}`\n  ].join('\\n');\n}\n\nfunction normalizeServiceDraft(value) {\n  if (!value || typeof value !== 'object') return null;\n\n  return {\n    title: value.title || null,\n    short_description: value.short_description || value.shortDescription || null,\n    description: value.description || null,\n    suggested_price: normalizeNumber(value.suggested_price ?? value.suggestedPrice),\n    keywords: asArray(value.keywords || value.mots_cles),\n    category: value.category || null,\n    delivery_time_days: normalizeNumber(value.delivery_time_days ?? value.deliveryTimeDays),\n    execution_mode: value.execution_mode || value.executionMode || null,\n    deliverables: asArray(value.deliverables)\n  };\n}\n\nfunction formatServiceDraft(serviceDraft) {\n  if (!serviceDraft) return '';\n\n  return [\n    'Offre service amelioree :',\n    `- Titre : ${serviceDraft.title || 'a confirmer'}`,\n    `- Description courte : ${serviceDraft.short_description || 'a confirmer'}`,\n    `- Description : ${serviceDraft.description || 'a confirmer'}`,\n    `- Prix conseille : ${serviceDraft.suggested_price ?? 'a confirmer'} MAD`,\n    `- Mots-cles : ${serviceDraft.keywords.length ? serviceDraft.keywords.join(', ') : 'a confirmer'}`,\n    `- Categorie : ${serviceDraft.category || 'a confirmer'}`,\n    `- Delai : ${serviceDraft.delivery_time_days ?? 'a confirmer'} jours`,\n    `- Mode : ${serviceDraft.execution_mode || 'a confirmer'}`,\n    `- Livrables : ${serviceDraft.deliverables.length ? serviceDraft.deliverables.join(', ') : 'a confirmer'}`\n  ].join('\\n');\n}\n\nfunction normalizeRecommendations(value) {\n  return asArray(value).slice(0, 3).map((item) => {\n    const service = item.service || item;\n    return {\n      service_id: service.id ?? item.service_id ?? item.serviceId ?? item.id ?? null,\n      title: service.title || item.title || 'Service recommande',\n      score: normalizeNumber(item.score) ?? normalizeNumber(service.score) ?? null,\n      reasons: asArray(item.reasons),\n      price: normalizeNumber(service.price ?? item.price),\n      city: service.city || item.city || null\n    };\n  });\n}\n\nfunction formatRecommendations(recommendations) {\n  if (!recommendations.length) return '';\n\n  const lines = recommendations.map((item, index) => {\n    const percent = item.score ? `${Math.round(item.score * 100)}%` : 'match';\n    const price = item.price ? ` - ${item.price} MAD` : '';\n    const city = item.city ? ` - ${item.city}` : '';\n    const reasons = item.reasons.length ? ` (${item.reasons.slice(0, 2).join(', ')})` : '';\n    return `${index + 1}. ${item.title} - ${percent}${price}${city}${reasons}`;\n  });\n\n  return ['Services recommandes :', ...lines].join('\\n');\n}\n\nfunction formatGlobalOutput(structured) {\n  const lines = [];\n  if (structured.assistantMessage) lines.push(structured.assistantMessage);\n\n  const briefText = formatBrief(structured.brief);\n  if (briefText) lines.push(briefText);\n\n  const profileText = formatProfile(structured.profile);\n  if (profileText) lines.push(profileText);\n\n  const serviceDraftText = formatServiceDraft(structured.serviceDraft);\n  if (serviceDraftText) lines.push(serviceDraftText);\n\n  const recommendationText = formatRecommendations(structured.recommendations);\n  if (recommendationText) lines.push(recommendationText);\n\n  if (structured.navigation?.primary_label && structured.navigation?.primary_path) {\n    lines.push(`Action conseillee : ${structured.navigation.primary_label} (${structured.navigation.primary_path})`);\n  }\n\n  if (structured.missingFields.length) {\n    lines.push(`A confirmer : ${structured.missingFields.join(', ')}`);\n  }\n\n  return lines.filter(Boolean).join('\\n\\n') || 'Expliquez en une phrase ce que vous cherchez.';\n}\n\nconst rawOutput = $json.output ?? $json.text ?? $json.message ?? $json.response ?? $json;\nconst parsed = parseJson(rawOutput);\n\nif (!parsed) {\n  const fallbackMessage = typeof rawOutput === 'string' ? rawOutput : JSON.stringify(rawOutput);\n  const structured = {\n    status: 'need_more_info',\n    intent: 'unknown',\n    assistantMessage: fallbackMessage || 'Expliquez en une phrase ce que vous cherchez : un service, un profil freelance, une offre a ameliorer ou une aide plateforme.',\n    brief: null,\n    profile: null,\n    serviceDraft: null,\n    recommendations: [],\n    navigation: normalizeNavigation(null, 'unknown'),\n    missingFields: ['objective'],\n    nextAction: 'ask_clarification'\n  };\n\n  return [{ json: { output: formatGlobalOutput(structured), structured } }];\n}\n\nconst intent = parsed.intent || 'unknown';\nconst structured = {\n  status: parsed.status || 'ready',\n  intent,\n  assistantMessage: parsed.assistant_message || parsed.assistantMessage || '',\n  brief: parsed.brief || null,\n  profile: parsed.profile || null,\n  serviceDraft: normalizeServiceDraft(parsed.service_draft || parsed.serviceDraft),\n  recommendations: normalizeRecommendations(parsed.recommendations),\n  navigation: normalizeNavigation(parsed.navigation, intent),\n  missingFields: asArray(parsed.missing_fields || parsed.missingFields),\n  nextAction: parsed.next_action || parsed.nextAction || null\n};\n\nif (structured.profile && parsed.profile_completion_score !== undefined) {\n  structured.profile.profile_completion_score = parsed.profile_completion_score;\n}\n\nreturn [{ json: { output: formatGlobalOutput(structured), structured } }];"
+      }
+    },
+    {
+      "id": "8cbb2c20-f5f7-44bd-af14-1a8a6f0a0008",
+      "name": "Respond - Global",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        120,
+        -40
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { output: $json.output, structured: $json.structured } }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "2e22be88-d1b9-451e-9da7-1a8a6f0a0009",
+      "name": "Schedule - Notifications Automatiques",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        620
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "af75cf9c-6698-4237-acb7-1a8a6f0a0010",
+      "name": "Postgres - Creer Notifications Automatiques",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -520,
+        620
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH direct_request_alerts AS (\n  INSERT INTO notifications (user_id, type, title, body, related_entity_type, related_entity_id)\n  SELECT\n    fp.user_id,\n    'NEW_REQUEST'::notification_type,\n    'Demande directe sans reponse',\n    'Une demande client attend votre reponse depuis plus de 24h.',\n    'ORDER_REQUEST',\n    req.id\n  FROM order_requests req\n  JOIN services s ON s.id = req.service_id\n  JOIN freelancer_profiles fp ON fp.id = s.freelancer_id\n  WHERE req.status = 'PENDING'\n    AND req.created_at <= now() - interval '24 hours'\n    AND NOT EXISTS (\n      SELECT 1\n      FROM notifications n\n      WHERE n.user_id = fp.user_id\n        AND n.related_entity_type = 'ORDER_REQUEST'\n        AND n.related_entity_id = req.id\n        AND n.title = 'Demande directe sans reponse'\n        AND n.created_at >= now() - interval '20 hours'\n    )\n  RETURNING id\n),\nopen_project_alerts AS (\n  INSERT INTO notifications (user_id, type, title, body, related_entity_type, related_entity_id)\n  SELECT\n    sr.client_id,\n    'SYSTEM'::notification_type,\n    'Demande sans proposition',\n    'Votre demande publique est ouverte depuis plus de 24h sans proposition. Vous pouvez l ajuster ou partager plus de details.',\n    'SERVICE_REQUEST',\n    sr.id\n  FROM service_requests sr\n  WHERE sr.status = 'OPEN'\n    AND sr.created_at <= now() - interval '24 hours'\n    AND NOT EXISTS (\n      SELECT 1\n      FROM proposals p\n      WHERE p.service_request_id = sr.id\n    )\n    AND NOT EXISTS (\n      SELECT 1\n      FROM notifications n\n      WHERE n.user_id = sr.client_id\n        AND n.related_entity_type = 'SERVICE_REQUEST'\n        AND n.related_entity_id = sr.id\n        AND n.title = 'Demande sans proposition'\n        AND n.created_at >= now() - interval '20 hours'\n    )\n  RETURNING id\n),\ndeadline_recipients AS (\n  SELECT o.id AS order_id, o.due_date, o.client_id AS user_id\n  FROM orders o\n  WHERE o.status IN ('ACCEPTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'REVISION')\n    AND o.due_date BETWEEN current_date AND current_date + interval '2 days'\n  UNION ALL\n  SELECT o.id AS order_id, o.due_date, fp.user_id AS user_id\n  FROM orders o\n  JOIN freelancer_profiles fp ON fp.id = o.freelancer_id\n  WHERE o.status IN ('ACCEPTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'REVISION')\n    AND o.due_date BETWEEN current_date AND current_date + interval '2 days'\n),\ndeadline_alerts AS (\n  INSERT INTO notifications (user_id, type, title, body, related_entity_type, related_entity_id)\n  SELECT\n    dr.user_id,\n    'ORDER_UPDATED'::notification_type,\n    'Deadline de mission proche',\n    'Une mission approche de sa deadline (' || to_char(dr.due_date, 'DD/MM/YYYY') || '). Verifiez l avancement et les prochaines actions.',\n    'ORDER',\n    dr.order_id\n  FROM deadline_recipients dr\n  WHERE NOT EXISTS (\n    SELECT 1\n    FROM notifications n\n    WHERE n.user_id = dr.user_id\n      AND n.related_entity_type = 'ORDER'\n      AND n.related_entity_id = dr.order_id\n      AND n.title = 'Deadline de mission proche'\n      AND n.created_at >= now() - interval '20 hours'\n  )\n  RETURNING id\n)\nSELECT\n  (SELECT count(*) FROM direct_request_alerts) AS direct_request_alerts,\n  (SELECT count(*) FROM open_project_alerts) AS open_project_alerts,\n  (SELECT count(*) FROM deadline_alerts) AS deadline_alerts;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chat Trigger - Global": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Global",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Global": {
+      "main": [
+        [
+          {
+            "node": "Parse Agent Output - Global",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory - Global": {
+      "ai_memory": [
+        [
+          {
+            "node": "Chat Trigger - Global",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "AI Agent - Global",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Groq Global": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Global",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool - Read Marketplace Categories": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent - Global",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool - Match Public Services": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent - Global",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Agent Output - Global": {
+      "main": [
+        [
+          {
+            "node": "Respond - Global",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule - Notifications Automatiques": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Creer Notifications Automatiques",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "versionId": "55a88625-c1bd-4448-a90a-global-assistant-v3",
+  "meta": {
+    "instanceId": "proxiskills-global-assistant"
+  },
+  "id": "globalAssistantMarketplace001",
+  "tags": []
+}

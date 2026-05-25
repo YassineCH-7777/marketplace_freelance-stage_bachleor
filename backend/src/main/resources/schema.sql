@@ -493,6 +493,12 @@ CREATE TABLE IF NOT EXISTS orders (
     revision_count      INT NOT NULL DEFAULT 0,
     max_revision_rounds INT NOT NULL DEFAULT 3,
     delivered_at        TIMESTAMPTZ,
+    dispute_reason      TEXT,
+    dispute_admin_notes TEXT,
+    dispute_opened_by_id BIGINT,
+    dispute_opened_at   TIMESTAMPTZ,
+    dispute_resolved_at TIMESTAMPTZ,
+    dispute_resolution  VARCHAR(30),
     created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -508,6 +514,9 @@ CREATE TABLE IF NOT EXISTS orders (
     CONSTRAINT fk_orders_freelancer
         FOREIGN KEY (freelancer_id) REFERENCES freelancer_profiles(id) ON DELETE RESTRICT,
 
+    CONSTRAINT fk_orders_dispute_opened_by
+        FOREIGN KEY (dispute_opened_by_id) REFERENCES users(id) ON DELETE SET NULL,
+
     CONSTRAINT chk_orders_price CHECK (agreed_price >= 0),
     CONSTRAINT chk_orders_progress CHECK (progress_percentage BETWEEN 0 AND 100),
     CONSTRAINT chk_orders_dates CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date)
@@ -521,7 +530,22 @@ ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS revision_request TEXT,
     ADD COLUMN IF NOT EXISTS revision_count INT NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS max_revision_rounds INT NOT NULL DEFAULT 3,
-    ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS dispute_reason TEXT,
+    ADD COLUMN IF NOT EXISTS dispute_admin_notes TEXT,
+    ADD COLUMN IF NOT EXISTS dispute_opened_by_id BIGINT,
+    ADD COLUMN IF NOT EXISTS dispute_opened_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS dispute_resolved_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS dispute_resolution VARCHAR(30);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_orders_dispute_opened_by') THEN
+        ALTER TABLE orders
+            ADD CONSTRAINT fk_orders_dispute_opened_by
+            FOREIGN KEY (dispute_opened_by_id) REFERENCES users(id) ON DELETE SET NULL;
+    END IF;
+END $$;
 
 UPDATE orders
 SET
@@ -842,6 +866,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_due_date ON orders(due_date);
 CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders(payment_status);
+CREATE INDEX IF NOT EXISTS idx_orders_dispute_opened_at ON orders(dispute_opened_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_mission_milestones_order_id ON mission_milestones(order_id);
 CREATE INDEX IF NOT EXISTS idx_mission_milestones_status ON mission_milestones(status);

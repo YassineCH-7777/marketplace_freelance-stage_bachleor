@@ -15,6 +15,7 @@ import {
   Send,
   ShieldCheck,
   ShoppingBag,
+  Sparkles,
   Star,
   TrendingUp,
   UserCheck,
@@ -197,6 +198,7 @@ export default function RoleDashboardBar() {
         ],
         navItems: [
           { icon: <Search size={16} />, label: 'Explorer les services', matchPrefix: true, to: '/services' },
+          { icon: <Sparkles size={16} />, label: 'Assistant matching', to: '/services#matching-assistant' },
           { icon: <Heart size={16} />, label: 'Mes Favoris', to: '/client/favorites' },
           { icon: <FileText size={16} />, label: 'Mes Demandes', to: '/client/requests' },
           { icon: <Package size={16} />, label: 'Mes Commandes', to: '/client/orders' },

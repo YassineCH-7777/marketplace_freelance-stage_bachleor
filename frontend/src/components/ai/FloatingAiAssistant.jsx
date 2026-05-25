@@ -1,14 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bot, CheckCircle, FileText, Loader2, MessageSquare, Send, Sparkles, X } from 'lucide-react';
+import { Bot, CheckCircle, FileText, Loader2, MessageSquare, Search, Send, Sparkles, UserPlus, X } from 'lucide-react';
 import { getAssistantWebhookUrl, sendAssistantMessage } from '@/api/assistantApi';
-import { getRecommendedServices } from '@/api/serviceApi';
+import { getRecommendedServices, matchClientNeed } from '@/api/serviceApi';
 import useAuth from '@/hooks/useAuth';
 import '@/styles/ai-assistant.css';
 
-const STORAGE_PREFIX = 'proxiskills-floating-assistant';
+const STORAGE_PREFIX = 'proxiskills-floating-assistant-v2';
 
 const ASSISTANT_CONFIG = {
+  general: {
+    title: 'Assistant marketplace',
+    badge: '',
+    intro:
+      'Bonjour, ecrivez ce que vous voulez faire sur la plateforme. Je comprends le message et je vous guide directement.',
+    placeholder: 'Ecrivez votre message...',
+    confirmPrompt: '',
+    quickActions: [],
+  },
   client: {
     title: 'Assistant client',
     badge: 'Brief demande',
@@ -54,6 +63,11 @@ const ASSISTANT_CONFIG = {
         label: 'Profil complet',
         prompt:
           'Aide-moi a completer mon profil avec headline, bio, competences, tarif, ville et disponibilite.',
+      },
+      {
+        label: 'Offre service',
+        prompt:
+          'Genere une meilleure offre de service avec titre, description, prix conseille, mots-cles, delai et livrables.',
       },
     ],
   },
@@ -434,6 +448,880 @@ function formatDeadline(value) {
   return `${value} jours`;
 }
 
+function normalizeAssistantText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function isFreelanceIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return [
+    'devenir freelance',
+    'freelance',
+    'prestataire',
+    'proposer mes services',
+    'vendre mes services',
+    'profil',
+    'competences',
+  ].some((signal) => normalizedMessage.includes(signal));
+}
+
+function isPlatformHelpIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return ['comment ca marche', 'plateforme', 'inscription', 'compte', 'login', 'connexion', 'aide'].some((signal) =>
+    normalizedMessage.includes(signal),
+  );
+}
+
+function isAccountIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return [
+    'creer un compte',
+    'creer compte',
+    'cree un compte',
+    'cree compte',
+    'nouveau compte',
+    'ouvrir un compte',
+    'm inscrire',
+    "m'inscrire",
+    'inscription',
+    'inscrire',
+    'register',
+    'signup',
+    'sign up',
+    'compte dans ce site',
+    'compte sur ce site',
+  ].some((signal) => normalizedMessage.includes(signal));
+}
+
+function isLoginIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return ['connexion', 'connecter', 'se connecter', 'login', 'sign in', 'mot de passe'].some((signal) =>
+    normalizedMessage.includes(signal),
+  );
+}
+
+function isMessagesIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return ['message', 'messages', 'messagerie', 'conversation', 'chat', 'discuter'].some((signal) =>
+    normalizedMessage.includes(signal),
+  );
+}
+
+function isNotificationsIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return ['notification', 'notifications', 'alerte', 'alertes'].some((signal) => normalizedMessage.includes(signal));
+}
+
+function isMissionTrackingIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return [
+    'mes missions',
+    'mes commandes',
+    'mission en cours',
+    'commande en cours',
+    'livraison',
+    'livraisons',
+    'suivi',
+    'suivre',
+    'statut',
+    'revision',
+    'litige',
+  ].some((signal) => normalizedMessage.includes(signal));
+}
+
+function isCreateRequestIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return [
+    'publier une demande',
+    'creer une demande',
+    'cree une demande',
+    'nouvelle demande',
+    'deposer une demande',
+    'poster une demande',
+    'demande publique',
+  ].some((signal) => normalizedMessage.includes(signal));
+}
+
+function isBrowseRequestsIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return [
+    'voir les demandes',
+    'parcourir les demandes',
+    'trouver des demandes',
+    'postuler a une demande',
+    'candidater a une demande',
+  ].some((signal) => normalizedMessage.includes(signal));
+}
+
+function isGreetingOnly(message) {
+  const normalizedMessage = normalizeAssistantText(message)
+    .replace(/[^\w\s]/g, ' ')
+    .trim();
+
+  if (!normalizedMessage) {
+    return true;
+  }
+
+  const tokens = normalizedMessage.split(/\s+/).filter(Boolean);
+  const greetingWords = ['bonjour', 'bonsoir', 'salut', 'hello', 'hi', 'salam', 'slm', 'coucou', 'merci', 'ok'];
+
+  return tokens.length <= 3 && tokens.every((token) => greetingWords.includes(token));
+}
+
+function hasServiceRecommendationIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+
+  if (isGreetingOnly(message) || isAccountIntent(message) || isLoginIntent(message)) {
+    return false;
+  }
+
+  const tokens = normalizedMessage.split(/\s+/).filter((token) => token.length > 2);
+  const actionSignals = [
+    'cherche',
+    'besoin',
+    'trouver',
+    'recommande',
+    'recommend',
+    'freelance',
+    'service',
+    'prestataire',
+    'mission',
+    'projet',
+    'creer',
+    'creation',
+    'realiser',
+    'faire',
+    'developper',
+    'construire',
+  ];
+  const serviceSignals = [
+    'site',
+    'web',
+    'logo',
+    'application',
+    'app',
+    'mobile',
+    'design',
+    'seo',
+    'wordpress',
+    'ecommerce',
+    'boutique',
+    'restaurant',
+    'landing',
+    'developpement',
+    'marketing',
+    'video',
+    'photo',
+    'montage',
+    'redaction',
+    'traduction',
+    'reseau',
+    'instagram',
+  ];
+  const hasActionSignal = actionSignals.some((signal) => normalizedMessage.includes(signal));
+  const hasServiceSignal = serviceSignals.some((signal) => normalizedMessage.includes(signal));
+
+  return hasActionSignal && (hasServiceSignal || tokens.length >= 5);
+}
+
+function isServiceDraftIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return [
+    'ameliorer mon service',
+    'ameliorer mon offre',
+    'description de service',
+    'titre de service',
+    'prix conseille',
+    'mots-cles',
+    'mots cles',
+    'offre service',
+    'creer une offre',
+  ].some((signal) => normalizedMessage.includes(signal));
+}
+
+function buildLocalServiceDraft(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  const keywordCandidates = [
+    'react',
+    'spring boot',
+    'java',
+    'design',
+    'figma',
+    'wordpress',
+    'seo',
+    'logo',
+    'video',
+    'photo',
+    'reseau',
+    'instagram',
+  ].filter((keyword) => normalizedMessage.includes(keyword));
+  const keywords = keywordCandidates.length ? keywordCandidates : ['service professionnel', 'freelance', 'livraison'];
+  const mainKeyword = keywords[0].replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+  return {
+    title: `${mainKeyword} sur mesure pour votre projet`,
+    description:
+      message && message.length > 30
+        ? `Je vous accompagne de maniere claire et structuree sur ce besoin : ${message}. L'offre inclut un cadrage, une execution soignee, des retours intermediaires et une livraison prete a utiliser.`
+        : 'Je propose un service clair, rapide et adapte aux besoins du client, avec cadrage, execution, corrections et livraison finale.',
+    suggestedPrice: 800,
+    keywords,
+    deliveryDays: 5,
+    deliverables: ['Cadrage du besoin', 'Livraison finale', 'Corrections incluses'],
+  };
+}
+
+function buildLocalServiceDraftMessage(draft) {
+  return [
+    'Voici une version amelioree de votre offre service.',
+    `Titre : ${draft.title}`,
+    `Description : ${draft.description}`,
+    `Prix conseille : ${draft.suggestedPrice} MAD`,
+    `Mots-cles : ${draft.keywords.join(', ')}`,
+    `Delai conseille : ${draft.deliveryDays} jours`,
+    `Livrables : ${draft.deliverables.join(', ')}`,
+  ].join('\n');
+}
+
+function buildLowIntentMessage(message) {
+  if (isGreetingOnly(message)) {
+    return 'Bonjour. Dites-moi ce que vous voulez faire sur la plateforme, et je vous guiderai directement.';
+  }
+
+  return 'Je peux vous aider, mais j ai besoin d un peu plus de contexte. Indiquez ce que vous voulez faire : creer un compte, vous connecter, publier une offre, chercher un service ou suivre une mission.';
+}
+
+function buildAccountGuide(user) {
+  if (user?.id) {
+    return {
+      content:
+        'Vous etes deja connecte. Je peux vous orienter vers votre espace selon ce que vous voulez faire maintenant.',
+      generalResult: {
+        kind: 'accountGuide',
+        title: 'Compte deja connecte',
+        description: 'Accedez a votre profil, vos messages ou vos notifications depuis votre espace.',
+        actions: [
+          { label: 'Mon espace', path: getRoleHomePath(user) },
+          { label: 'Messages', path: '/messages' },
+        ],
+      },
+    };
+  }
+
+  return {
+    content:
+      'Pour creer un compte, ouvrez la page d inscription, choisissez votre role puis completez les informations demandees.',
+    generalResult: {
+      kind: 'accountGuide',
+      title: 'Creer un compte',
+      description: 'Inscrivez-vous comme client pour commander, ou comme freelance pour publier vos services.',
+      actions: [
+        { label: 'Creer un compte', path: '/register' },
+        { label: 'Se connecter', path: '/login' },
+      ],
+    },
+  };
+}
+
+function buildLoginGuide() {
+  return {
+    content:
+      'Pour acceder a votre compte, ouvrez la page de connexion puis saisissez votre email et votre mot de passe.',
+    generalResult: {
+      kind: 'accountGuide',
+      title: 'Connexion',
+      description: 'Connectez-vous pour retrouver vos messages, commandes, demandes et notifications.',
+      actions: [
+        { label: 'Se connecter', path: '/login' },
+        { label: 'Creer un compte', path: '/register' },
+      ],
+    },
+  };
+}
+
+function getRoleHomePath(user) {
+  if (user?.role === 'FREELANCER') {
+    return '/freelancer/dashboard';
+  }
+
+  if (user?.role === 'ADMIN') {
+    return '/admin/dashboard';
+  }
+
+  return '/client/dashboard';
+}
+
+function getOrdersPath(user) {
+  return user?.role === 'FREELANCER' ? '/freelancer/orders' : '/client/orders';
+}
+
+function buildGuestAccessGuide(featureLabel) {
+  return {
+    content: `Connectez-vous pour acceder a ${featureLabel}. Si vous n'avez pas encore de compte, creez-en un en choisissant votre role.`,
+    generalResult: {
+      kind: 'accountGuide',
+      title: 'Acces au compte',
+      description: `Cette partie est liee a votre espace personnel : ${featureLabel}.`,
+      actions: [
+        { label: 'Se connecter', path: '/login' },
+        { label: 'Creer un compte', path: '/register' },
+      ],
+    },
+  };
+}
+
+function buildMessagesGuide(user) {
+  if (!user?.id) {
+    return buildGuestAccessGuide('vos messages');
+  }
+
+  return {
+    content: 'Ouvrez la messagerie pour reprendre une discussion avec un client ou un freelance.',
+    generalResult: {
+      kind: 'messagesGuide',
+      title: 'Messages',
+      description: 'Retrouvez vos conversations et continuez les echanges autour des services ou missions.',
+      actions: [
+        { label: 'Ouvrir les messages', path: '/messages' },
+        { label: 'Notifications', path: '/notifications' },
+      ],
+    },
+  };
+}
+
+function buildNotificationsGuide(user) {
+  if (!user?.id) {
+    return buildGuestAccessGuide('vos notifications');
+  }
+
+  return {
+    content: 'Ouvrez vos notifications pour voir les nouvelles activites, demandes, messages ou missions a traiter.',
+    generalResult: {
+      kind: 'notificationsGuide',
+      title: 'Notifications',
+      description: 'Suivez les alertes importantes liees a votre compte marketplace.',
+      actions: [
+        { label: 'Voir les notifications', path: '/notifications' },
+        { label: 'Messages', path: '/messages' },
+      ],
+    },
+  };
+}
+
+function buildMissionGuide(user) {
+  if (!user?.id) {
+    return buildGuestAccessGuide('vos missions et commandes');
+  }
+
+  return {
+    content: 'Ouvrez votre suivi de missions pour verifier les commandes, livraisons, revisions et prochaines actions.',
+    generalResult: {
+      kind: 'missionGuide',
+      title: 'Missions et commandes',
+      description: 'Consultez les missions en cours, les livraisons et les actions attendues.',
+      actions: [
+        { label: 'Voir les missions', path: getOrdersPath(user) },
+        { label: 'Messages', path: '/messages' },
+      ],
+    },
+  };
+}
+
+function buildRequestGuide(user) {
+  if (!user?.id) {
+    return {
+      content:
+        'Pour publier une demande, creez un compte client ou connectez-vous. Les demandes publiques permettent de recevoir des propositions de freelances.',
+      generalResult: {
+        kind: 'requestGuide',
+        title: 'Publier une demande',
+        description: 'Un compte client est necessaire pour publier et suivre une demande.',
+        actions: [
+          { label: 'Creer un compte', path: '/register' },
+          { label: 'Voir les demandes', path: '/requests' },
+        ],
+      },
+    };
+  }
+
+  if (user.role === 'FREELANCER') {
+    return {
+      content: 'Vous pouvez parcourir les demandes publiques et postuler aux missions adaptees a vos services.',
+      generalResult: {
+        kind: 'requestGuide',
+        title: 'Demandes publiques',
+        description: 'Consultez les besoins publies par les clients et envoyez vos propositions.',
+        actions: [
+          { label: 'Voir les demandes', path: '/requests' },
+          { label: 'Mes candidatures', path: '/freelancer/proposals' },
+        ],
+      },
+    };
+  }
+
+  return {
+    content: 'Ouvrez votre espace client pour publier une nouvelle demande ou suivre les demandes deja creees.',
+    generalResult: {
+      kind: 'requestGuide',
+      title: 'Demandes client',
+      description: 'Publiez un besoin clair, comparez les propositions et suivez les echanges.',
+      actions: [
+        { label: 'Nouvelle demande', path: '/client/requests/new' },
+        { label: 'Mes demandes', path: '/client/requests' },
+      ],
+    },
+  };
+}
+
+function buildBrowseRequestsGuide() {
+  return {
+    content: 'Les demandes publiques sont accessibles depuis la page des demandes. Vous pouvez les parcourir et ouvrir le detail d une mission.',
+    generalResult: {
+      kind: 'requestGuide',
+      title: 'Demandes publiques',
+      description: 'Parcourez les besoins clients disponibles sur la marketplace.',
+      actions: [
+        { label: 'Voir les demandes', path: '/requests' },
+        { label: 'Explorer les services', path: '/services' },
+      ],
+    },
+  };
+}
+
+function buildFreelanceGuide(user) {
+  if (user?.role === 'FREELANCER') {
+    return {
+      content:
+        'Vous pouvez gerer votre activite freelance depuis votre profil, vos services, les demandes recues et vos missions.',
+      generalResult: {
+        kind: 'freelanceGuide',
+        title: 'Espace freelance',
+        description: 'Completez votre profil, publiez vos services et suivez vos demandes.',
+        actions: [
+          { label: 'Mon profil', path: '/freelancer/profile' },
+          { label: 'Mes services', path: '/freelancer/services' },
+          { label: 'Demandes recues', path: '/freelancer/requests' },
+        ],
+      },
+    };
+  }
+
+  return {
+    content:
+      'Pour proposer vos services, commencez par creer un compte freelance, puis completez votre profil, vos competences, votre ville et vos premiers services.',
+    generalResult: {
+      kind: 'freelanceGuide',
+      title: 'Demarrer comme freelance',
+      description: 'Creez un compte freelance, completez votre profil, ajoutez vos services, puis suivez les demandes.',
+      actions: [
+        { label: 'Creer un compte freelance', path: '/register' },
+        { label: 'Voir les services', path: '/services' },
+      ],
+    },
+  };
+}
+
+function buildPlatformGuide(message, user) {
+  if (isLoginIntent(message)) {
+    return buildLoginGuide();
+  }
+
+  if (isAccountIntent(message)) {
+    return buildAccountGuide(user);
+  }
+
+  return {
+    content:
+      'Je peux vous orienter pour creer un compte, chercher un service, publier une offre, suivre une mission, ouvrir les messages ou consulter les notifications.',
+    generalResult: {
+      kind: 'platformGuide',
+      title: 'Utiliser la marketplace',
+      description: 'Choisissez l action qui correspond a votre objectif actuel.',
+      actions: user?.id
+        ? [
+            { label: 'Mon espace', path: getRoleHomePath(user) },
+            { label: 'Messages', path: '/messages' },
+            { label: 'Notifications', path: '/notifications' },
+          ]
+        : [
+            { label: 'Creer un compte', path: '/register' },
+            { label: 'Se connecter', path: '/login' },
+            { label: 'Explorer les services', path: '/services' },
+          ],
+    },
+  };
+}
+
+function buildDeterministicGlobalGuide(message, user) {
+  if (isServiceDraftIntent(message)) {
+    return null;
+  }
+
+  if (isLoginIntent(message)) {
+    return buildLoginGuide();
+  }
+
+  if (isAccountIntent(message)) {
+    return buildAccountGuide(user);
+  }
+
+  if (isMessagesIntent(message)) {
+    return buildMessagesGuide(user);
+  }
+
+  if (isNotificationsIntent(message)) {
+    return buildNotificationsGuide(user);
+  }
+
+  if (isMissionTrackingIntent(message)) {
+    return buildMissionGuide(user);
+  }
+
+  if (isCreateRequestIntent(message)) {
+    return buildRequestGuide(user);
+  }
+
+  if (isBrowseRequestsIntent(message)) {
+    return buildBrowseRequestsGuide();
+  }
+
+  if (isPlatformHelpIntent(message)) {
+    return buildPlatformGuide(message, user);
+  }
+
+  return null;
+}
+
+function buildBriefFromMatch(message, interpretedRequest = {}, extractedKeywords = []) {
+  return {
+    category: interpretedRequest.categoryName || null,
+    city: interpretedRequest.city || null,
+    mode: interpretedRequest.mode || null,
+    budget: normalizeEditableNumber(interpretedRequest.maxBudget),
+    deadline_days: normalizeEditableNumber(interpretedRequest.maxDeliveryDays),
+    objective: message || interpretedRequest.keyword || null,
+    deliverables: extractedKeywords?.length ? extractedKeywords.slice(0, 5) : [],
+  };
+}
+
+function getMissingClientFields(brief) {
+  return [
+    !brief.category && 'category',
+    !brief.city && 'city',
+    !brief.budget && 'budget',
+    !brief.deadline_days && 'deadline_days',
+    !brief.objective && 'objective',
+  ].filter(Boolean);
+}
+
+function buildClientMatchMessage(matchResponse, includeRecommendationList = true) {
+  const recommendations = matchResponse?.recommendations || [];
+  const lines = [matchResponse?.summary || 'Voici les recommandations les plus proches du besoin.'];
+
+  if (includeRecommendationList && recommendations.length > 0) {
+    lines.push(
+      recommendations
+        .slice(0, 3)
+        .map((recommendation, index) => {
+          const service = recommendation.service;
+          const score = Math.round(Number(recommendation.score || 0) * 100);
+          const reasons = (recommendation.reasons || []).join(', ');
+          return `${index + 1}. ${service.title} (${score}% match) - ${reasons}`;
+        })
+        .join('\n'),
+    );
+  }
+
+  return lines.filter(Boolean).join('\n\n');
+}
+
+function getGeneralMessageContent(payload, fallback, result) {
+  if (!result) {
+    return fallback;
+  }
+
+  const structuredPayload = unwrapStructuredPayload(payload);
+  const assistantMessage =
+    structuredPayload?.assistantMessage ||
+    structuredPayload?.assistant_message ||
+    result.data?.summary ||
+    result.description ||
+    fallback;
+
+  return assistantMessage || fallback;
+}
+
+function navigationToActions(navigation) {
+  if (!navigation || typeof navigation !== 'object') {
+    return [];
+  }
+
+  return [
+    navigation.primary_path && {
+      label: navigation.primary_label || 'Ouvrir',
+      path: navigation.primary_path,
+    },
+    navigation.secondary_path && {
+      label: navigation.secondary_label || 'Voir aussi',
+      path: navigation.secondary_path,
+    },
+  ].filter(Boolean);
+}
+
+function buildGeneralResultFromPayload(payload, message, user) {
+  const structuredPayload = unwrapStructuredPayload(payload);
+
+  if (!structuredPayload || typeof structuredPayload !== 'object') {
+    return null;
+  }
+
+  const assistantMessage =
+    structuredPayload.assistantMessage ||
+    structuredPayload.assistant_message ||
+    payload?.output ||
+    'Voici la meilleure suite proposee.';
+  const navigationActions = navigationToActions(structuredPayload.navigation);
+  const deterministicGuide = buildDeterministicGlobalGuide(message, user);
+
+  if (deterministicGuide && deterministicGuide.generalResult?.kind !== 'platformGuide') {
+    return deterministicGuide.generalResult;
+  }
+
+  const recommendations = normalizeList(structuredPayload.recommendations)
+    .map((recommendation) => {
+      const service = recommendation.service || {};
+      const serviceId = service.id ?? recommendation.service_id ?? recommendation.serviceId ?? recommendation.id;
+
+      if (!serviceId) {
+        return null;
+      }
+
+      return {
+        score: Number(recommendation.score || 0),
+        reasons: normalizeList(recommendation.reasons),
+        service: {
+          id: serviceId,
+          title: service.title || recommendation.title || 'Service recommande',
+          price: service.price ?? recommendation.price,
+          city: service.city || recommendation.city,
+        },
+      };
+    })
+    .filter(Boolean);
+
+  if (recommendations.length > 0) {
+    return {
+      kind: 'matches',
+      data: {
+        summary: assistantMessage,
+        recommendations,
+      },
+    };
+  }
+
+  const intent = structuredPayload.intent || structuredPayload.nextAction || structuredPayload.next_action || '';
+
+  if (intent === 'account_help' || intent === 'login_help') {
+    const guide = intent === 'login_help' ? buildLoginGuide().generalResult : buildAccountGuide(user).generalResult;
+
+    return {
+      ...guide,
+      description: assistantMessage || guide.description,
+    };
+  }
+
+  if (structuredPayload.serviceDraft || structuredPayload.service_draft || intent === 'service_optimizer') {
+    return {
+      kind: 'platformGuide',
+      title: 'Offre service amelioree',
+      description: assistantMessage,
+      actions: navigationActions.length
+        ? navigationActions
+        : [
+            { label: 'Publier un service', path: '/freelancer/services' },
+            { label: 'Mon profil', path: '/freelancer/profile' },
+          ],
+    };
+  }
+
+  if (structuredPayload.profile || String(intent).includes('freelance')) {
+    const guide = buildFreelanceGuide(user).generalResult;
+
+    return {
+      ...guide,
+      description: assistantMessage || guide.description,
+    };
+  }
+
+  if (intent === 'unknown' || structuredPayload.status === 'need_more_info') {
+    const guide = buildPlatformGuide('', user).generalResult;
+
+    return {
+      ...guide,
+      description: assistantMessage || guide.description,
+    };
+  }
+
+  if (intent === 'platform_help') {
+    const guide = buildPlatformGuide(message, user).generalResult;
+
+    return {
+      ...guide,
+      description: assistantMessage || guide.description,
+    };
+  }
+
+  if (deterministicGuide) {
+    return deterministicGuide.generalResult;
+  }
+
+  if (structuredPayload.navigation) {
+    return {
+      kind: 'platformGuide',
+      title: 'Continuer',
+      description: assistantMessage,
+      actions: navigationActions.length
+        ? navigationActions
+        : buildPlatformGuide('', user).generalResult.actions,
+    };
+  }
+
+  return null;
+}
+
+function buildLocalFreelanceProfile(message, user) {
+  const normalizedMessage = normalizeAssistantText(message);
+  const knownSkills = [
+    'react',
+    'spring boot',
+    'java',
+    'design',
+    'figma',
+    'photoshop',
+    'photo',
+    'video',
+    'seo',
+    'wordpress',
+    'wifi',
+    'reseau',
+    'redaction',
+    'instagram',
+  ];
+  const skills = knownSkills
+    .filter((skill) => normalizedMessage.includes(skill))
+    .map((skill) => skill.replace(/\b\w/g, (letter) => letter.toUpperCase()));
+  const uniqueSkills = [...new Set(skills)];
+  const mainSkill = uniqueSkills[0] || 'Service freelance';
+  const city = user?.city || null;
+
+  return {
+    headline: `${mainSkill} pour missions locales et a distance`,
+    professional_bio:
+      message && message.length > 20
+        ? `Profil a partir de votre description : ${message}`
+        : 'Freelance disponible pour des missions locales, avec un profil a completer avant publication.',
+    skills: uniqueSkills,
+    city,
+    availability: 'AVAILABLE',
+    hourly_rate: null,
+    portfolio_url: null,
+    primary_categories: uniqueSkills.length ? uniqueSkills.slice(0, 3) : [],
+    remote_mode: 'hybride',
+    profile_completion_score: uniqueSkills.length >= 3 ? 70 : 45,
+  };
+}
+
+function buildLocalFreelanceMessage(profile) {
+  return [
+    'Je peux vous aider a demarrer comme freelance. Voici un brouillon de profil a corriger ou completer.',
+    `Headline : ${profile.headline}`,
+    `Competences : ${profile.skills.length ? profile.skills.join(', ') : 'a confirmer'}`,
+    `Ville : ${profile.city || 'a confirmer'}`,
+    'Vous pouvez creer un compte freelance puis affiner le profil dans votre espace.',
+  ].join('\n');
+}
+
+async function buildLocalAssistantResponse({ type, message, user }) {
+  if (isServiceDraftIntent(message)) {
+    const serviceDraft = buildLocalServiceDraft(message);
+    return {
+      content: buildLocalServiceDraftMessage(serviceDraft),
+      generalResult:
+        type === 'general'
+          ? {
+              kind: 'platformGuide',
+              title: 'Offre service amelioree',
+              description: 'Utilisez cette base pour publier ou mettre a jour votre service freelance.',
+              actions: [
+                { label: 'Publier un service', path: '/freelancer/services' },
+                { label: 'Mon profil', path: '/freelancer/profile' },
+              ],
+            }
+          : null,
+    };
+  }
+
+  if (type === 'general') {
+    const deterministicGuide = buildDeterministicGlobalGuide(message, user);
+    const shouldUseDeterministicGuide =
+      deterministicGuide?.generalResult?.kind !== 'platformGuide' || !hasServiceRecommendationIntent(message);
+
+    if (deterministicGuide && shouldUseDeterministicGuide) {
+      return deterministicGuide;
+    }
+  }
+
+  if (type === 'freelance') {
+    const profile = buildLocalFreelanceProfile(message, user);
+    return {
+      content: buildLocalFreelanceMessage(profile),
+      structured: {
+        status: 'ready',
+        assistantMessage: 'Brouillon de profil propose.',
+        profile,
+        missingFields: ['hourly_rate', 'portfolio_url'].filter((field) => !profile[field]),
+        nextAction: 'review_suggested_profile',
+      },
+    };
+  }
+
+  if (type === 'general' && isFreelanceIntent(message) && !normalizeAssistantText(message).includes('chercher')) {
+    return buildFreelanceGuide(user);
+  }
+
+  if (!hasServiceRecommendationIntent(message)) {
+    return {
+      content: buildLowIntentMessage(message),
+      generalResult: null,
+    };
+  }
+
+  const matchResponse = await matchClientNeed({
+    need: message,
+    city: user?.city || undefined,
+    limit: 3,
+  }).then((response) => response.data);
+  const brief = buildBriefFromMatch(message, matchResponse.interpretedRequest, matchResponse.extractedKeywords);
+
+  return {
+    content: buildClientMatchMessage(matchResponse, type !== 'general'),
+    structured:
+      type === 'client'
+        ? {
+            status: 'ready',
+            assistantMessage: matchResponse.summary,
+            brief,
+            missingFields: getMissingClientFields(brief),
+            nextAction: 'review_suggested_brief',
+          }
+        : null,
+    generalResult: type === 'general' ? { kind: 'matches', data: matchResponse } : null,
+  };
+}
+
 function getClientRows(data) {
   return [
     ['Categorie', data.category],
@@ -618,6 +1506,92 @@ function StructuredPreview({ type, snapshot, onFieldChange, onConfirm, onCopy, c
   );
 }
 
+function GeneralAssistantResult({ result, onActionClick }) {
+  if (!result) {
+    return null;
+  }
+
+  if (result.kind === 'matches') {
+    const matchResponse = result.data || {};
+    const recommendations = matchResponse.recommendations || [];
+
+    return (
+      <aside className="floating-ai-general-result">
+        <div className="floating-ai-general-head">
+          <Search size={15} />
+          <strong>Choisissez une recommandation</strong>
+        </div>
+
+        {recommendations.length > 0 ? (
+          <div className="floating-ai-general-list">
+            {recommendations.slice(0, 3).map((recommendation) => {
+              const service = recommendation.service;
+              const score = Math.round(Number(recommendation.score || 0) * 100);
+
+              return (
+                <Link
+                  className="floating-ai-general-card"
+                  key={service.id}
+                  to={`/services/${service.id}`}
+                  onClick={onActionClick}
+                >
+                  <span>{score}%</span>
+                  <div>
+                    <strong>{service.title}</strong>
+                    <p>{(recommendation.reasons || []).slice(0, 2).join(' - ') || 'Profil pertinent'}</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <p>Aucun service prioritaire pour ce besoin.</p>
+        )}
+
+        <Link className="btn btn-primary btn-sm" to="/services#matching-assistant" onClick={onActionClick}>
+          Ouvrir le matching complet
+        </Link>
+      </aside>
+    );
+  }
+
+  const isFreelanceGuide = result.kind === 'freelanceGuide';
+  const isAccountGuide = result.kind === 'accountGuide';
+  const actions =
+    result.actions ||
+    (isFreelanceGuide
+      ? [
+          { label: 'Creer un compte freelance', path: '/register' },
+          { label: 'Voir les services', path: '/services' },
+        ]
+      : [
+          { label: 'Creer un compte', path: '/register' },
+          { label: 'Se connecter', path: '/login' },
+        ]);
+
+  return (
+    <aside className="floating-ai-general-result">
+      <div className="floating-ai-general-head">
+        {isFreelanceGuide || isAccountGuide ? <UserPlus size={15} /> : <Sparkles size={15} />}
+        <strong>{result.title}</strong>
+      </div>
+      <p>{result.description}</p>
+      <div className="floating-ai-general-actions">
+        {actions.slice(0, 3).map((action, index) => (
+          <Link
+            className={`btn ${index === 0 ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+            to={action.path}
+            onClick={onActionClick}
+            key={`${action.path}-${action.label}`}
+          >
+            {action.label}
+          </Link>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
 function PostConfirmationActions({
   type,
   snapshot,
@@ -691,7 +1665,7 @@ function PostConfirmationActions({
 
 export default function FloatingAiAssistant() {
   const location = useLocation();
-  const { isAuthenticated, user } = useAuth();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -699,13 +1673,14 @@ export default function FloatingAiAssistant() {
   const [copied, setCopied] = useState(false);
   const [structuredResult, setStructuredResult] = useState(null);
   const [confirmedResult, setConfirmedResult] = useState(null);
+  const [generalResult, setGeneralResult] = useState(null);
   const [suggestedServices, setSuggestedServices] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState('');
   const messagesEndRef = useRef(null);
   const sessionIdRef = useRef(null);
 
-  const type = user?.role === 'FREELANCER' ? 'freelance' : 'client';
+  const type = 'general';
   const config = ASSISTANT_CONFIG[type] || ASSISTANT_CONFIG.client;
   const userKey = getUserKey(user);
   const webhookUrl = getAssistantWebhookUrl(type);
@@ -713,7 +1688,8 @@ export default function FloatingAiAssistant() {
 
   const [messages, setMessages] = useState(() => readStoredMessages(type, userKey));
 
-  const canUseAssistant = isAuthenticated && (user?.role === 'CLIENT' || user?.role === 'FREELANCER');
+  const canUseAssistant = true;
+  const shouldUseLocalAssistant = !webhookUrl;
 
   const assistantMetadata = useMemo(
     () => ({
@@ -736,6 +1712,7 @@ export default function FloatingAiAssistant() {
     setMessages(readStoredMessages(type, userKey));
     setStructuredResult(null);
     setConfirmedResult(null);
+    setGeneralResult(null);
     setSuggestedServices([]);
     setSuggestionsError('');
     setError('');
@@ -753,7 +1730,7 @@ export default function FloatingAiAssistant() {
     if (isOpen) {
       messagesEndRef.current?.scrollIntoView({ block: 'end' });
     }
-  }, [isOpen, messages, sending, structuredResult]);
+  }, [isOpen, messages, sending, structuredResult, generalResult]);
 
   useEffect(() => {
     if (!copied) {
@@ -808,10 +1785,7 @@ export default function FloatingAiAssistant() {
     const nextMessage = (messageOverride || input).trim();
     const visibleMessage = (visibleMessageOverride || nextMessage).trim();
 
-    if (!nextMessage || sending || !webhookUrl) {
-      if (!webhookUrl) {
-        setError('Assistant indisponible pour le moment.');
-      }
+    if (!nextMessage || sending) {
       return;
     }
 
@@ -824,6 +1798,7 @@ export default function FloatingAiAssistant() {
     setCopied(false);
     if (!options.confirmSnapshot) {
       setConfirmedResult(null);
+      setGeneralResult(null);
       setSuggestedServices([]);
       setSuggestionsError('');
     }
@@ -838,6 +1813,76 @@ export default function FloatingAiAssistant() {
     setSending(true);
 
     try {
+      const finalConfirmedSnapshot = options.confirmSnapshot ? buildFinalSnapshot(type, options.confirmSnapshot) : null;
+
+      if (finalConfirmedSnapshot) {
+        setStructuredResult(null);
+        setConfirmedResult(finalConfirmedSnapshot);
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: createId(),
+            role: 'assistant',
+            content:
+              type === 'client'
+                ? 'Brief confirme. Voici les prochaines actions recommandees.'
+                : 'Profil confirme. Voici la prochaine action.',
+          },
+        ]);
+        return;
+      }
+
+      if (type === 'general') {
+        const deterministicGuide = buildDeterministicGlobalGuide(nextMessage, user);
+        const shouldUseDeterministicGuide =
+          deterministicGuide?.generalResult?.kind !== 'platformGuide' || !hasServiceRecommendationIntent(nextMessage);
+
+        if (deterministicGuide && shouldUseDeterministicGuide) {
+          setStructuredResult(null);
+          setGeneralResult(deterministicGuide.generalResult || null);
+          setMessages((currentMessages) => [
+            ...currentMessages,
+            {
+              id: createId(),
+              role: 'assistant',
+              content: deterministicGuide.content,
+              generalResult: deterministicGuide.generalResult || null,
+            },
+          ]);
+          return;
+        }
+      }
+
+      if (shouldUseLocalAssistant) {
+        const localResponse = await buildLocalAssistantResponse({ type, message: nextMessage, user });
+
+        if (localResponse.structured) {
+          setStructuredResult(localResponse.structured);
+        } else {
+          setStructuredResult(null);
+        }
+        if (localResponse.generalResult) {
+          setGeneralResult(localResponse.generalResult);
+        } else {
+          setGeneralResult(null);
+        }
+
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: createId(),
+            role: 'assistant',
+            content: getGeneralMessageContent(
+              { structured: { assistantMessage: localResponse.content } },
+              localResponse.content,
+              localResponse.generalResult,
+            ),
+            generalResult: localResponse.generalResult || null,
+          },
+        ]);
+        return;
+      }
+
       const responseText = await sendAssistantMessage({
         type,
         message: nextMessage,
@@ -847,25 +1892,26 @@ export default function FloatingAiAssistant() {
       const rawPayload = tryParseJson(responseText);
       const displayText = getAssistantDisplayText(responseText, rawPayload);
       const nextSnapshot = buildStructuredSnapshot(type, rawPayload);
-      const finalConfirmedSnapshot = options.confirmSnapshot ? buildFinalSnapshot(type, options.confirmSnapshot) : null;
+      const nextGeneralResult = type === 'general' ? buildGeneralResultFromPayload(rawPayload, nextMessage, user) : null;
+      const canShowRecommendations =
+        nextGeneralResult?.kind !== 'matches' || hasServiceRecommendationIntent(nextMessage);
+      const visibleGeneralResult = canShowRecommendations ? nextGeneralResult : null;
+      const nextMessageContent = canShowRecommendations
+        ? getGeneralMessageContent(rawPayload, displayText, visibleGeneralResult)
+        : buildLowIntentMessage(nextMessage);
 
-      if (finalConfirmedSnapshot) {
-        setStructuredResult(null);
-        setConfirmedResult(finalConfirmedSnapshot);
-      } else if (nextSnapshot) {
+      if (nextSnapshot) {
         setStructuredResult(nextSnapshot);
       }
+      setGeneralResult(visibleGeneralResult);
 
       setMessages((currentMessages) => [
         ...currentMessages,
         {
           id: createId(),
           role: 'assistant',
-          content: finalConfirmedSnapshot
-            ? type === 'client'
-              ? 'Brief confirme. Voici les prochaines actions recommandees.'
-              : 'Profil confirme. Voici la prochaine action.'
-            : displayText,
+          content: nextMessageContent,
+          generalResult: visibleGeneralResult,
         },
       ]);
     } catch (requestError) {
@@ -903,6 +1949,7 @@ export default function FloatingAiAssistant() {
     setMessages(initialMessages);
     setStructuredResult(null);
     setConfirmedResult(null);
+    setGeneralResult(null);
     setSuggestedServices([]);
     setSuggestionsError('');
     setInput('');
@@ -934,7 +1981,7 @@ export default function FloatingAiAssistant() {
                 <Bot size={20} />
               </span>
               <div>
-                <p>{config.badge}</p>
+                {config.badge && <p>{config.badge}</p>}
                 <h2>{config.title}</h2>
               </div>
             </div>
@@ -950,8 +1997,14 @@ export default function FloatingAiAssistant() {
 
           <div className="floating-ai-messages" aria-live="polite">
             {messages.map((message) => (
-              <article className={`floating-ai-message is-${message.role}`} key={message.id}>
-                {message.content}
+              <article
+                className={`floating-ai-message is-${message.role} ${message.generalResult ? 'has-result' : ''}`}
+                key={message.id}
+              >
+                {message.content && <span className="floating-ai-message-text">{message.content}</span>}
+                {message.generalResult && (
+                  <GeneralAssistantResult result={message.generalResult} onActionClick={() => setIsOpen(false)} />
+                )}
               </article>
             ))}
             {sending && (
@@ -962,75 +2015,66 @@ export default function FloatingAiAssistant() {
             <div ref={messagesEndRef} />
           </div>
 
-          <StructuredPreview
-            type={type}
-            snapshot={structuredResult}
-            onFieldChange={(field, value) => {
-              setStructuredResult((currentSnapshot) => {
-                if (!currentSnapshot?.data) {
-                  return currentSnapshot;
-                }
-
-                const hasValue = String(value || '').trim().length > 0;
-                const nextMissingFields = (currentSnapshot.missingFields || []).filter((missingField) => {
-                  if (missingField === field) {
-                    return !hasValue;
+          {type !== 'general' && (
+            <StructuredPreview
+              type={type}
+              snapshot={structuredResult}
+              onFieldChange={(field, value) => {
+                setStructuredResult((currentSnapshot) => {
+                  if (!currentSnapshot?.data) {
+                    return currentSnapshot;
                   }
 
-                  return true;
+                  const hasValue = String(value || '').trim().length > 0;
+                  const nextMissingFields = (currentSnapshot.missingFields || []).filter((missingField) => {
+                    if (missingField === field) {
+                      return !hasValue;
+                    }
+
+                    return true;
+                  });
+
+                  if (!hasValue && !nextMissingFields.includes(field)) {
+                    nextMissingFields.push(field);
+                  }
+
+                  return {
+                    ...currentSnapshot,
+                    missingFields: nextMissingFields,
+                    data: {
+                      ...currentSnapshot.data,
+                      [field]: value,
+                    },
+                  };
                 });
+              }}
+              onConfirm={() =>
+                void sendMessage(
+                  buildConfirmationPrompt(type, structuredResult, config.confirmPrompt),
+                  type === 'client'
+                    ? 'Je confirme ce brouillon avec mes modifications.'
+                    : 'Je confirme ce profil avec mes modifications.',
+                  { confirmSnapshot: structuredResult },
+                )
+              }
+              onCopy={handleCopy}
+              copied={copied}
+              disabled={sending}
+            />
+          )}
 
-                if (!hasValue && !nextMissingFields.includes(field)) {
-                  nextMissingFields.push(field);
-                }
-
-                return {
-                  ...currentSnapshot,
-                  missingFields: nextMissingFields,
-                  data: {
-                    ...currentSnapshot.data,
-                    [field]: value,
-                  },
-                };
-              });
-            }}
-            onConfirm={() =>
-              void sendMessage(
-                buildConfirmationPrompt(type, structuredResult, config.confirmPrompt),
-                type === 'client'
-                  ? 'Je confirme ce brouillon avec mes modifications.'
-                  : 'Je confirme ce profil avec mes modifications.',
-                { confirmSnapshot: structuredResult },
-              )
-            }
-            onCopy={handleCopy}
-            copied={copied}
-            disabled={sending || !webhookUrl}
-          />
-
-          <PostConfirmationActions
-            type={type}
-            snapshot={confirmedResult}
-            services={suggestedServices}
-            loading={suggestionsLoading}
-            error={suggestionsError}
-            onServiceClick={() => setIsOpen(false)}
-          />
+          {type !== 'general' && (
+            <PostConfirmationActions
+              type={type}
+              snapshot={confirmedResult}
+              services={suggestedServices}
+              loading={suggestionsLoading}
+              error={suggestionsError}
+              onServiceClick={() => setIsOpen(false)}
+            />
+          )}
 
           {error && <p className="floating-ai-error">{error}</p>}
-
-          <div className="floating-ai-quick-actions">
-            {config.quickActions.map((action) => (
-              <button
-                type="button"
-                key={action.label}
-                onClick={() => void sendMessage(action.prompt)}
-                disabled={sending || !webhookUrl}
-              >
-                {action.label}
-              </button>
-            ))}
-          </div>
 
           <form className="floating-ai-composer" onSubmit={handleSubmit}>
             <textarea
@@ -1039,11 +2083,10 @@ export default function FloatingAiAssistant() {
               onKeyDown={handleComposerKeyDown}
               placeholder={config.placeholder}
               rows={2}
-              disabled={sending || !webhookUrl}
+              disabled={sending}
             />
-            <button type="submit" className="btn btn-primary" disabled={!input.trim() || sending || !webhookUrl}>
+            <button type="submit" className="btn btn-primary" disabled={!input.trim() || sending}>
               {sending ? <Loader2 size={16} className="spinner" /> : <Send size={16} />}
-              Envoyer
             </button>
           </form>
         </section>
@@ -1056,7 +2099,6 @@ export default function FloatingAiAssistant() {
         aria-label={isOpen ? "Fermer l'assistant IA" : "Ouvrir l'assistant IA"}
       >
         {isOpen ? <X size={23} /> : <MessageSquare size={23} />}
-        <span>Assistant IA</span>
       </button>
     </div>
   );

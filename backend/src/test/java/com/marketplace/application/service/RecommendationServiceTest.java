@@ -9,6 +9,8 @@ import com.marketplace.domain.model.ServiceEntity;
 import com.marketplace.domain.model.User;
 import com.marketplace.infrastructure.persistence.ServiceImageRepository;
 import com.marketplace.infrastructure.persistence.ServiceRepository;
+import com.marketplace.web.dto.recommendation.MatchingAssistantRequestDto;
+import com.marketplace.web.dto.recommendation.MatchingAssistantResponseDto;
 import com.marketplace.web.dto.recommendation.RecommendationRequestDto;
 import com.marketplace.web.dto.recommendation.RecommendationResultDto;
 import org.junit.jupiter.api.Test;
@@ -80,6 +82,50 @@ class RecommendationServiceTest {
         assertThat(results.get(0).getScore()).isGreaterThan(results.get(1).getScore());
         assertThat(results.get(0).getReasons()).contains("Meme ville ou profil local", "Budget compatible");
         assertThat(results.get(0).getScoreDetails()).containsKeys("adequacy", "proximity", "budget", "rating");
+    }
+
+    @Test
+    void matchClientNeedInterpretsTextAndReturnsRecommendations() {
+        Category webCategory = category(2L, "Developpement web");
+        ServiceEntity localReactService = service(
+                10L,
+                "Site vitrine React pour restaurant",
+                "Creation de site web moderne avec menu, reservation et SEO local.",
+                new BigDecimal("1800.00"),
+                8,
+                "Marrakech",
+                true,
+                webCategory,
+                freelancer(21L, 31L, "Marrakech", List.of("React", "Spring Boot", "SEO"), "Developpeur web React")
+        );
+        ServiceEntity expensiveService = service(
+                11L,
+                "Application web sur mesure",
+                "Application web complete pour processus internes.",
+                new BigDecimal("5000.00"),
+                25,
+                "Rabat",
+                true,
+                webCategory,
+                freelancer(22L, 32L, "Rabat", List.of("Java", "React"), "Developpeur fullstack")
+        );
+
+        when(serviceRepository.findByStatus(ServiceStatus.PUBLISHED)).thenReturn(List.of(expensiveService, localReactService));
+        when(serviceImageRepository.findByServiceIdOrderBySortOrderAsc(anyLong())).thenReturn(List.of());
+
+        MatchingAssistantResponseDto response = recommendationService.matchClientNeed(
+                MatchingAssistantRequestDto.builder()
+                        .need("Je cherche un site web pour mon restaurant a Marrakech, budget 2000 MAD, livraison en 10 jours.")
+                        .limit(3)
+                        .build());
+
+        assertThat(response.getInterpretedRequest().getCategoryName()).isEqualTo("Developpement web");
+        assertThat(response.getInterpretedRequest().getCity()).isEqualTo("Marrakech");
+        assertThat(response.getInterpretedRequest().getMaxBudget()).isEqualByComparingTo("2000");
+        assertThat(response.getInterpretedRequest().getMaxDeliveryDays()).isEqualTo(10);
+        assertThat(response.getRecommendations()).hasSize(2);
+        assertThat(response.getRecommendations().get(0).getService().getId()).isEqualTo(10L);
+        assertThat(response.getSummary()).contains("profil");
     }
 
     private ServiceEntity service(

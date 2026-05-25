@@ -24,9 +24,11 @@ import com.marketplace.infrastructure.persistence.ReviewRepository;
 import com.marketplace.infrastructure.persistence.ServiceRepository;
 import com.marketplace.infrastructure.persistence.UserRepository;
 import com.marketplace.web.dto.attachment.AttachmentDto;
+import com.marketplace.web.dto.order.AdminDisputeDecisionDto;
 import com.marketplace.web.dto.order.MissionActivityDto;
 import com.marketplace.web.dto.order.MissionMilestoneDto;
 import com.marketplace.web.dto.order.OrderClientDecisionDto;
+import com.marketplace.web.dto.order.OrderDisputeRequestDto;
 import com.marketplace.web.dto.order.OrderDto;
 import com.marketplace.web.dto.order.OrderExecutionUpdateDto;
 import com.marketplace.web.dto.order.OrderRequestDto;
@@ -133,6 +135,9 @@ public class OrderService {
         OrderStatus nextStatus = dto.getStatus() != null ? dto.getStatus() : order.getStatus();
         if (nextStatus == OrderStatus.PENDING || nextStatus == OrderStatus.ACCEPTED) {
             throw new BusinessException("Le suivi de mission ne peut pas revenir a une etape initiale.", HttpStatus.BAD_REQUEST);
+        }
+        if (nextStatus == OrderStatus.DISPUTED) {
+            throw new BusinessException("Utilisez le flux de litige pour ouvrir une reclamation avec un motif.", HttpStatus.BAD_REQUEST);
         }
 
         LocalDate nextStartDate = dto.getStartDate() != null ? dto.getStartDate() : order.getStartDate();
@@ -374,6 +379,75 @@ public class OrderService {
         return mapToOrderDto(savedOrder);
     }
 
+    @Transactional
+    public OrderDto openClientDispute(Long orderId, Long clientId, OrderDisputeRequestDto dto) {
+        Order order = findClientOrder(orderId, clientId);
+        return openDispute(order, order.getClient(), dto);
+    }
+
+    @Transactional
+    public OrderDto openFreelancerDispute(Long orderId, Long freelancerId, OrderDisputeRequestDto dto) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Commande introuvable"));
+        ensureFreelancerOwnsOrder(order, freelancerId);
+        return openDispute(order, order.getFreelancer().getUser(), dto);
+    }
+
+    @Transactional
+    public OrderDto resolveAdminDispute(Long orderId, Long adminId, AdminDisputeDecisionDto dto) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Commande introuvable"));
+        if (order.getStatus() != OrderStatus.DISPUTED) {
+            throw new BusinessException("Cette mission n'a pas de litige ouvert.", HttpStatus.BAD_REQUEST);
+        }
+
+        User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new ResourceNotFoundException("Administrateur introuvable"));
+        String action = normalizeRequiredText(dto != null ? dto.getAction() : null, "L'action d'arbitrage est obligatoire.")
+                .toUpperCase();
+        String adminNotes = normalizeOptionalText(dto != null ? dto.getAdminNotes() : null);
+
+        switch (action) {
+            case "ARBITRATE" -> {
+                if (adminNotes == null) {
+                    throw new BusinessException("Les notes d'arbitrage sont obligatoires.", HttpStatus.BAD_REQUEST);
+                }
+                order.setDisputeAdminNotes(adminNotes);
+                order.setDisputeResolution("ARBITRATED");
+                Order savedOrder = orderRepository.save(order);
+                logActivity(savedOrder, admin, MissionActivityType.DISPUTED, "Arbitrage admin", adminNotes);
+                return mapToOrderDto(savedOrder);
+            }
+            case "REFUND" -> {
+                order.setStatus(OrderStatus.CANCELLED);
+                order.setPaymentStatus(PaymentStatus.REFUNDED);
+                order.setEndDate(order.getEndDate() != null ? order.getEndDate() : LocalDate.now());
+                order.setDisputeAdminNotes(adminNotes);
+                order.setDisputeResolution("REFUNDED");
+                order.setDisputeResolvedAt(LocalDateTime.now());
+                Order savedOrder = orderRepository.save(order);
+                logActivity(savedOrder, admin, MissionActivityType.PAYMENT_UPDATED, "Remboursement admin",
+                        adminNotes != null ? adminNotes : "Paiement rembourse apres arbitrage.");
+                return mapToOrderDto(savedOrder);
+            }
+            case "CLOSE" -> {
+                order.setStatus(OrderStatus.COMPLETED);
+                order.setProgressPercentage(100);
+                order.setPaymentStatus(PaymentStatus.PAID);
+                order.setEndDate(order.getEndDate() != null ? order.getEndDate() : LocalDate.now());
+                order.setDisputeAdminNotes(adminNotes);
+                order.setDisputeResolution("CLOSED");
+                order.setDisputeResolvedAt(LocalDateTime.now());
+                completeClientValidationMilestone(order);
+                Order savedOrder = orderRepository.save(order);
+                logActivity(savedOrder, admin, MissionActivityType.DISPUTED, "Litige cloture",
+                        adminNotes != null ? adminNotes : "Mission cloturee apres arbitrage.");
+                return mapToOrderDto(savedOrder);
+            }
+            default -> throw new BusinessException("Action de litige invalide.", HttpStatus.BAD_REQUEST);
+        }
+    }
+
     private OrderRequestDto mapToRequestDto(OrderRequest request) {
         return OrderRequestDto.builder()
                 .id(request.getId())
@@ -424,6 +498,13 @@ public class OrderService {
                 .revisionCount(safeRevisionCount(order.getRevisionCount()))
                 .maxRevisionRounds(safeMaxRevisionRounds(order.getMaxRevisionRounds()))
                 .deliveredAt(order.getDeliveredAt())
+                .disputeReason(order.getDisputeReason())
+                .disputeAdminNotes(order.getDisputeAdminNotes())
+                .disputeOpenedById(order.getDisputeOpenedBy() != null ? order.getDisputeOpenedBy().getId() : null)
+                .disputeOpenedByEmail(order.getDisputeOpenedBy() != null ? order.getDisputeOpenedBy().getEmail() : null)
+                .disputeOpenedAt(order.getDisputeOpenedAt())
+                .disputeResolvedAt(order.getDisputeResolvedAt())
+                .disputeResolution(order.getDisputeResolution())
                 .attachments(safeList(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId()))
                         .stream()
                         .map(AttachmentDto::from)
@@ -527,8 +608,42 @@ public class OrderService {
     }
 
     private void ensureMissionCanBeUpdated(Order order) {
-        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELLED) {
+        if (order.getStatus() == OrderStatus.COMPLETED
+                || order.getStatus() == OrderStatus.CANCELLED
+                || order.getStatus() == OrderStatus.DISPUTED) {
             throw new BusinessException("Cette mission est deja cloturee.", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private OrderDto openDispute(Order order, User opener, OrderDisputeRequestDto dto) {
+        ensureMissionCanBeDisputed(order);
+        String reason = normalizeRequiredText(dto != null ? dto.getReason() : null, "Le motif du litige est obligatoire.");
+        if (reason.length() < 10) {
+            throw new BusinessException("Le motif du litige doit contenir au moins 10 caracteres.", HttpStatus.BAD_REQUEST);
+        }
+
+        order.setStatus(OrderStatus.DISPUTED);
+        if (order.getPaymentStatus() != PaymentStatus.PAID && order.getPaymentStatus() != PaymentStatus.REFUNDED) {
+            order.setPaymentStatus(PaymentStatus.PENDING);
+        }
+        order.setDisputeReason(reason);
+        order.setDisputeAdminNotes(null);
+        order.setDisputeOpenedBy(opener);
+        order.setDisputeOpenedAt(LocalDateTime.now());
+        order.setDisputeResolvedAt(null);
+        order.setDisputeResolution(null);
+
+        Order savedOrder = orderRepository.save(order);
+        logActivity(savedOrder, opener, MissionActivityType.DISPUTED, "Litige ouvert", reason);
+        return mapToOrderDto(savedOrder);
+    }
+
+    private void ensureMissionCanBeDisputed(Order order) {
+        if (order.getStatus() == OrderStatus.DISPUTED) {
+            throw new BusinessException("Un litige est deja ouvert pour cette mission.", HttpStatus.CONFLICT);
+        }
+        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELLED) {
+            throw new BusinessException("Une mission cloturee ne peut plus passer en litige.", HttpStatus.BAD_REQUEST);
         }
     }
 

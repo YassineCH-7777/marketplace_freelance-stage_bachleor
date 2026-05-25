@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  AlertTriangle,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
@@ -38,6 +39,7 @@ export default function MissionExecutionCard({
   onManage,
   onMessage,
   onMilestoneUpdate,
+  onOpenDispute,
   onRequestRevision,
   onReview,
   savingMilestoneId,
@@ -62,6 +64,8 @@ export default function MissionExecutionCard({
   const maxRevisionRounds = Number.isFinite(Number(order.maxRevisionRounds)) ? Number(order.maxRevisionRounds) : 3;
   const canClientRequestRevision = canClientReviewDelivery && revisionCount < maxRevisionRounds;
   const canFreelancerManage = role === 'freelancer' && activeMissionStatuses.includes(order.status);
+  const canOpenDispute =
+    Boolean(onOpenDispute) && ['ACCEPTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'DELIVERED', 'REVISION'].includes(order.status);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setTimerTick((tick) => tick + 1), 60000);
@@ -216,6 +220,19 @@ export default function MissionExecutionCard({
         </div>
       </div>
 
+      {order.disputeReason && (
+        <div className="mission-dispute-block">
+          <span className="mission-meta-label">
+            <AlertTriangle size={14} /> Litige
+          </span>
+          <p>{order.disputeReason}</p>
+          {order.disputeOpenedAt && <p>Ouvert le : {formatOrderDate(order.disputeOpenedAt)}</p>}
+          {order.disputeOpenedByEmail && <p>Ouvert par : {order.disputeOpenedByEmail}</p>}
+          {order.disputeAdminNotes && <p>Arbitrage admin : {order.disputeAdminNotes}</p>}
+          {order.disputeResolution && <p>Decision : {order.disputeResolution}</p>}
+        </div>
+      )}
+
       {(order.activities || []).length > 0 && (
         <div className="mission-activity-block">
           <span className="mission-meta-label">
@@ -266,6 +283,12 @@ export default function MissionExecutionCard({
         {canFreelancerManage && (
           <button type="button" className="btn btn-primary btn-sm" onClick={() => onManage(order)}>
             <PackageCheck size={14} /> Mettre a jour le suivi
+          </button>
+        )}
+
+        {canOpenDispute && (
+          <button type="button" className="btn btn-refuse btn-sm" onClick={() => onOpenDispute(order)}>
+            <AlertTriangle size={14} /> Ouvrir litige
           </button>
         )}
 

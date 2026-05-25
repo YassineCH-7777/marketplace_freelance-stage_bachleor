@@ -39,6 +39,13 @@ public class OrderDto {
     private Integer revisionCount;
     private Integer maxRevisionRounds;
     private LocalDateTime deliveredAt;
+    private String disputeReason;
+    private String disputeAdminNotes;
+    private Long disputeOpenedById;
+    private String disputeOpenedByEmail;
+    private LocalDateTime disputeOpenedAt;
+    private LocalDateTime disputeResolvedAt;
+    private String disputeResolution;
     private List<AttachmentDto> attachments;
     private List<MissionMilestoneDto> milestones;
     private List<MissionActivityDto> activities;

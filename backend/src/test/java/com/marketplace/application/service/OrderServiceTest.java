@@ -1,6 +1,8 @@
 package com.marketplace.application.service;
 
 import com.marketplace.web.dto.order.OrderDto;
+import com.marketplace.web.dto.order.AdminDisputeDecisionDto;
+import com.marketplace.web.dto.order.OrderDisputeRequestDto;
 import com.marketplace.web.dto.order.OrderExecutionUpdateDto;
 import com.marketplace.domain.model.Category;
 import com.marketplace.domain.model.FreelancerProfile;
@@ -285,6 +287,61 @@ class OrderServiceTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
         assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+    }
+
+    @Test
+    void openClientDisputeStoresReasonAndPausesPayment() {
+        Order order = buildOrder(17L, 13L);
+        order.setPaymentStatus(PaymentStatus.UNPAID);
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(reviewRepository.findByOrder_Id(17L)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderDto result = orderService.openClientDispute(17L, 5L,
+                OrderDisputeRequestDto.builder()
+                        .reason("La livraison ne correspond pas au brief valide.")
+                        .build());
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.DISPUTED);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+        assertThat(order.getDisputeReason()).isEqualTo("La livraison ne correspond pas au brief valide.");
+        assertThat(order.getDisputeOpenedBy()).isEqualTo(order.getClient());
+        assertThat(order.getDisputeOpenedAt()).isNotNull();
+        assertThat(result.getDisputeReason()).isEqualTo("La livraison ne correspond pas au brief valide.");
+        assertThat(result.getDisputeOpenedByEmail()).isEqualTo("client@marketplace.com");
+    }
+
+    @Test
+    void resolveAdminDisputeRefundsAndCancelsMission() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.DISPUTED);
+        order.setPaymentStatus(PaymentStatus.PENDING);
+        order.setDisputeReason("La mission est bloquee malgre plusieurs relances.");
+        User admin = User.builder()
+                .id(1L)
+                .email("admin@marketplace.com")
+                .password("hashed")
+                .build();
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
+        when(reviewRepository.findByOrder_Id(17L)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderDto result = orderService.resolveAdminDispute(17L, 1L,
+                AdminDisputeDecisionDto.builder()
+                        .action("REFUND")
+                        .adminNotes("Remboursement accepte apres verification des preuves.")
+                        .build());
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.REFUNDED);
+        assertThat(order.getDisputeResolution()).isEqualTo("REFUNDED");
+        assertThat(order.getDisputeResolvedAt()).isNotNull();
+        assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(result.getPaymentStatus()).isEqualTo(PaymentStatus.REFUNDED);
+        assertThat(result.getDisputeAdminNotes()).isEqualTo("Remboursement accepte apres verification des preuves.");
     }
 
     private Order buildOrder(Long orderId, Long freelancerUserId) {

@@ -2,6 +2,7 @@ package com.marketplace.web.controller;
 
 import com.marketplace.web.dto.order.MissionMilestoneDto;
 import com.marketplace.web.dto.order.OrderDto;
+import com.marketplace.web.dto.order.OrderDisputeRequestDto;
 import com.marketplace.web.dto.order.OrderExecutionUpdateDto;
 import com.marketplace.web.dto.order.OrderRequestDto;
 import com.marketplace.web.dto.request.ProposalDto;
@@ -90,6 +91,14 @@ public class FreelancerController {
         return ResponseEntity.ok(orderService.updateFreelancerOrder(id, user.getId(), dto));
     }
 
+    @PutMapping("/orders/{id}/dispute")
+    public ResponseEntity<OrderDto> openDispute(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user,
+            @RequestBody OrderDisputeRequestDto dto) {
+        return ResponseEntity.ok(orderService.openFreelancerDispute(id, user.getId(), dto));
+    }
+
     @PostMapping("/orders/{id}/milestones")
     public ResponseEntity<MissionMilestoneDto> addMissionMilestone(
             @PathVariable Long id,
@@ -129,4 +138,3 @@ public class FreelancerController {
         return ResponseEntity.ok().build();
     }
 }
-

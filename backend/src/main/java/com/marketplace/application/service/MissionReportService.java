@@ -182,6 +182,20 @@ public class MissionReportService {
             }
         }
 
+        if (hasText(order.getDisputeReason())) {
+            writer.addSection("Litige");
+            writer.addKeyValue("Ouvert le", formatDateTime(order.getDisputeOpenedAt()));
+            writer.addKeyValue("Ouvert par", order.getDisputeOpenedBy() != null ? order.getDisputeOpenedBy().getEmail() : "-");
+            writer.addParagraph("Motif: " + order.getDisputeReason());
+            if (hasText(order.getDisputeAdminNotes())) {
+                writer.addParagraph("Arbitrage admin: " + order.getDisputeAdminNotes());
+            }
+            if (hasText(order.getDisputeResolution())) {
+                writer.addKeyValue("Decision", order.getDisputeResolution());
+                writer.addKeyValue("Resolution", formatDateTime(order.getDisputeResolvedAt()));
+            }
+        }
+
         writer.addSection("Timeline");
         if (activities.isEmpty()) {
             writer.addParagraph("Aucune activite enregistree.");

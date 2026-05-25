@@ -6,6 +6,8 @@ import com.marketplace.domain.model.ServiceEntity;
 import com.marketplace.domain.model.ServiceImage;
 import com.marketplace.infrastructure.persistence.ServiceImageRepository;
 import com.marketplace.infrastructure.persistence.ServiceRepository;
+import com.marketplace.web.dto.recommendation.MatchingAssistantRequestDto;
+import com.marketplace.web.dto.recommendation.MatchingAssistantResponseDto;
 import com.marketplace.web.dto.recommendation.RecommendationRequestDto;
 import com.marketplace.web.dto.recommendation.RecommendationResultDto;
 import com.marketplace.web.dto.service.ServiceDto;
@@ -25,7 +27,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -36,6 +40,11 @@ public class RecommendationService {
     private static final int DEFAULT_LIMIT = 8;
     private static final int MAX_LIMIT = 30;
     private static final Pattern DIACRITICS = Pattern.compile("\\p{M}+");
+    private static final Pattern MONEY_PATTERN = Pattern.compile(
+            "(?:(?:budget|max|maximum|prix|tarif)\\s*(?:de|:|a)?\\s*(\\d{2,7})|\\b(\\d{2,7})\\s*(?:mad|dh|dhs|dirhams?))"
+    );
+    private static final Pattern DAYS_PATTERN = Pattern.compile("(\\d{1,3})\\s*(?:j|jour|jours|day|days)");
+    private static final Pattern WEEKS_PATTERN = Pattern.compile("(\\d{1,2})\\s*(?:semaine|semaines|week|weeks)");
 
     private static final Set<String> STOP_WORDS = Set.of(
             "avec", "avoir", "besoin", "dans", "de", "des", "du", "en", "et", "faire", "je", "la", "le",
@@ -56,6 +65,38 @@ public class RecommendationService {
             Map.entry("spring", List.of("backend", "java"))
     );
 
+    private static final Map<String, String> CATEGORY_HINTS = Map.ofEntries(
+            Map.entry("site", "Developpement web"),
+            Map.entry("web", "Developpement web"),
+            Map.entry("developpement", "Developpement web"),
+            Map.entry("application", "Developpement web"),
+            Map.entry("app", "Developpement web"),
+            Map.entry("landing", "Developpement web"),
+            Map.entry("seo", "Developpement web"),
+            Map.entry("logo", "Design graphique"),
+            Map.entry("identite", "Design graphique"),
+            Map.entry("charte", "Design graphique"),
+            Map.entry("design", "Design graphique"),
+            Map.entry("photo", "Photographie"),
+            Map.entry("photographie", "Photographie"),
+            Map.entry("shooting", "Photographie"),
+            Map.entry("retouche", "Photographie"),
+            Map.entry("video", "Montage video"),
+            Map.entry("reel", "Montage video"),
+            Map.entry("montage", "Montage video"),
+            Map.entry("reseau", "Support informatique"),
+            Map.entry("wifi", "Support informatique"),
+            Map.entry("informatique", "Support informatique"),
+            Map.entry("depannage", "Support informatique"),
+            Map.entry("community", "Community management"),
+            Map.entry("instagram", "Community management"),
+            Map.entry("social", "Community management"),
+            Map.entry("cours", "Cours particuliers"),
+            Map.entry("formation", "Cours particuliers"),
+            Map.entry("redaction", "Redaction"),
+            Map.entry("texte", "Redaction")
+    );
+
     private final ServiceRepository serviceRepository;
     private final ServiceImageRepository serviceImageRepository;
 
@@ -72,6 +113,25 @@ public class RecommendationService {
                         .thenComparing(result -> result.getService().getPrice()))
                 .limit(limit)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public MatchingAssistantResponseDto matchClientNeed(MatchingAssistantRequestDto request) {
+        MatchingAssistantRequestDto safeRequest = request == null ? new MatchingAssistantRequestDto() : request;
+        String need = normalizeOptionalText(safeRequest.getNeed());
+        RecommendationRequestDto interpretedRequest = interpretClientNeed(safeRequest, need);
+        List<RecommendationResultDto> recommendations = recommendFreelancers(interpretedRequest);
+        List<String> extractedKeywords = tokenize(need).stream()
+                .distinct()
+                .limit(8)
+                .toList();
+
+        return MatchingAssistantResponseDto.builder()
+                .summary(buildMatchingSummary(interpretedRequest, recommendations))
+                .interpretedRequest(interpretedRequest)
+                .extractedKeywords(extractedKeywords)
+                .recommendations(recommendations)
+                .build();
     }
 
     private RecommendationResultDto scoreService(ServiceEntity service, RecommendationRequestDto request) {
@@ -122,8 +182,8 @@ public class RecommendationService {
             return false;
         }
 
-        String requestedMode = normalize(request.getMode());
-        if (requestedMode != null && !normalize(resolveExecutionMode(service)).equals(requestedMode)) {
+        String requestedMode = normalizeMode(request.getMode());
+        if (requestedMode != null && !normalizeMode(resolveExecutionMode(service)).equals(requestedMode)) {
             return false;
         }
 
@@ -392,6 +452,152 @@ public class RecommendationService {
                 .build();
     }
 
+    private RecommendationRequestDto interpretClientNeed(MatchingAssistantRequestDto request, String need) {
+        String city = firstText(request.getCity(), inferCity(need));
+        BigDecimal maxBudget = request.getMaxBudget() != null ? request.getMaxBudget() : inferBudget(need);
+        Integer maxDeliveryDays = request.getMaxDeliveryDays() != null ? request.getMaxDeliveryDays() : inferDeliveryDays(need);
+        String categoryName = inferCategoryName(need);
+
+        return RecommendationRequestDto.builder()
+                .keyword(need)
+                .description(need)
+                .categoryName(categoryName)
+                .city(city)
+                .mode(inferMode(need))
+                .maxBudget(maxBudget)
+                .maxDeliveryDays(maxDeliveryDays)
+                .limit(resolveLimit(request.getLimit()))
+                .build();
+    }
+
+    private String buildMatchingSummary(RecommendationRequestDto request, List<RecommendationResultDto> recommendations) {
+        if (recommendations.isEmpty()) {
+            return "Aucun profil exact n'a ete trouve. Elargissez la ville, le budget ou le delai.";
+        }
+
+        List<String> signals = new ArrayList<>();
+        if (hasText(request.getCategoryName())) {
+            signals.add(request.getCategoryName());
+        }
+        if (hasText(request.getCity())) {
+            signals.add(request.getCity());
+        }
+        if (request.getMaxBudget() != null) {
+            signals.add("budget " + request.getMaxBudget().stripTrailingZeros().toPlainString() + " MAD");
+        }
+        if (request.getMaxDeliveryDays() != null) {
+            signals.add("delai " + request.getMaxDeliveryDays() + " jours");
+        }
+
+        String context = signals.isEmpty() ? "votre besoin" : String.join(", ", signals);
+        return recommendations.size() + " profil(s) recommande(s) pour " + context + ".";
+    }
+
+    private String inferCategoryName(String need) {
+        List<String> tokens = tokenize(need);
+        return tokens.stream()
+                .map(CATEGORY_HINTS::get)
+                .filter(this::hasText)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String inferCity(String need) {
+        String normalizedNeed = normalize(need);
+        if (normalizedNeed == null) {
+            return null;
+        }
+
+        return serviceRepository.findByStatus(ServiceStatus.PUBLISHED)
+                .stream()
+                .flatMap(service -> Stream.of(service.getCity(), service.getFreelancer().getUser().getCity()))
+                .filter(this::hasText)
+                .distinct()
+                .filter(city -> normalizedNeed.contains(normalize(city)))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private BigDecimal inferBudget(String need) {
+        String normalizedNeed = normalize(need);
+        if (normalizedNeed == null) {
+            return null;
+        }
+
+        Matcher matcher = MONEY_PATTERN.matcher(normalizedNeed);
+        BigDecimal bestCandidate = null;
+        while (matcher.find()) {
+            String rawValue = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+            BigDecimal candidate = new BigDecimal(rawValue);
+            if (candidate.compareTo(new BigDecimal("50")) >= 0) {
+                bestCandidate = candidate;
+            }
+        }
+        return bestCandidate;
+    }
+
+    private Integer inferDeliveryDays(String need) {
+        String normalizedNeed = normalize(need);
+        if (normalizedNeed == null) {
+            return null;
+        }
+
+        Optional<Integer> days = firstInteger(DAYS_PATTERN, normalizedNeed);
+        if (days.isPresent()) {
+            return days.get();
+        }
+
+        return firstInteger(WEEKS_PATTERN, normalizedNeed)
+                .map(value -> value * 7)
+                .orElse(null);
+    }
+
+    private Optional<Integer> firstInteger(Pattern pattern, String value) {
+        Matcher matcher = pattern.matcher(value);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(Integer.parseInt(matcher.group(1)));
+        } catch (NumberFormatException ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private String inferMode(String need) {
+        String normalizedNeed = normalize(need);
+        if (normalizedNeed == null) {
+            return null;
+        }
+
+        if (normalizedNeed.contains("sur place")
+                || normalizedNeed.contains("a domicile")
+                || normalizedNeed.contains("local")) {
+            return "ON_SITE";
+        }
+
+        if (normalizedNeed.contains("a distance")
+                || normalizedNeed.contains("remote")
+                || normalizedNeed.contains("visio")) {
+            return "REMOTE";
+        }
+
+        if (normalizedNeed.contains("hybride") || normalizedNeed.contains("hybrid")) {
+            return "HYBRID";
+        }
+
+        return null;
+    }
+
+    private String firstText(String primary, String fallback) {
+        return hasText(primary) ? primary.trim() : fallback;
+    }
+
+    private String normalizeOptionalText(String value) {
+        return hasText(value) ? value.trim() : "";
+    }
+
     private List<String> getGalleryImageUrls(Long serviceId) {
         if (serviceId == null) {
             return List.of();
@@ -494,6 +700,20 @@ public class RecommendationService {
 
         String withoutAccents = DIACRITICS.matcher(Normalizer.normalize(trimmed, Normalizer.Form.NFD)).replaceAll("");
         return withoutAccents.toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeMode(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return null;
+        }
+
+        return switch (normalized) {
+            case "local", "on_site", "onsite", "sur place", "domicile" -> "on_site";
+            case "remote", "a distance", "distance", "visio" -> "remote";
+            case "hybride", "hybrid" -> "hybrid";
+            default -> normalized;
+        };
     }
 
     private String joinText(String... values) {

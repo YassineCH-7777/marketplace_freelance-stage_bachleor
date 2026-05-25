@@ -1,12 +1,13 @@
+const GLOBAL_ASSISTANT_URL = import.meta.env.VITE_N8N_GLOBAL_CHAT_URL || import.meta.env.VITE_N8N_CHAT_URL;
+
 const ASSISTANT_URLS = {
-  client: import.meta.env.VITE_N8N_CLIENT_CHAT_URL,
-  freelance: import.meta.env.VITE_N8N_FREELANCE_CHAT_URL,
+  general: GLOBAL_ASSISTANT_URL,
+  client: import.meta.env.VITE_N8N_CLIENT_CHAT_URL || GLOBAL_ASSISTANT_URL,
+  freelance: import.meta.env.VITE_N8N_FREELANCE_CHAT_URL || GLOBAL_ASSISTANT_URL,
 };
 
-const FALLBACK_URL = import.meta.env.VITE_N8N_CHAT_URL;
-
 export function getAssistantWebhookUrl(type) {
-  return ASSISTANT_URLS[type] || FALLBACK_URL || '';
+  return ASSISTANT_URLS[type] || GLOBAL_ASSISTANT_URL || '';
 }
 
 function normalizeAssistantResponse(data) {

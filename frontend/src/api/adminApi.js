@@ -13,6 +13,7 @@ export const moderateAdminService = (id, status) =>
     params: { status },
   });
 export const getAdminOrders = () => API.get('/admin/orders');
+export const resolveAdminOrderDispute = (id, payload) => API.put(`/admin/orders/${id}/dispute`, payload);
 export const getAdminReports = () => API.get('/admin/reports');
 export const resolveAdminReport = (id, notes) =>
   API.put(`/admin/reports/${id}/resolve`, null, {
