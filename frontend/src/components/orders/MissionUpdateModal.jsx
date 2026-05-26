@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import AttachmentPicker from '@/components/common/AttachmentPicker';
 import { Loader2, Paperclip, Save, X } from 'lucide-react';
-import { getMissionProgress } from '@/utils/orderExecution';
+import { getMissionProgress, hasDeliveryAttachment } from '@/utils/orderExecution';
 
 const STATUS_OPTIONS = [
   { value: 'IN_PROGRESS', label: 'Execution en cours' },
@@ -12,6 +12,12 @@ const STATUS_OPTIONS = [
 ];
 
 export default function MissionUpdateModal({ order, onClose, onSubmit, submitting }) {
+  const hasExistingDelivery = Boolean(
+    order?.deliveryNote
+      || order?.deliveredAt
+      || hasDeliveryAttachment(order)
+      || ['DELIVERED', 'WAITING_CLIENT', 'REVISION', 'COMPLETED'].includes(order?.status),
+  );
   const [form, setForm] = useState({
     status: order?.status === 'ACCEPTED' ? 'IN_PROGRESS' : order?.status || 'IN_PROGRESS',
     startDate: order?.startDate || '',
@@ -22,21 +28,39 @@ export default function MissionUpdateModal({ order, onClose, onSubmit, submittin
     deliveryNote: order?.deliveryNote || '',
   });
   const [attachmentFiles, setAttachmentFiles] = useState([]);
-  const [attachmentType, setAttachmentType] = useState('DELIVERY_PROOF');
+  const [attachmentType, setAttachmentType] = useState(
+    hasExistingDelivery ? (order?.status === 'REVISION' ? 'REVISION_FILE' : 'DOCUMENT') : 'DELIVERY_PROOF',
+  );
+  const attachmentTypeOptions = hasExistingDelivery
+    ? [
+        { value: 'REVISION_FILE', label: 'Fichier de revision' },
+        { value: 'DOCUMENT', label: 'Document' },
+        { value: 'INVOICE', label: 'Facture' },
+      ]
+    : [
+        { value: 'DELIVERY_PROOF', label: 'Preuve de livraison' },
+        { value: 'DOCUMENT', label: 'Document' },
+        { value: 'INVOICE', label: 'Facture' },
+      ];
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    onSubmit({
+    const payload = {
       status: form.status,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
       dueDate: form.dueDate || null,
       progressPercentage: Number(form.progressPercentage),
       notes: form.notes,
-      deliveryNote: form.deliveryNote,
       attachmentFiles,
       attachmentType,
-    });
+    };
+
+    if (!hasExistingDelivery) {
+      payload.deliveryNote = form.deliveryNote;
+    }
+
+    onSubmit(payload);
   };
 
   return (
@@ -118,16 +142,18 @@ export default function MissionUpdateModal({ order, onClose, onSubmit, submittin
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Livraison ou preuve partagee</label>
-            <textarea
-              className="form-textarea"
-              rows={4}
-              value={form.deliveryNote}
-              onChange={(event) => setForm((current) => ({ ...current, deliveryNote: event.target.value }))}
-              placeholder="Lien, fichiers remis, elements valides, consignes de verification..."
-            />
-          </div>
+          {!hasExistingDelivery && (
+            <div className="form-group">
+              <label className="form-label">Livraison ou preuve partagee</label>
+              <textarea
+                className="form-textarea"
+                rows={4}
+                value={form.deliveryNote}
+                onChange={(event) => setForm((current) => ({ ...current, deliveryNote: event.target.value }))}
+                placeholder="Lien, fichiers remis, elements valides, consignes de verification..."
+              />
+            </div>
+          )}
 
           <div className="mission-attachment-box">
             <div className="mission-attachment-head">
@@ -138,9 +164,11 @@ export default function MissionUpdateModal({ order, onClose, onSubmit, submittin
                 onChange={(event) => setAttachmentType(event.target.value)}
                 disabled={submitting}
               >
-                <option value="DELIVERY_PROOF">Preuve de livraison</option>
-                <option value="INVOICE">Facture</option>
-                <option value="DOCUMENT">Document</option>
+                {attachmentTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
             <AttachmentPicker

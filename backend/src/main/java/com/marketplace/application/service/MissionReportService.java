@@ -295,7 +295,9 @@ public class MissionReportService {
         return switch (status) {
             case UNPAID -> "Non paye";
             case PENDING -> "Paiement en attente";
+            case HELD -> "Paiement bloque en escrow simule";
             case PAID -> "Paiement libere";
+            case RELEASED -> "Paiement libere";
             case REFUNDED -> "Rembourse";
         };
     }

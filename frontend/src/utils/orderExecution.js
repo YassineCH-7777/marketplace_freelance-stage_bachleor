@@ -27,6 +27,10 @@ export function getOrderStatusMeta(status) {
 
 export function getPaymentStatusMeta(status) {
   switch (status) {
+    case 'HELD':
+      return { label: 'Paiement bloque', badgeClass: 'badge-warning' };
+    case 'RELEASED':
+      return { label: 'Paiement libere', badgeClass: 'badge-success' };
     case 'PENDING':
       return { label: 'Paiement en attente', badgeClass: 'badge-warning' };
     case 'PAID':
@@ -38,17 +42,111 @@ export function getPaymentStatusMeta(status) {
   }
 }
 
+export function isEscrowActionable(status) {
+  return ['UNPAID', 'PENDING'].includes(status);
+}
+
+export function isEscrowSecured(status) {
+  return ['HELD', 'PAID', 'RELEASED'].includes(status);
+}
+
+export function getEscrowSteps(order) {
+  const paymentStatus = order?.paymentStatus;
+  const orderStatus = order?.status;
+  const hasDelivery = ['DELIVERED', 'REVISION', 'COMPLETED'].includes(orderStatus)
+    || Boolean(order?.deliveryNote)
+    || Boolean(order?.deliveredAt)
+    || hasDeliveryAttachment(order);
+
+  return [
+    {
+      key: 'pending',
+      label: 'Paiement en attente',
+      done: ['PENDING', 'HELD', 'PAID', 'RELEASED', 'REFUNDED'].includes(paymentStatus),
+      active: isEscrowActionable(paymentStatus),
+    },
+    {
+      key: 'held',
+      label: 'Fonds virtuels bloques',
+      done: isEscrowSecured(paymentStatus) || paymentStatus === 'REFUNDED',
+      active: paymentStatus === 'HELD',
+    },
+    {
+      key: 'delivered',
+      label: 'Mission livree',
+      done: hasDelivery,
+      active: hasDelivery && paymentStatus === 'HELD',
+    },
+    {
+      key: 'released',
+      label: paymentStatus === 'REFUNDED' ? 'Paiement rembourse' : 'Paiement libere',
+      done: ['PAID', 'RELEASED', 'REFUNDED'].includes(paymentStatus),
+      active: ['PAID', 'RELEASED', 'REFUNDED'].includes(paymentStatus),
+    },
+  ];
+}
+
 export function hasDeliveryAttachment(order) {
   return (order?.attachments || []).some((attachment) => attachment.attachmentType === 'DELIVERY_PROOF');
 }
 
+function isClientReviewEvidenceAttachment(attachment) {
+  return ['DELIVERY_PROOF', 'REVISION_FILE'].includes(attachment?.attachmentType);
+}
+
+function toTimestamp(value) {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function getLatestActivityTimestamp(order, type) {
+  return Math.max(
+    0,
+    ...(order?.activities || [])
+      .filter((activity) => activity.type === type)
+      .map((activity) => toTimestamp(activity.createdAt) || 0),
+  );
+}
+
+function hasFreshDeliveryAfterLatestRevision(order) {
+  const latestRevisionAt = getLatestActivityTimestamp(order, 'REVISION_REQUESTED');
+  if (!latestRevisionAt) {
+    return Boolean(order.deliveryNote)
+      || Boolean(order.deliveredAt)
+      || (order.attachments || []).some(isClientReviewEvidenceAttachment);
+  }
+
+  const deliveredAt = toTimestamp(order.deliveredAt);
+  const updatedAt = toTimestamp(order.updatedAt);
+  const latestDeliveryActivityAt = getLatestActivityTimestamp(order, 'DELIVERY_SUBMITTED');
+  const deliveryAttachmentTimestamps = (order.attachments || [])
+    .filter(isClientReviewEvidenceAttachment)
+    .map((attachment) => toTimestamp(attachment.createdAt));
+  const latestDeliveryAttachmentAt = Math.max(0, ...deliveryAttachmentTimestamps.map((timestamp) => timestamp || 0));
+  const hasDeliveryAttachmentWithoutDate = deliveryAttachmentTimestamps.some((timestamp) => !timestamp);
+  const hasUpdatedDeliveryNoteAfterRevision = Boolean(order.deliveryNote) && updatedAt && updatedAt >= latestRevisionAt;
+
+  return [deliveredAt, latestDeliveryActivityAt, latestDeliveryAttachmentAt]
+    .some((timestamp) => timestamp && timestamp >= latestRevisionAt)
+    || hasUpdatedDeliveryNoteAfterRevision
+    || hasDeliveryAttachmentWithoutDate;
+}
+
 export function hasClientReviewableDelivery(order) {
-  if (!order || ['COMPLETED', 'CANCELLED', 'DISPUTED', 'REVISION'].includes(order.status)) {
+  if (!order || ['COMPLETED', 'CANCELLED', 'DISPUTED'].includes(order.status)) {
     return false;
   }
 
   if (['DELIVERED', 'WAITING_CLIENT'].includes(order.status)) {
     return true;
+  }
+
+  if (order.status === 'REVISION') {
+    return hasFreshDeliveryAfterLatestRevision(order);
   }
 
   const hasDeliveryEvidence = Boolean(order.deliveryNote) || Boolean(order.deliveredAt) || hasDeliveryAttachment(order);

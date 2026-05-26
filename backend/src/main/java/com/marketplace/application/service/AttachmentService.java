@@ -66,7 +66,7 @@ public class AttachmentService {
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"
     );
     private static final Set<String> ALLOWED_ATTACHMENT_TYPES = Set.of(
-            "IMAGE", "PDF", "BRIEF", "INVOICE", "DELIVERY_PROOF", "DOCUMENT", "OTHER"
+            "IMAGE", "PDF", "BRIEF", "INVOICE", "DELIVERY_PROOF", "REVISION_FILE", "DOCUMENT", "OTHER"
     );
 
     private final AttachmentRepository attachmentRepository;

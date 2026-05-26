@@ -14,6 +14,8 @@ import com.marketplace.domain.model.User;
 import com.marketplace.domain.enums.OrderStatus;
 import com.marketplace.domain.enums.PaymentStatus;
 import com.marketplace.domain.model.Attachment;
+import com.marketplace.domain.enums.MissionActivityType;
+import com.marketplace.domain.model.MissionActivity;
 import com.marketplace.web.exception.BusinessException;
 import com.marketplace.web.exception.UnauthorizedException;
 import com.marketplace.infrastructure.persistence.AttachmentRepository;
@@ -186,6 +188,37 @@ class OrderServiceTest {
     }
 
     @Test
+    void confirmEscrowPaymentBlocksPendingPayment() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.ACCEPTED);
+        order.setPaymentStatus(PaymentStatus.PENDING);
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(reviewRepository.findByOrder_Id(17L)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderDto result = orderService.confirmEscrowPayment(17L, 5L);
+
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.HELD);
+        assertThat(result.getPaymentStatus()).isEqualTo(PaymentStatus.HELD);
+    }
+
+    @Test
+    void updateFreelancerOrderRejectsWhenEscrowIsNotHeld() {
+        Order order = buildOrder(17L, 13L);
+        order.setPaymentStatus(PaymentStatus.PENDING);
+        OrderExecutionUpdateDto request = OrderExecutionUpdateDto.builder()
+                .status(OrderStatus.IN_PROGRESS)
+                .build();
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.updateFreelancerOrder(17L, 13L, request))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
     void requestRevisionIncrementsRevisionCount() {
         Order order = buildOrder(17L, 13L);
         order.setStatus(OrderStatus.DELIVERED);
@@ -240,7 +273,7 @@ class OrderServiceTest {
                         .build());
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
-        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.RELEASED);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.COMPLETED);
         assertThat(result.getProgressPercentage()).isEqualTo(100);
     }
@@ -285,8 +318,129 @@ class OrderServiceTest {
                         .build());
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
-        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.RELEASED);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+    }
+
+    @Test
+    void acceptDeliveryAllowsRevisionOrderWithFreshDeliveryProofAttachment() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.REVISION);
+        order.setRevisionCount(1);
+        order.setDeliveredAt(LocalDateTime.of(2026, 4, 24, 11, 0));
+
+        MissionActivity revisionActivity = buildActivity(
+                order,
+                MissionActivityType.REVISION_REQUESTED,
+                LocalDateTime.of(2026, 4, 25, 10, 0));
+        Attachment freshDeliveryProof = buildDeliveryProofAttachment(order);
+        freshDeliveryProof.setCreatedAt(LocalDateTime.of(2026, 4, 25, 11, 0));
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(missionActivityRepository.findByOrder_IdOrderByCreatedAtDesc(17L))
+                .thenReturn(List.of(revisionActivity));
+        when(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(17L))
+                .thenReturn(List.of(freshDeliveryProof));
+        when(reviewRepository.findByOrder_Id(17L)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderDto result = orderService.acceptDelivery(17L, 5L,
+                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                        .comment("Relivraison conforme.")
+                        .build());
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.RELEASED);
+        assertThat(result.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+    }
+
+    @Test
+    void requestRevisionAllowsRevisionOrderWithUpdatedDeliveryNoteAfterLatestRevision() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.REVISION);
+        order.setRevisionCount(1);
+        order.setMaxRevisionRounds(3);
+        order.setDeliveryNote("Nouvelle livraison corrigee partagee.");
+        order.setUpdatedAt(LocalDateTime.of(2026, 4, 25, 11, 0));
+
+        MissionActivity revisionActivity = buildActivity(
+                order,
+                MissionActivityType.REVISION_REQUESTED,
+                LocalDateTime.of(2026, 4, 25, 10, 0));
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(missionActivityRepository.findByOrder_IdOrderByCreatedAtDesc(17L))
+                .thenReturn(List.of(revisionActivity));
+        when(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(17L)).thenReturn(List.of());
+        when(reviewRepository.findByOrder_Id(17L)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderDto result = orderService.requestRevision(17L, 5L,
+                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                        .comment("Il reste une correction a faire.")
+                        .build());
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.REVISION);
+        assertThat(order.getRevisionCount()).isEqualTo(2);
+        assertThat(result.getRevisionCount()).isEqualTo(2);
+    }
+
+    @Test
+    void requestRevisionAllowsRevisionOrderWithFreshRevisionFile() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.REVISION);
+        order.setRevisionCount(1);
+        order.setMaxRevisionRounds(3);
+
+        MissionActivity revisionActivity = buildActivity(
+                order,
+                MissionActivityType.REVISION_REQUESTED,
+                LocalDateTime.of(2026, 4, 25, 10, 0));
+        Attachment revisionFile = buildAttachment(order, "REVISION_FILE", LocalDateTime.of(2026, 4, 25, 11, 0));
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(missionActivityRepository.findByOrder_IdOrderByCreatedAtDesc(17L))
+                .thenReturn(List.of(revisionActivity));
+        when(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(17L))
+                .thenReturn(List.of(revisionFile));
+        when(reviewRepository.findByOrder_Id(17L)).thenReturn(Optional.empty());
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderDto result = orderService.requestRevision(17L, 5L,
+                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                        .comment("Il faut encore ajuster ce fichier.")
+                        .build());
+
+        assertThat(order.getRevisionCount()).isEqualTo(2);
+        assertThat(result.getRevisionCount()).isEqualTo(2);
+    }
+
+    @Test
+    void requestRevisionRejectsRevisionOrderWithoutFreshDeliveryAfterLatestRevision() {
+        Order order = buildOrder(17L, 13L);
+        order.setStatus(OrderStatus.REVISION);
+        order.setRevisionCount(1);
+        order.setDeliveredAt(LocalDateTime.of(2026, 4, 24, 11, 0));
+
+        MissionActivity revisionActivity = buildActivity(
+                order,
+                MissionActivityType.REVISION_REQUESTED,
+                LocalDateTime.of(2026, 4, 25, 10, 0));
+        Attachment staleDeliveryProof = buildDeliveryProofAttachment(order);
+        staleDeliveryProof.setCreatedAt(LocalDateTime.of(2026, 4, 24, 12, 0));
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(missionActivityRepository.findByOrder_IdOrderByCreatedAtDesc(17L))
+                .thenReturn(List.of(revisionActivity));
+        when(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(17L))
+                .thenReturn(List.of(staleDeliveryProof));
+
+        assertThatThrownBy(() -> orderService.requestRevision(17L, 5L,
+                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                        .comment("Encore une correction.")
+                        .build()))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
 
     @Test
@@ -304,7 +458,7 @@ class OrderServiceTest {
                         .build());
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.DISPUTED);
-        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+        assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.HELD);
         assertThat(order.getDisputeReason()).isEqualTo("La livraison ne correspond pas au brief valide.");
         assertThat(order.getDisputeOpenedBy()).isEqualTo(order.getClient());
         assertThat(order.getDisputeOpenedAt()).isNotNull();
@@ -316,7 +470,7 @@ class OrderServiceTest {
     void resolveAdminDisputeRefundsAndCancelsMission() {
         Order order = buildOrder(17L, 13L);
         order.setStatus(OrderStatus.DISPUTED);
-        order.setPaymentStatus(PaymentStatus.PENDING);
+        order.setPaymentStatus(PaymentStatus.HELD);
         order.setDisputeReason("La mission est bloquee malgre plusieurs relances.");
         User admin = User.builder()
                 .id(1L)
@@ -392,20 +546,37 @@ class OrderServiceTest {
                 .agreedPrice(new BigDecimal("900.00"))
                 .status(OrderStatus.IN_PROGRESS)
                 .progressPercentage(25)
+                .paymentStatus(PaymentStatus.HELD)
                 .createdAt(LocalDateTime.of(2026, 4, 24, 10, 0))
                 .updatedAt(LocalDateTime.of(2026, 4, 25, 9, 0))
                 .build();
     }
 
     private Attachment buildDeliveryProofAttachment(Order order) {
+        return buildAttachment(order, "DELIVERY_PROOF", null);
+    }
+
+    private Attachment buildAttachment(Order order, String attachmentType, LocalDateTime createdAt) {
         return Attachment.builder()
                 .id(101L)
                 .order(order)
-                .attachmentType("DELIVERY_PROOF")
+                .attachmentType(attachmentType)
                 .originalFileName("rapport-mission.pdf")
                 .contentType("application/pdf")
                 .fileSize(2048L)
                 .fileUrl("/uploads/rapport-mission.pdf")
+                .createdAt(createdAt)
                 .build();
+    }
+
+    private MissionActivity buildActivity(Order order, MissionActivityType type, LocalDateTime createdAt) {
+        MissionActivity activity = MissionActivity.builder()
+                .id(201L)
+                .order(order)
+                .type(type)
+                .title(type.name())
+                .createdAt(createdAt)
+                .build();
+        return activity;
     }
 }

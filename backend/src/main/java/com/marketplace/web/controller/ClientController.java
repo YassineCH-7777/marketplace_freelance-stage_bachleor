@@ -59,6 +59,13 @@ public class ClientController {
         return ResponseEntity.ok(orderService.getClientOrders(user.getId()));
     }
 
+    @PutMapping("/orders/{id}/confirm-payment")
+    public ResponseEntity<OrderDto> confirmEscrowPayment(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(orderService.confirmEscrowPayment(id, user.getId()));
+    }
+
     @PutMapping("/orders/{id}/accept-delivery")
     public ResponseEntity<OrderDto> acceptDelivery(
             @PathVariable Long id,

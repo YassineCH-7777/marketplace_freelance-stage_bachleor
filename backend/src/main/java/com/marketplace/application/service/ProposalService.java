@@ -171,7 +171,7 @@ public class ProposalService {
                 .dueDate(serviceRequest.getDeadline())
                 .status(OrderStatus.ACCEPTED)
                 .progressPercentage(15)
-                .paymentStatus(PaymentStatus.UNPAID)
+                .paymentStatus(PaymentStatus.PENDING)
                 .build();
         Order savedOrder = orderRepository.save(order);
 

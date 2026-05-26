@@ -5,6 +5,7 @@ const getIcon = (attachment) => {
   if (attachment.contentType?.startsWith('image/')) return FileImage;
   if (attachment.attachmentType === 'INVOICE') return Receipt;
   if (attachment.attachmentType === 'DELIVERY_PROOF') return PackageCheck;
+  if (attachment.attachmentType === 'REVISION_FILE') return FileText;
   if (attachment.contentType === 'application/pdf' || attachment.attachmentType === 'PDF') return FileText;
   return Paperclip;
 };

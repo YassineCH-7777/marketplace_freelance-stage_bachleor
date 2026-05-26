@@ -89,7 +89,7 @@ public class OrderService {
                 .dueDate(request.getProposedDate())
                 .status(OrderStatus.ACCEPTED)
                 .progressPercentage(15)
-                .paymentStatus(PaymentStatus.UNPAID)
+                .paymentStatus(PaymentStatus.PENDING)
                 .build();
         Order savedOrder = orderRepository.save(order);
 
@@ -139,6 +139,9 @@ public class OrderService {
         if (nextStatus == OrderStatus.DISPUTED) {
             throw new BusinessException("Utilisez le flux de litige pour ouvrir une reclamation avec un motif.", HttpStatus.BAD_REQUEST);
         }
+        if (requiresHeldEscrowForFreelancerUpdate(nextStatus)) {
+            ensureEscrowIsHeld(order);
+        }
 
         LocalDate nextStartDate = dto.getStartDate() != null ? dto.getStartDate() : order.getStartDate();
         LocalDate nextEndDate = dto.getEndDate() != null ? dto.getEndDate() : order.getEndDate();
@@ -177,16 +180,18 @@ public class OrderService {
         }
 
         if (nextStatus == OrderStatus.DELIVERED || nextStatus == OrderStatus.WAITING_CLIENT) {
-            order.setPaymentStatus(PaymentStatus.PENDING);
-            if (order.getDeliveredAt() == null) {
-                order.setDeliveredAt(LocalDateTime.now());
-            }
+            order.setPaymentStatus(PaymentStatus.HELD);
+            order.setDeliveredAt(LocalDateTime.now());
             moveClientValidationMilestoneToWaitingClient(order);
         }
 
         if (nextStatus == OrderStatus.COMPLETED) {
             order.setProgressPercentage(100);
-            order.setPaymentStatus(PaymentStatus.PAID);
+            order.setPaymentStatus(PaymentStatus.RELEASED);
+        }
+
+        if (nextStatus == OrderStatus.CANCELLED && isEscrowHeld(order)) {
+            order.setPaymentStatus(PaymentStatus.REFUNDED);
         }
 
         Order savedOrder = orderRepository.save(order);
@@ -205,6 +210,9 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Commande introuvable"));
         ensureFreelancerOwnsOrder(order, freelancerId);
         ensureMissionCanBeUpdated(order);
+        if (dto.getStatus() != null && dto.getStatus() != MissionMilestoneStatus.PENDING) {
+            ensureEscrowIsHeld(order);
+        }
 
         MissionMilestone milestone = MissionMilestone.builder()
                 .order(order)
@@ -270,6 +278,11 @@ public class OrderService {
         if (dto.getStatus() == MissionMilestoneStatus.COMPLETED && isClientValidatedMilestone(order, milestone)) {
             throw new BusinessException("La phase de livraison doit etre terminee par le client apres verification.", HttpStatus.BAD_REQUEST);
         }
+        if (dto.getStatus() == MissionMilestoneStatus.IN_PROGRESS
+                || dto.getStatus() == MissionMilestoneStatus.COMPLETED
+                || dto.getStatus() == MissionMilestoneStatus.WAITING_CLIENT) {
+            ensureEscrowIsHeld(order);
+        }
         if (dto.getStatus() != null) {
             milestone.setStatus(dto.getStatus());
         }
@@ -323,15 +336,42 @@ public class OrderService {
     }
 
     @Transactional
+    public OrderDto confirmEscrowPayment(Long orderId, Long clientId) {
+        Order order = findClientOrder(orderId, clientId);
+        if (order.getStatus() == OrderStatus.COMPLETED
+                || order.getStatus() == OrderStatus.CANCELLED
+                || order.getStatus() == OrderStatus.DISPUTED) {
+            throw new BusinessException("Le paiement simule ne peut pas etre bloque pour une mission cloturee.", HttpStatus.BAD_REQUEST);
+        }
+        if (isPaymentReleased(order) || order.getPaymentStatus() == PaymentStatus.REFUNDED) {
+            throw new BusinessException("Cette mission a deja un paiement finalise.", HttpStatus.BAD_REQUEST);
+        }
+        if (isEscrowHeld(order)) {
+            return mapToOrderDto(order);
+        }
+
+        order.setPaymentStatus(PaymentStatus.HELD);
+        Order savedOrder = orderRepository.save(order);
+        logActivity(
+                savedOrder,
+                savedOrder.getClient(),
+                MissionActivityType.PAYMENT_UPDATED,
+                "Paiement simule bloque",
+                "Les fonds virtuels sont bloques en escrow jusqu'a validation de la livraison.");
+        return mapToOrderDto(savedOrder);
+    }
+
+    @Transactional
     public OrderDto acceptDelivery(Long orderId, Long clientId, OrderClientDecisionDto dto) {
         Order order = findClientOrder(orderId, clientId);
         if (!isClientDeliveryReviewable(order)) {
             throw new BusinessException("La mission doit etre livree avant validation client.", HttpStatus.BAD_REQUEST);
         }
+        ensureEscrowIsHeld(order);
 
         order.setStatus(OrderStatus.COMPLETED);
         order.setProgressPercentage(100);
-        order.setPaymentStatus(PaymentStatus.PAID);
+        order.setPaymentStatus(PaymentStatus.RELEASED);
         order.setEndDate(order.getEndDate() != null ? order.getEndDate() : LocalDate.now());
         order.setRevisionRequest(null);
         completeClientValidationMilestone(order);
@@ -353,6 +393,7 @@ public class OrderService {
         if (!isClientDeliveryReviewable(order)) {
             throw new BusinessException("Une revision ne peut etre demandee qu'apres une livraison.", HttpStatus.BAD_REQUEST);
         }
+        ensureEscrowIsHeld(order);
 
         String comment = dto != null ? normalizeOptionalText(dto.getComment()) : null;
         if (comment == null) {
@@ -365,7 +406,7 @@ public class OrderService {
         order.setStatus(OrderStatus.REVISION);
         order.setRevisionRequest(comment);
         order.setRevisionCount(safeRevisionCount(order.getRevisionCount()) + 1);
-        order.setPaymentStatus(PaymentStatus.PENDING);
+        order.setPaymentStatus(PaymentStatus.HELD);
         order.setProgressPercentage(Math.max(70, Math.min(safeProgress(order.getProgressPercentage()), 95)));
         moveClientValidationMilestoneToRevision(order);
 
@@ -433,7 +474,7 @@ public class OrderService {
             case "CLOSE" -> {
                 order.setStatus(OrderStatus.COMPLETED);
                 order.setProgressPercentage(100);
-                order.setPaymentStatus(PaymentStatus.PAID);
+                order.setPaymentStatus(PaymentStatus.RELEASED);
                 order.setEndDate(order.getEndDate() != null ? order.getEndDate() : LocalDate.now());
                 order.setDisputeAdminNotes(adminNotes);
                 order.setDisputeResolution("CLOSED");
@@ -576,9 +617,11 @@ public class OrderService {
         }
         if (order.getStatus() == OrderStatus.COMPLETED
                 || order.getStatus() == OrderStatus.CANCELLED
-                || order.getStatus() == OrderStatus.DISPUTED
-                || order.getStatus() == OrderStatus.REVISION) {
+                || order.getStatus() == OrderStatus.DISPUTED) {
             return false;
+        }
+        if (order.getStatus() == OrderStatus.REVISION) {
+            return hasFreshDeliveryAfterLatestRevision(order);
         }
 
         MissionMilestone validationMilestone = findClientValidationMilestone(order);
@@ -591,14 +634,71 @@ public class OrderService {
                 || hasDeliveryAttachment(order);
     }
 
+    private boolean hasFreshDeliveryAfterLatestRevision(Order order) {
+        LocalDateTime latestRevisionAt = findLatestActivityCreatedAt(order, MissionActivityType.REVISION_REQUESTED);
+        if (latestRevisionAt == null) {
+            return hasDeliveryEvidence(order);
+        }
+
+        LocalDateTime latestDeliveryActivityAt = findLatestActivityCreatedAt(order, MissionActivityType.DELIVERY_SUBMITTED);
+        boolean hasDeliveryActivityAfterRevision = isSameOrAfter(latestDeliveryActivityAt, latestRevisionAt);
+        boolean hasDeliveredAtAfterRevision = isSameOrAfter(order.getDeliveredAt(), latestRevisionAt);
+        boolean hasUpdatedDeliveryNoteAfterRevision = normalizeOptionalText(order.getDeliveryNote()) != null
+                && isSameOrAfter(order.getUpdatedAt(), latestRevisionAt);
+        List<Attachment> deliveryAttachments = safeList(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId()))
+                .stream()
+                .filter(this::isClientReviewEvidenceAttachment)
+                .toList();
+        boolean hasDeliveryAttachmentAfterRevision = deliveryAttachments.stream()
+                .map(Attachment::getCreatedAt)
+                .anyMatch(createdAt -> createdAt == null || isSameOrAfter(createdAt, latestRevisionAt));
+
+        return hasDeliveryActivityAfterRevision
+                || hasDeliveredAtAfterRevision
+                || hasUpdatedDeliveryNoteAfterRevision
+                || hasDeliveryAttachmentAfterRevision;
+    }
+
+    private boolean hasDeliveryEvidence(Order order) {
+        return normalizeOptionalText(order.getDeliveryNote()) != null
+                || order.getDeliveredAt() != null
+                || hasClientReviewEvidenceAttachment(order);
+    }
+
+    private LocalDateTime findLatestActivityCreatedAt(Order order, MissionActivityType type) {
+        return safeList(missionActivityRepository.findByOrder_IdOrderByCreatedAtDesc(order.getId()))
+                .stream()
+                .filter(activity -> activity != null && activity.getType() == type)
+                .map(MissionActivity::getCreatedAt)
+                .filter(createdAt -> createdAt != null)
+                .max(LocalDateTime::compareTo)
+                .orElse(null);
+    }
+
+    private boolean isSameOrAfter(LocalDateTime value, LocalDateTime reference) {
+        return value != null && reference != null && !value.isBefore(reference);
+    }
+
     private boolean hasDeliveryAttachment(Order order) {
         return safeList(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId()))
                 .stream()
                 .anyMatch(this::isDeliveryAttachment);
     }
 
+    private boolean hasClientReviewEvidenceAttachment(Order order) {
+        return safeList(attachmentRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId()))
+                .stream()
+                .anyMatch(this::isClientReviewEvidenceAttachment);
+    }
+
     private boolean isDeliveryAttachment(Attachment attachment) {
         return attachment != null && "DELIVERY_PROOF".equalsIgnoreCase(attachment.getAttachmentType());
+    }
+
+    private boolean isClientReviewEvidenceAttachment(Attachment attachment) {
+        return attachment != null
+                && ("DELIVERY_PROOF".equalsIgnoreCase(attachment.getAttachmentType())
+                || "REVISION_FILE".equalsIgnoreCase(attachment.getAttachmentType()));
     }
 
     private void ensureFreelancerOwnsOrder(Order order, Long freelancerId) {
@@ -623,8 +723,8 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.DISPUTED);
-        if (order.getPaymentStatus() != PaymentStatus.PAID && order.getPaymentStatus() != PaymentStatus.REFUNDED) {
-            order.setPaymentStatus(PaymentStatus.PENDING);
+        if (!isPaymentReleased(order) && order.getPaymentStatus() != PaymentStatus.REFUNDED) {
+            order.setPaymentStatus(PaymentStatus.HELD);
         }
         order.setDisputeReason(reason);
         order.setDisputeAdminNotes(null);
@@ -645,6 +745,28 @@ public class OrderService {
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELLED) {
             throw new BusinessException("Une mission cloturee ne peut plus passer en litige.", HttpStatus.BAD_REQUEST);
         }
+    }
+
+    private void ensureEscrowIsHeld(Order order) {
+        if (!isEscrowHeld(order) && !isPaymentReleased(order)) {
+            throw new BusinessException("Le client doit d'abord bloquer le paiement simule en escrow.", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private boolean requiresHeldEscrowForFreelancerUpdate(OrderStatus status) {
+        return status == OrderStatus.IN_PROGRESS
+                || status == OrderStatus.WAITING_CLIENT
+                || status == OrderStatus.DELIVERED
+                || status == OrderStatus.REVISION
+                || status == OrderStatus.COMPLETED;
+    }
+
+    private boolean isEscrowHeld(Order order) {
+        return order.getPaymentStatus() == PaymentStatus.HELD;
+    }
+
+    private boolean isPaymentReleased(Order order) {
+        return order.getPaymentStatus() == PaymentStatus.RELEASED || order.getPaymentStatus() == PaymentStatus.PAID;
     }
 
     private BigDecimal resolveAgreedPrice(OrderRequest request) {

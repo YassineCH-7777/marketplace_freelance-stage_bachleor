@@ -221,7 +221,7 @@ AND NOT EXISTS (SELECT 1 FROM order_requests WHERE client_id = u.id AND service_
 
 -- 6) COMMANDES (ORDERS)
 INSERT INTO orders (request_id, service_id, client_id, freelancer_id, agreed_price, start_date, end_date, due_date, progress_percentage, payment_status, status, notes)
-SELECT rq.id, s.id, u_client.id, fp.id, 1200.00, '2024-05-01', NULL, '2024-05-15', 60, 'PENDING', 'IN_PROGRESS', 'Projet en cours de développement, phase de design validée.'
+SELECT rq.id, s.id, u_client.id, fp.id, 1200.00, '2024-05-01', NULL, '2024-05-15', 60, 'HELD', 'IN_PROGRESS', 'Projet en cours de développement, phase de design validée.'
 FROM order_requests rq
 JOIN services s ON rq.service_id = s.id
 JOIN users u_client ON rq.client_id = u_client.id
@@ -242,7 +242,7 @@ WHERE u.email = 'client1@marketplace.com'
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO orders (request_id, service_id, client_id, freelancer_id, agreed_price, start_date, end_date, due_date, progress_percentage, payment_status, status, notes, delivery_note)
-SELECT 1000, s.id, u_client.id, fp.id, 40.00, '2024-01-10', '2024-01-11', '2024-01-11', 100, 'PAID', 'COMPLETED', 'Dépannage rapide effectué.', 'Intervention terminee, connexion et imprimante testees.'
+SELECT 1000, s.id, u_client.id, fp.id, 40.00, '2024-01-10', '2024-01-11', '2024-01-11', 100, 'RELEASED', 'COMPLETED', 'Dépannage rapide effectué.', 'Intervention terminee, connexion et imprimante testees.'
 FROM services s
 JOIN freelancer_profiles fp ON s.freelancer_id = fp.id
 JOIN users u_client ON u_client.email = 'client1@marketplace.com'

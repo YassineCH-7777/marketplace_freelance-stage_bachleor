@@ -26,6 +26,7 @@ export const getAttachmentTypeLabel = (type, contentType) => {
   if (type === 'BRIEF') return 'Brief';
   if (type === 'INVOICE') return 'Facture';
   if (type === 'DELIVERY_PROOF') return 'Preuve';
+  if (type === 'REVISION_FILE') return 'Revision';
   if (type === 'IMAGE' || contentType?.startsWith('image/')) return 'Image';
   if (type === 'PDF' || contentType === 'application/pdf') return 'PDF';
   if (type === 'DOCUMENT') return 'Document';

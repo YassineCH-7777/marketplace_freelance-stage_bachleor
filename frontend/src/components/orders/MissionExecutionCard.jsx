@@ -9,10 +9,12 @@ import {
   Download,
   FileText,
   GitBranch,
+  LockKeyhole,
   MessageSquare,
   PackageCheck,
   PlayCircle,
   RotateCcw,
+  ShieldCheck,
   TimerReset,
   UserRound,
 } from 'lucide-react';
@@ -22,6 +24,7 @@ import {
   downloadMissionReport,
   formatOrderDate,
   formatPlanningDate,
+  getEscrowSteps,
   getMilestoneStatusMeta,
   getMilestoneTimerMeta,
   getMissionChecklist,
@@ -29,7 +32,8 @@ import {
   getOrderStatusMeta,
   getPaymentStatusMeta,
   hasClientReviewableDelivery,
-  hasDeliveryAttachment,
+  isEscrowActionable,
+  isEscrowSecured,
 } from '@/utils/orderExecution';
 
 export default function MissionExecutionCard({
@@ -38,10 +42,12 @@ export default function MissionExecutionCard({
   onAcceptDelivery,
   onManage,
   onMessage,
+  onConfirmEscrow,
   onMilestoneUpdate,
   onOpenDispute,
   onRequestRevision,
   onReview,
+  confirmingEscrow,
   savingMilestoneId,
 }) {
   const [, setTimerTick] = useState(0);
@@ -52,6 +58,9 @@ export default function MissionExecutionCard({
       : order.status;
   const statusMeta = getOrderStatusMeta(effectiveStatus);
   const paymentMeta = getPaymentStatusMeta(order.paymentStatus);
+  const escrowSteps = getEscrowSteps(order);
+  const escrowNeedsFunding = isEscrowActionable(order.paymentStatus);
+  const escrowSecured = isEscrowSecured(order.paymentStatus);
   const progress = getMissionProgress(order);
   const checklist = getMissionChecklist(order);
   const counterpartLabel = role === 'freelancer' ? 'Client' : 'Freelance';
@@ -59,11 +68,45 @@ export default function MissionExecutionCard({
     ? order.clientEmail
     : order.freelancerEmail || `Freelance #${order.freelancerId}`;
   const canClientReviewDelivery = role === 'client' && reviewableDelivery;
-  const hasDeliveryFile = hasDeliveryAttachment(order);
+  const canClientAcceptDelivery = canClientReviewDelivery && escrowSecured;
+  const orderAttachments = order.attachments || [];
+  const latestRevisionAt = Math.max(
+    0,
+    ...(order.activities || [])
+      .filter((activity) => activity.type === 'REVISION_REQUESTED')
+      .map((activity) => {
+        const timestamp = new Date(activity.createdAt).getTime();
+        return Number.isFinite(timestamp) ? timestamp : 0;
+      }),
+  );
+  const isRevisionDeliveryProof = (attachment) => {
+    if (attachment.attachmentType !== 'DELIVERY_PROOF' || !latestRevisionAt || !attachment.createdAt) {
+      return false;
+    }
+
+    const createdAt = new Date(attachment.createdAt).getTime();
+    return Number.isFinite(createdAt) && createdAt >= latestRevisionAt;
+  };
+  const deliveryAttachments = orderAttachments.filter(
+    (attachment) => attachment.attachmentType === 'DELIVERY_PROOF' && !isRevisionDeliveryProof(attachment),
+  );
+  const trackingAttachments = orderAttachments.filter(
+    (attachment) => attachment.attachmentType !== 'DELIVERY_PROOF' || isRevisionDeliveryProof(attachment),
+  );
+  const hasDeliveryFile = deliveryAttachments.length > 0;
   const revisionCount = Number(order.revisionCount) || 0;
   const maxRevisionRounds = Number.isFinite(Number(order.maxRevisionRounds)) ? Number(order.maxRevisionRounds) : 3;
-  const canClientRequestRevision = canClientReviewDelivery && revisionCount < maxRevisionRounds;
-  const canFreelancerManage = role === 'freelancer' && activeMissionStatuses.includes(order.status);
+  const trackingMessage = order.notes
+    || (order.revisionRequest ? `Revision : ${order.revisionRequest}` : 'Aucun suivi n a encore ete partage pour cette mission.');
+  const canClientRequestRevision = canClientReviewDelivery && escrowSecured && revisionCount < maxRevisionRounds;
+  const canFreelancerManage = role === 'freelancer' && activeMissionStatuses.includes(order.status) && escrowSecured;
+  const canConfirmEscrow =
+    role === 'client'
+    && Boolean(onConfirmEscrow)
+    && escrowNeedsFunding
+    && !['COMPLETED', 'CANCELLED', 'DISPUTED'].includes(order.status);
+  const escrowBlockedForFreelancer =
+    role === 'freelancer' && activeMissionStatuses.includes(order.status) && escrowNeedsFunding;
   const canOpenDispute =
     Boolean(onOpenDispute) && ['ACCEPTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'DELIVERED', 'REVISION'].includes(order.status);
 
@@ -130,6 +173,33 @@ export default function MissionExecutionCard({
             <span>{item.label}</span>
           </div>
         ))}
+      </div>
+
+      <div className="mission-escrow-block">
+        <span className="mission-meta-label">
+          <ShieldCheck size={14} /> Escrow simule
+        </span>
+        <div className="mission-escrow-steps">
+          {escrowSteps.map((step) => (
+            <div
+              className={`mission-escrow-step ${step.done ? 'is-done' : ''} ${step.active ? 'is-active' : ''}`}
+              key={step.key}
+            >
+              <span></span>
+              <p>{step.label}</p>
+            </div>
+          ))}
+        </div>
+        {escrowBlockedForFreelancer && (
+          <p className="mission-escrow-helper">
+            La mission demarre apres blocage du paiement simule par le client.
+          </p>
+        )}
+        {role === 'client' && escrowNeedsFunding && (
+          <p className="mission-escrow-helper">
+            Confirmez le paiement simule pour bloquer les fonds virtuels avant l execution.
+          </p>
+        )}
       </div>
 
       {(order.milestones || []).length > 0 && (
@@ -205,18 +275,21 @@ export default function MissionExecutionCard({
             {order.deliveryNote
               || (hasDeliveryFile
                 ? 'Livraison partagee via les fichiers joints ci-dessous.'
-                : 'Aucune livraison n a encore ete partagee.')}
+                : order.deliveredAt
+                  ? 'Livraison initiale partagee.'
+                  : 'Aucune livraison n a encore ete partagee.')}
           </p>
           {order.deliveredAt && <p>Livree le : {formatOrderDate(order.deliveredAt)}</p>}
-          <AttachmentList attachments={order.attachments || []} compact />
+          <AttachmentList attachments={deliveryAttachments} compact />
         </div>
         <div className="mission-report-block">
           <span className="mission-meta-label">
             <FileText size={14} /> Suivi ou compte-rendu
           </span>
-          <p>{order.notes || 'Aucun suivi n a encore ete partage pour cette mission.'}</p>
-          {order.revisionRequest && <p>Revision : {order.revisionRequest}</p>}
+          <p>{trackingMessage}</p>
+          {order.notes && order.revisionRequest && <p>Revision : {order.revisionRequest}</p>}
           <p>Revisions : {revisionCount} / {maxRevisionRounds}</p>
+          <AttachmentList attachments={trackingAttachments} compact />
         </div>
       </div>
 
@@ -263,9 +336,26 @@ export default function MissionExecutionCard({
           </button>
         )}
 
+        {canConfirmEscrow && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => onConfirmEscrow(order)}
+            disabled={confirmingEscrow}
+          >
+            <LockKeyhole size={14} /> {confirmingEscrow ? 'Blocage...' : 'Bloquer paiement simule'}
+          </button>
+        )}
+
         {canClientReviewDelivery && (
           <>
-            <button type="button" className="btn btn-accept btn-sm" onClick={() => onAcceptDelivery(order)}>
+            <button
+              type="button"
+              className="btn btn-accept btn-sm"
+              onClick={() => onAcceptDelivery(order)}
+              disabled={!canClientAcceptDelivery}
+              title={canClientAcceptDelivery ? undefined : 'Bloquez d abord le paiement simule'}
+            >
               <CheckCircle2 size={14} /> Valider la livraison
             </button>
             <button
@@ -273,9 +363,15 @@ export default function MissionExecutionCard({
               className="btn btn-secondary btn-sm"
               onClick={() => onRequestRevision(order)}
               disabled={!canClientRequestRevision}
-              title={canClientRequestRevision ? undefined : 'Nombre maximum de revisions atteint'}
+              title={
+                canClientRequestRevision
+                  ? undefined
+                  : escrowSecured
+                  ? 'Nombre maximum de revisions atteint'
+                  : 'Bloquez d abord le paiement simule'
+              }
             >
-              <RotateCcw size={14} /> {canClientRequestRevision ? 'Demander revision' : 'Revisions epuisees'}
+              <RotateCcw size={14} /> {canClientRequestRevision ? 'Demander revision' : 'Revision indisponible'}
             </button>
           </>
         )}

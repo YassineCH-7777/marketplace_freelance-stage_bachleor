@@ -63,6 +63,19 @@ export default function FreelancerOrders() {
     }
 
     const { attachmentFiles = [], attachmentType = 'DELIVERY_PROOF', ...missionPayload } = payload;
+    const normalizedDeliveryNote = (missionPayload.deliveryNote || '').trim();
+    const previousDeliveryNote = (activeMission.deliveryNote || '').trim();
+    const hasNewDeliveryProof = attachmentType === 'DELIVERY_PROOF' && attachmentFiles.length > 0;
+    const hasUpdatedDeliveryNote = normalizedDeliveryNote !== '' && normalizedDeliveryNote !== previousDeliveryNote;
+
+    if (
+      activeMission.status === 'REVISION'
+      && missionPayload.status === 'REVISION'
+      && (hasNewDeliveryProof || hasUpdatedDeliveryNote)
+    ) {
+      missionPayload.status = 'DELIVERED';
+      missionPayload.progressPercentage = Math.max(Number(missionPayload.progressPercentage) || 0, 90);
+    }
 
     setSavingMission(true);
     try {

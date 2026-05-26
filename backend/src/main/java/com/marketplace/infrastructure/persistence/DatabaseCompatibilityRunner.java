@@ -21,6 +21,8 @@ public class DatabaseCompatibilityRunner implements ApplicationRunner {
 
     private void ensureUserAuthColumns() {
         jdbcTemplate.execute("ALTER TYPE user_status ADD VALUE IF NOT EXISTS 'DELETED'");
+        jdbcTemplate.execute("ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'HELD'");
+        jdbcTemplate.execute("ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'RELEASED'");
         jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE");
         jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(30) NOT NULL DEFAULT 'PASSWORD'");
         jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id VARCHAR(255)");

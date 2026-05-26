@@ -20,8 +20,8 @@ export function formatAdminMoney(value) {
 }
 
 export function getAdminBadgeClass(status) {
-  if (['ACTIVE', 'PUBLISHED', 'COMPLETED', 'RESOLVED', 'PAID', 'CLOSED'].includes(status)) return 'badge-success';
-  if (['SUSPENDED', 'CANCELLED', 'REJECTED', 'ARCHIVED', 'REVISION', 'DISPUTED', 'REFUNDED', 'ARBITRATED'].includes(status)) return 'badge-warning';
+  if (['ACTIVE', 'PUBLISHED', 'COMPLETED', 'RESOLVED', 'PAID', 'RELEASED', 'CLOSED'].includes(status)) return 'badge-success';
+  if (['SUSPENDED', 'CANCELLED', 'REJECTED', 'ARCHIVED', 'REVISION', 'DISPUTED', 'HELD', 'REFUNDED', 'ARBITRATED'].includes(status)) return 'badge-warning';
   return 'badge-primary';
 }
 

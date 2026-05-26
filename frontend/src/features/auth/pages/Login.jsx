@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
-import { loginFirebaseUser } from '@/api/authApi';
-import { firebaseSendEmailVerification, firebaseSignInWithEmail } from '@/api/firebaseAuthApi';
+import { loginUser } from '@/api/authApi';
 import GoogleAuthButton from '@/features/auth/components/GoogleAuthButton';
 import { LogIn, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import '@/styles/auth.css';
@@ -33,14 +32,7 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const firebaseSession = await firebaseSignInWithEmail(form);
-      if (!firebaseSession.emailVerified) {
-        await firebaseSendEmailVerification(firebaseSession.idToken);
-        setError('Veuillez valider votre e-mail. Un nouveau lien vient d etre envoye.');
-        return;
-      }
-
-      const res = await loginFirebaseUser({ idToken: firebaseSession.idToken });
+      const res = await loginUser(form);
       const { token, ...authUser } = res.data;
       login(authUser, token);
       navigate(dashboardPath(authUser.role));

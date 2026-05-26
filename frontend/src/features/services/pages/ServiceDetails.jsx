@@ -27,7 +27,6 @@ import {
 } from '@/api/favoriteApi';
 import { createConversation } from '@/api/messageApi';
 import { getActiveServices } from '@/api/serviceApi';
-import AiAssistantPanel from '@/components/ai/AiAssistantPanel';
 import FavoriteButton from '@/components/common/FavoriteButton';
 import {
   getDeliveryTimeLabel,
@@ -305,27 +304,6 @@ export default function ServiceDetails() {
     }
   };
 
-  const handleClientAssistantResult = (brief) => {
-    const summary = brief.objective || brief.need_summary || brief.summary || brief.description || '';
-    const livrables = brief.deliverables || brief.livrables || [];
-    const lines = [
-      summary,
-      brief.category ? `Categorie proposee : ${brief.category}` : '',
-      brief.city ? `Ville : ${brief.city}` : '',
-      brief.mode ? `Mode : ${brief.mode}` : '',
-      brief.deadline_days ? `Delai souhaite : ${brief.deadline_days} jours` : '',
-      Array.isArray(livrables) && livrables.length > 0 ? `Livrables : ${livrables.join(', ')}` : '',
-    ].filter(Boolean);
-
-    if (lines.length > 0) {
-      setMessage(lines.join('\n'));
-    }
-
-    if (brief.budget) {
-      setPrice(String(brief.budget));
-    }
-  };
-
   if (loading) {
     return (
       <div className="service-detail-page">
@@ -495,25 +473,6 @@ export default function ServiceDetails() {
               <strong>{formattedPrice} MAD</strong>
               <p>{deliveryLabel} - {executionModeLabel}</p>
             </div>
-
-            {isAuthenticated && user?.role === 'CLIENT' && (
-              <AiAssistantPanel
-                type="client"
-                title="Assistant IA demande"
-                subtitle="Clarifiez votre besoin puis appliquez le brief propose au formulaire."
-                placeholder="Ex: Je veux un site simple pour mon restaurant a Fes, avec menu et contact."
-                metadata={{
-                  serviceId: service.id,
-                  serviceTitle: service.title,
-                  serviceCategory: service.categoryName,
-                  serviceCity: locationLabel,
-                  serviceMode: executionModeLabel,
-                  serviceBasePrice: service.price,
-                }}
-                onStructuredResult={handleClientAssistantResult}
-                applyLabel="Pre-remplir la demande"
-              />
-            )}
 
             <div className="request-form-card animate-fade-in-up">
               {sent ? (

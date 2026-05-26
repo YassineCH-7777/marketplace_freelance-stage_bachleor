@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from '@/components/common/Navbar';
 import Footer from '@/components/common/Footer';
+import NotificationCenter from '@/components/common/NotificationCenter';
 import RoleDashboardBar from '@/components/dashboard/RoleDashboardBar';
 import FloatingAiAssistant from '@/components/ai/FloatingAiAssistant';
 import useAuth from '@/hooks/useAuth';
@@ -55,6 +56,7 @@ function App() {
       </main>
       {location.pathname !== '/' && <Footer />}
       <FloatingAiAssistant />
+      <NotificationCenter />
     </>
   );
 }

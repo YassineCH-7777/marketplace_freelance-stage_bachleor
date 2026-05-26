@@ -492,6 +492,7 @@
 
 .services-radius-options span {
   text-align: center;
+  margin-left: -40px;
 }
 
 /* ---------- Results ---------- */

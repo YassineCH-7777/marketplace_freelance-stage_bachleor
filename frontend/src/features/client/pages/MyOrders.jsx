@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ClipboardList, FileText, Loader2, Package, Star, X } from 'lucide-react';
-import { acceptOrderDelivery, getClientOrders, openClientOrderDispute, requestOrderRevision } from '@/api/orderApi';
+import {
+  acceptOrderDelivery,
+  confirmEscrowPayment,
+  getClientOrders,
+  openClientOrderDispute,
+  requestOrderRevision,
+} from '@/api/orderApi';
 import { leaveReview } from '@/api/reviewApi';
 import MissionExecutionCard from '@/components/orders/MissionExecutionCard';
 import { activeMissionStatuses } from '@/utils/orderExecution';
@@ -59,6 +65,7 @@ export default function MyOrders() {
   const [revisionComment, setRevisionComment] = useState('');
   const [disputeModal, setDisputeModal] = useState(null);
   const [disputeReason, setDisputeReason] = useState('');
+  const [confirmingEscrowId, setConfirmingEscrowId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const sortedOrders = useMemo(
@@ -130,6 +137,19 @@ export default function MyOrders() {
     setOrders((currentOrders) =>
       currentOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
     );
+  };
+
+  const handleConfirmEscrow = async (order) => {
+    setConfirmingEscrowId(order.id);
+    try {
+      const response = await confirmEscrowPayment(order.id);
+      updateOrderInState(response.data);
+      alert('Paiement simule bloque. Le freelance peut demarrer la mission.');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Erreur lors du blocage du paiement simule');
+    } finally {
+      setConfirmingEscrowId(null);
+    }
   };
 
   const openDeliveryModal = (order) => {
@@ -273,10 +293,12 @@ export default function MyOrders() {
                 key={order.id}
                 order={order}
                 role="client"
+                onConfirmEscrow={handleConfirmEscrow}
                 onAcceptDelivery={openDeliveryModal}
                 onOpenDispute={openDisputeModal}
                 onRequestRevision={openRevisionModal}
                 onReview={openReviewModal}
+                confirmingEscrow={confirmingEscrowId === order.id}
               />
             ))}
           </div>
@@ -397,7 +419,7 @@ export default function MyOrders() {
                 </div>
                 <div>
                   <CheckCircle2 size={16} />
-                  <span>Je comprends que la validation cloture la mission et libere le paiement.</span>
+                  <span>Je comprends que la validation cloture la mission et libere le paiement simule.</span>
                 </div>
               </div>
 
