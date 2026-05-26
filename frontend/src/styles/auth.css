@@ -207,17 +207,31 @@
   align-items: center;
   min-height: 52px;
   padding: 0;
+  /* Pas de bordure ni d'ombre quand le widget Google officiel est actif —
+     il apporte lui-même sa bordure via son iframe.
+     Ces styles s'appliquent uniquement au bouton custom (.google-auth-inner). */
+  border: none;
   border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease,
-    background 0.15s ease,
     transform 0.1s ease;
-  cursor: pointer;
   overflow: hidden;
 }
 
-.google-auth-wrapper::before {
+/* Quand le bouton custom est rendu, on réactive les styles du wrapper */
+.google-auth-wrapper:has(.google-auth-inner) {
+  border: 1.5px solid #dadce0;
+  background: #ffffff;
+  box-shadow:
+    0 1px 3px rgba(60, 64, 67, 0.08),
+    0 2px 6px rgba(60, 64, 67, 0.04);
+}
+
+/* Ripple + hover + active : uniquement pour le bouton custom */
+.google-auth-wrapper:has(.google-auth-inner)::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -226,14 +240,23 @@
   transition: opacity 0.15s ease;
   border-radius: inherit;
   pointer-events: none;
+  z-index: 0;
 }
 
-.google-auth-wrapper:hover::before {
+.google-auth-wrapper:has(.google-auth-inner):not(.is-loading):hover {
+  border-color: #c6c6c6;
+  box-shadow:
+    0 2px 8px rgba(60, 64, 67, 0.12),
+    0 4px 16px rgba(60, 64, 67, 0.06);
+  transform: translateY(-1px);
+}
+
+.google-auth-wrapper:has(.google-auth-inner):not(.is-loading):hover::before {
   opacity: 1;
 }
 
-.google-auth-wrapper:active {
-  transform: translateY(0px) scale(0.995);
+.google-auth-wrapper:has(.google-auth-inner):not(.is-loading):active {
+  transform: translateY(0) scale(0.995);
   box-shadow:
     0 1px 3px rgba(60, 64, 67, 0.08),
     0 1px 4px rgba(60, 64, 67, 0.04);
@@ -246,8 +269,19 @@
   cursor: not-allowed;
 }
 
-/* Inner label layout (rendu custom) */
+/* Overlay de chargement */
+.google-auth-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.5);
+  z-index: 2;
+  border-radius: inherit;
+}
+
+/* ── Bouton custom (fallback) ── */
 .google-auth-inner {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -255,6 +289,10 @@
   width: 100%;
   padding: 0 20px;
   height: 52px;
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
   font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 15px;
   font-weight: 500;
@@ -264,14 +302,41 @@
   user-select: none;
 }
 
+.google-auth-inner:focus-visible {
+  outline: 2px solid #4285F4;
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.google-auth-label {
+  flex: 1;
+  text-align: center;
+}
+
+/* ── Logo Google ── */
 .google-auth-logo {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
 }
 
-/* Widget Google officiel */
+/* ── Spinner ── */
+.google-auth-spinner {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  animation: google-spin 0.9s linear infinite;
+}
+
+@keyframes google-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Widget officiel Google ── */
 .google-auth-button {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -286,17 +351,12 @@
   border-radius: 0 !important;
 }
 
-/* Spinner */
+/* Spinner (héritage) */
 .spinner {
-  animation: spin 1s linear infinite;
+  animation: google-spin 1s linear infinite;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Footer */
+/* ===== Footer ===== */
 .auth-footer {
   text-align: center;
   margin-top: var(--space-8);
@@ -316,7 +376,7 @@
   text-decoration: underline;
 }
 
-/* Mobile adjustments */
+/* ===== Mobile ===== */
 @media (max-width: 480px) {
   .auth-card {
     padding: var(--space-6);
@@ -339,5 +399,9 @@
   .google-auth-inner {
     font-size: 14px;
     height: 48px;
+  }
+
+  .google-auth-button {
+    min-height: 48px;
   }
 }

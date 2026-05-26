@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useAuth from '@/hooks/useAuth';
 import { getFreelancerOwnProfile, updateFreelancerProfile } from '@/api/userApi';
 import AiAssistantPanel from '@/components/ai/AiAssistantPanel';
-import GoogleLocationInput from '@/components/common/GoogleLocationInput';
-import { getRadiusOptionIndex, SEARCH_RADIUS_OPTIONS } from '@/utils/localSearch';
 import {
   BadgeCheck,
   BriefcaseBusiness,
@@ -135,26 +133,6 @@ export default function FreelancerProfileEdit() {
     }));
   };
 
-  const handleSearchLocationTextChange = useCallback((value) => {
-    setForm((currentForm) => ({
-      ...currentForm,
-      searchCity: value,
-      searchPlaceId: '',
-      searchLatitude: null,
-      searchLongitude: null,
-    }));
-  }, []);
-
-  const handleSearchLocationSelect = useCallback((place) => {
-    setForm((currentForm) => ({
-      ...currentForm,
-      searchCity: place.label || '',
-      searchPlaceId: place.placeId || '',
-      searchLatitude: place.lat,
-      searchLongitude: place.lng,
-    }));
-  }, []);
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -265,14 +243,6 @@ export default function FreelancerProfileEdit() {
                 <span>{form.city || 'Ville non renseignee'}</span>
               </div>
               <div>
-                <MapPin size={16} />
-                <span>
-                  {form.searchCity
-                    ? `Recherche : ${form.searchCity} (${form.searchRadiusKm} km)`
-                    : 'Ville de recherche non renseignee'}
-                </span>
-              </div>
-              <div>
                 <LinkIcon size={16} />
                 <span>{form.portfolioUrl || 'Portfolio non renseigne'}</span>
               </div>
@@ -350,43 +320,6 @@ export default function FreelancerProfileEdit() {
                   onChange={(event) => updateField('city', event.target.value)}
                   placeholder="Ex: Casablanca"
                 />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">
-                  <MapPin size={14} style={{ display: 'inline' }} /> Ville de recherche
-                </label>
-                <GoogleLocationInput
-                  value={form.searchCity}
-                  onTextChange={handleSearchLocationTextChange}
-                  onPlaceSelect={handleSearchLocationSelect}
-                  placeholder="Ex: Gueliz, Marrakech"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">
-                  <MapPin size={14} style={{ display: 'inline' }} /> Rayon par defaut
-                </label>
-                <div className="profile-radius-control">
-                  <input
-                    type="range"
-                    min="0"
-                    max={SEARCH_RADIUS_OPTIONS.length - 1}
-                    step="1"
-                    value={getRadiusOptionIndex(form.searchRadiusKm)}
-                    onChange={(event) =>
-                      updateField('searchRadiusKm', SEARCH_RADIUS_OPTIONS[Number(event.target.value)])
-                    }
-                    aria-label="Rayon de recherche par defaut"
-                  />
-                  <strong>{form.searchRadiusKm} km</strong>
-                </div>
-                <div className="profile-radius-options" aria-hidden="true">
-                  {SEARCH_RADIUS_OPTIONS.map((option) => (
-                    <span key={option}>{option}</span>
-                  ))}
-                </div>
               </div>
 
               <div className="form-group full-width">

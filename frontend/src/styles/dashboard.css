@@ -994,37 +994,6 @@
   justify-content: flex-end;
 }
 
-.profile-radius-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.profile-radius-control input[type='range'] {
-  width: 100%;
-  accent-color: var(--primary-500);
-}
-
-.profile-radius-control strong {
-  min-width: 3.5rem;
-  color: var(--primary-500);
-  font-size: var(--text-sm);
-  text-align: right;
-}
-
-.profile-radius-options {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin-top: 0.4rem;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-}
-
-.profile-radius-options span {
-  text-align: center;
-}
-
 .freelancer-profile-summary .client-profile-avatar {
   background: linear-gradient(135deg, #087f5b, var(--primary-500));
 }
