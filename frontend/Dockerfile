@@ -10,6 +10,10 @@ RUN npm ci --silent
 
 # copy source and build
 COPY . .
+ARG VITE_GOOGLE_CLIENT_ID=
+ARG VITE_FIREBASE_API_KEY=
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
 RUN npm run build
 
 # Production stage: serve with nginx

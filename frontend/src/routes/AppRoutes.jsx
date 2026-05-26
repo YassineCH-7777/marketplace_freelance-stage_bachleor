@@ -8,6 +8,7 @@ import AdminServices from '@/features/admin/pages/AdminServices';
 import AdminUsers from '@/features/admin/pages/AdminUsers';
 import Login from '@/features/auth/pages/Login';
 import Register from '@/features/auth/pages/Register';
+import ForgotPassword from '@/features/auth/pages/ForgotPassword';
 import ClientDashboard from '@/features/client/pages/ClientDashboard';
 import MyFavorites from '@/features/client/pages/MyFavorites';
 import ClientProfile from '@/features/client/pages/ClientProfile';
@@ -41,6 +42,7 @@ export default function AppRoutes() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/services" element={<Services />} />
       <Route path="/services/:id" element={<ServiceDetails />} />
       <Route path="/freelancers/:id" element={<FreelancerPublicProfile />} />

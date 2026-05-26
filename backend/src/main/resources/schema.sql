@@ -32,6 +32,8 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
+ALTER TYPE user_status ADD VALUE IF NOT EXISTS 'DELETED';
+
 DO $$
 BEGIN
     CREATE TYPE availability_status AS ENUM ('AVAILABLE', 'BUSY', 'OFFLINE');
@@ -224,6 +226,8 @@ CREATE TABLE IF NOT EXISTS users (
     last_name           VARCHAR(100) NOT NULL,
     email               CITEXT NOT NULL UNIQUE,
     password_hash       VARCHAR(255) NOT NULL,
+    auth_provider       VARCHAR(30) NOT NULL DEFAULT 'PASSWORD',
+    provider_id         VARCHAR(255),
     role                user_role NOT NULL DEFAULT 'CLIENT',
     phone               VARCHAR(30),
     city                VARCHAR(120),
@@ -248,6 +252,9 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(30) NOT NULL DEFAULT 'PASSWORD',
+    ADD COLUMN IF NOT EXISTS provider_id VARCHAR(255),
     ADD COLUMN IF NOT EXISTS search_city VARCHAR(120),
     ADD COLUMN IF NOT EXISTS search_place_id VARCHAR(255),
     ADD COLUMN IF NOT EXISTS search_latitude DOUBLE PRECISION,
@@ -258,6 +265,11 @@ UPDATE users
 SET search_radius_km = 10
 WHERE search_radius_km IS NULL
    OR search_radius_km NOT IN (5, 10, 20, 50);
+
+UPDATE users
+SET email_verified = TRUE
+WHERE status = 'ACTIVE'
+  AND email_verified = FALSE;
 
 DO $$
 BEGIN
@@ -827,6 +839,7 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
 CREATE INDEX IF NOT EXISTS idx_users_city ON users(city);
 CREATE INDEX IF NOT EXISTS idx_users_search_city ON users(search_city);
+CREATE INDEX IF NOT EXISTS idx_users_provider ON users(auth_provider, provider_id);
 
 CREATE INDEX IF NOT EXISTS idx_freelancer_profiles_user_id ON freelancer_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_freelancer_profiles_availability ON freelancer_profiles(availability);

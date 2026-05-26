@@ -1,9 +1,20 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
-import { registerUser } from '@/api/authApi';
+import { registerFirebaseUser } from '@/api/authApi';
+import { firebaseSendEmailVerification, firebaseSignUpWithEmail } from '@/api/firebaseAuthApi';
+import GoogleAuthButton from '@/features/auth/components/GoogleAuthButton';
 import { UserPlus, Mail, Lock, AlertCircle, Loader2, Users, UserRound } from 'lucide-react';
 import '@/styles/auth.css';
+
+function dashboardPath(role) {
+  switch (role) {
+    case 'ADMIN': return '/admin';
+    case 'FREELANCER': return '/freelancer/dashboard';
+    case 'CLIENT': return '/client/dashboard';
+    default: return '/';
+  }
+}
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -15,6 +26,7 @@ export default function Register() {
     role: 'CLIENT',
   });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -22,6 +34,7 @@ export default function Register() {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError('');
+    setSuccess('');
   };
 
   const handleSubmit = async (e) => {
@@ -40,24 +53,26 @@ export default function Register() {
     }
     setLoading(true);
     setError('');
+    setSuccess('');
     try {
-      const res = await registerUser({
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
+      const firebaseSession = await firebaseSignUpWithEmail({
         email: form.email,
         password: form.password,
+      });
+
+      await registerFirebaseUser({
+        idToken: firebaseSession.idToken,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
         role: form.role,
       });
-      const { token, ...authUser } = res.data;
-      login(authUser, token);
 
-      switch (authUser.role) {
-        case 'FREELANCER': navigate('/freelancer/dashboard'); break;
-        case 'CLIENT': navigate('/client/dashboard'); break;
-        default: navigate('/');
-      }
+      await firebaseSendEmailVerification(firebaseSession.idToken);
+      setSuccess('Compte cree. Firebase vous a envoye un e-mail de validation.');
     } catch (err) {
-      if (!err.response) {
+      if (err.message && !err.response) {
+        setError(err.message);
+      } else if (!err.response) {
         setError('Impossible de joindre le serveur. Verifiez que le backend est lance sur http://localhost:8080.');
       } else {
         setError(err.response?.data?.message || "Erreur lors de l'inscription. Cet e-mail existe peut-etre deja.");
@@ -65,6 +80,12 @@ export default function Register() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleAuthenticated = (data) => {
+    const { token, ...authUser } = data;
+    login(authUser, token);
+    navigate(dashboardPath(authUser.role));
   };
 
   return (
@@ -84,6 +105,8 @@ export default function Register() {
             <span>{error}</span>
           </div>
         )}
+
+        {success && <div className="auth-success animate-fade-in">{success}</div>}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="auth-name-grid">
@@ -218,6 +241,14 @@ export default function Register() {
             )}
           </button>
         </form>
+
+        <div className="auth-divider"><span>ou</span></div>
+
+        <GoogleAuthButton
+          role={form.role}
+          onAuthenticated={handleGoogleAuthenticated}
+          onError={setError}
+        />
 
         <div className="auth-footer">
           <p>Deja un compte ? <Link to="/login" className="auth-link">Se connecter</Link></p>

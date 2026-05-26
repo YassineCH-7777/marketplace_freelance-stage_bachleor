@@ -36,6 +36,16 @@ public class User implements UserDetails {
     @Column(name = "password_hash", nullable = false)
     private String password;
 
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified;
+
+    @Column(name = "auth_provider", nullable = false, length = 30)
+    @Builder.Default
+    private String authProvider = "PASSWORD";
+
+    @Column(name = "provider_id", length = 255)
+    private String providerId;
+
     @Column(name = "first_name", length = 100)
     private String firstName;
 
@@ -113,6 +123,6 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return status == UserStatus.ACTIVE || status == UserStatus.PENDING;
+        return status == UserStatus.ACTIVE;
     }
 }

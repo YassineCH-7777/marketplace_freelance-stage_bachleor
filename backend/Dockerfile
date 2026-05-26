@@ -19,10 +19,10 @@ COPY --from=build /workspace/target/backend-0.0.1-SNAPSHOT.jar /app/app.jar
 
 EXPOSE 8080
 
-# sensible defaults for connecting to the postgres service in docker-compose
+# Docker-compose or the runtime environment should provide secrets.
 ENV SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/marketplace_freelance
 ENV SPRING_DATASOURCE_USERNAME=postgres
-ENV SPRING_DATASOURCE_PASSWORD=admin
+ENV SPRING_DATASOURCE_PASSWORD=
 ENV SERVER_PORT=8080
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

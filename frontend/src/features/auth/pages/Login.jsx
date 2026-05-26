@@ -1,9 +1,20 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
-import { loginUser } from '@/api/authApi';
+import { loginFirebaseUser } from '@/api/authApi';
+import { firebaseSendEmailVerification, firebaseSignInWithEmail } from '@/api/firebaseAuthApi';
+import GoogleAuthButton from '@/features/auth/components/GoogleAuthButton';
 import { LogIn, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import '@/styles/auth.css';
+
+function dashboardPath(role) {
+  switch (role) {
+    case 'ADMIN': return '/admin';
+    case 'FREELANCER': return '/freelancer/dashboard';
+    case 'CLIENT': return '/client/dashboard';
+    default: return '/';
+  }
+}
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -22,18 +33,21 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const res = await loginUser(form);
+      const firebaseSession = await firebaseSignInWithEmail(form);
+      if (!firebaseSession.emailVerified) {
+        await firebaseSendEmailVerification(firebaseSession.idToken);
+        setError('Veuillez valider votre e-mail. Un nouveau lien vient d etre envoye.');
+        return;
+      }
+
+      const res = await loginFirebaseUser({ idToken: firebaseSession.idToken });
       const { token, ...authUser } = res.data;
       login(authUser, token);
-
-      switch (authUser.role) {
-        case 'ADMIN': navigate('/admin'); break;
-        case 'FREELANCER': navigate('/freelancer/dashboard'); break;
-        case 'CLIENT': navigate('/client/dashboard'); break;
-        default: navigate('/');
-      }
+      navigate(dashboardPath(authUser.role));
     } catch (err) {
-      if (!err.response) {
+      if (err.message && !err.response) {
+        setError(err.message);
+      } else if (!err.response) {
         setError('Impossible de joindre le serveur. Verifiez que le backend est lance sur http://localhost:8080.');
       } else {
         setError(err.response?.data?.message || 'Email ou mot de passe incorrect.');
@@ -41,6 +55,12 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleAuthenticated = (data) => {
+    const { token, ...authUser } = data;
+    login(authUser, token);
+    navigate(dashboardPath(authUser.role));
   };
 
   return (
@@ -98,6 +118,10 @@ export default function Login() {
             </div>
           </div>
 
+          <div className="auth-secondary-actions">
+            <Link to="/forgot-password" className="auth-link">Mot de passe oublie ?</Link>
+          </div>
+
           <button type="submit" className="btn btn-primary btn-lg auth-submit-btn" disabled={loading}>
             {loading ? (
               <>
@@ -112,6 +136,14 @@ export default function Login() {
             )}
           </button>
         </form>
+
+        <div className="auth-divider"><span>ou</span></div>
+
+        <GoogleAuthButton
+          role="CLIENT"
+          onAuthenticated={handleGoogleAuthenticated}
+          onError={setError}
+        />
 
         <div className="auth-footer">
           <p>Pas encore de compte ? <Link to="/register" className="auth-link">Creer un compte</Link></p>

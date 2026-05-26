@@ -1,6 +1,7 @@
 package com.marketplace.web.dto.auth;
 
 import com.marketplace.domain.enums.UserRole;
+import com.marketplace.domain.enums.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,4 +25,6 @@ public class AuthResponse {
     private Double searchLongitude;
     private Integer searchRadiusKm;
     private UserRole role;
+    private UserStatus status;
+    private boolean emailVerified;
 }
