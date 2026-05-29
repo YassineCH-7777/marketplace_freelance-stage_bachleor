@@ -146,6 +146,104 @@ function ServiceInfoSection({ section }) {
   );
 }
 
+function ServiceDetailSkeleton() {
+  return (
+    <div className="service-detail-page">
+      <div className="container service-detail-shell" aria-busy="true">
+        <span className="service-detail-back service-detail-back-skeleton skeleton-shimmer" aria-hidden="true" />
+        <span className="sr-only">Chargement du service...</span>
+
+        <div className="service-detail-layout">
+          <div className="service-detail-card service-detail-skeleton-card animate-fade-in">
+            <div className="service-detail-badge-row">
+              <span className="service-skeleton-chip skeleton-shimmer" />
+              <span className="service-skeleton-chip skeleton-shimmer" />
+              <span className="service-skeleton-chip is-wide skeleton-shimmer" />
+              <span className="service-skeleton-favorite skeleton-shimmer" />
+            </div>
+
+            <span className="service-detail-title-skeleton skeleton-shimmer" />
+            <span className="service-detail-title-skeleton is-short skeleton-shimmer" />
+
+            <div className="service-detail-provider">
+              <span className="service-skeleton-avatar is-large skeleton-shimmer" />
+              <div>
+                <span className="service-skeleton-line skeleton-shimmer" />
+                <span className="service-skeleton-line is-small skeleton-shimmer" />
+              </div>
+              <span className="service-skeleton-rating skeleton-shimmer" />
+            </div>
+
+            <div className="service-detail-media service-detail-media-skeleton skeleton-shimmer" />
+
+            <div className="service-detail-meta">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div className="meta-item service-detail-meta-skeleton" key={index}>
+                  <span className="service-skeleton-icon skeleton-shimmer" />
+                  <span className="service-skeleton-line is-mini skeleton-shimmer" />
+                  <span className="service-skeleton-line is-small skeleton-shimmer" />
+                </div>
+              ))}
+            </div>
+
+            <section className="service-detail-section">
+              <div className="service-detail-section-head">
+                <span className="service-skeleton-icon skeleton-shimmer" />
+                <span className="service-skeleton-line is-heading skeleton-shimmer" />
+              </div>
+              <div className="service-detail-desc service-detail-desc-skeleton">
+                <span className="service-skeleton-line skeleton-shimmer" />
+                <span className="service-skeleton-line skeleton-shimmer" />
+                <span className="service-skeleton-line is-title-short skeleton-shimmer" />
+              </div>
+              <div className="service-info-grid service-info-grid-skeleton">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <div className="service-info-panel" key={index}>
+                    <div className="service-info-panel-head">
+                      <span className="service-skeleton-icon skeleton-shimmer" />
+                      <span className="service-skeleton-line skeleton-shimmer" />
+                    </div>
+                    <div className="service-info-items">
+                      <span className="service-skeleton-line skeleton-shimmer" />
+                      <span className="service-skeleton-line is-small skeleton-shimmer" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <aside className="service-detail-sidebar">
+            <div className="service-detail-price-card service-detail-side-skeleton animate-fade-in">
+              <span className="service-skeleton-line is-mini skeleton-shimmer" />
+              <span className="service-skeleton-line is-price-large skeleton-shimmer" />
+              <span className="service-skeleton-line is-small skeleton-shimmer" />
+            </div>
+            <div className="request-form-card service-detail-side-skeleton animate-fade-in">
+              <span className="service-skeleton-line is-heading skeleton-shimmer" />
+              <span className="service-skeleton-textarea skeleton-shimmer" />
+              <span className="service-skeleton-input skeleton-shimmer" />
+              <span className="service-skeleton-input skeleton-shimmer" />
+              <span className="service-skeleton-button is-full skeleton-shimmer" />
+            </div>
+            <div className="service-detail-contact-card service-detail-side-skeleton animate-fade-in">
+              <div className="service-detail-contact-head">
+                <span className="service-skeleton-avatar is-large skeleton-shimmer" />
+                <div>
+                  <span className="service-skeleton-line skeleton-shimmer" />
+                  <span className="service-skeleton-line is-small skeleton-shimmer" />
+                </div>
+              </div>
+              <span className="service-skeleton-button is-full skeleton-shimmer" />
+              <span className="service-skeleton-button is-full skeleton-shimmer" />
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ServiceDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -313,15 +411,7 @@ export default function ServiceDetails() {
   };
 
   if (loading) {
-    return (
-      <div className="service-detail-page">
-        <div className="container">
-          <div className="empty-state">
-            <Loader2 size={32} className="spinner" />
-          </div>
-        </div>
-      </div>
-    );
+    return <ServiceDetailSkeleton />;
   }
 
   if (!service) {

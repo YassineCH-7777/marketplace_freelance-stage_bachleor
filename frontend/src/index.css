@@ -523,6 +523,12 @@ textarea.form-input:focus {
   }
 }
 
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 .animate-fade-in-up {
   animation: fadeInUp 0.55s var(--transition-base) forwards;
   opacity: 0;
@@ -535,6 +541,29 @@ textarea.form-input:focus {
 
 .spinner {
   animation: spin 1s linear infinite;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  color: transparent;
+  background: linear-gradient(90deg, #e8f0f6 0%, #f3f7fa 45%, #e8f0f6 100%);
+  border-radius: var(--radius-md);
+}
+
+.skeleton-shimmer::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, transparent 0%, oklch(1 0 0 / 0.62) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: skeletonShimmer 1.45s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after {
+    animation: none;
+  }
 }
 
 .attachment-picker {

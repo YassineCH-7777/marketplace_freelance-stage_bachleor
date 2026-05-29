@@ -16,6 +16,74 @@ const DEFAULT_PROPOSAL_STEPS = [
 
 const REQUEST_STATUSES_ACCEPTING_PROPOSALS = ['OPEN', 'IN_DISCUSSION'];
 
+function RequestDetailSkeleton() {
+  return (
+    <div className="requests-page">
+      <div className="container" aria-busy="true">
+        <span className="sr-only">Chargement de la demande...</span>
+        <div className="request-detail request-detail-skeleton animate-fade-in">
+          <div className="request-detail-main">
+            <div className="request-detail-header">
+              <span className="request-detail-title-skeleton skeleton-shimmer" />
+              <span className="request-detail-title-skeleton is-short skeleton-shimmer" />
+              <div className="request-detail-badges">
+                <span className="request-skeleton-chip skeleton-shimmer" />
+                <span className="request-skeleton-chip skeleton-shimmer" />
+                <span className="request-skeleton-chip is-wide skeleton-shimmer" />
+              </div>
+            </div>
+
+            <div className="request-detail-description request-detail-panel-skeleton">
+              <span className="request-skeleton-line is-heading skeleton-shimmer" />
+              <span className="request-skeleton-line skeleton-shimmer" />
+              <span className="request-skeleton-line skeleton-shimmer" />
+              <span className="request-skeleton-line skeleton-shimmer" />
+              <span className="request-skeleton-line is-short skeleton-shimmer" />
+            </div>
+
+            <div className="request-detail-skills request-detail-panel-skeleton">
+              <span className="request-skeleton-line is-heading skeleton-shimmer" />
+              <div className="request-skills-list">
+                <span className="request-skeleton-chip skeleton-shimmer" />
+                <span className="request-skeleton-chip skeleton-shimmer" />
+                <span className="request-skeleton-chip is-wide skeleton-shimmer" />
+              </div>
+            </div>
+
+            <div className="request-proposal-section request-detail-panel-skeleton">
+              <span className="request-skeleton-line is-heading skeleton-shimmer" />
+              <span className="request-skeleton-line skeleton-shimmer" />
+              <span className="request-skeleton-line is-short skeleton-shimmer" />
+              <span className="request-skeleton-button skeleton-shimmer" />
+            </div>
+          </div>
+
+          <aside className="request-detail-sidebar">
+            <div className="request-sidebar-card request-sidebar-skeleton">
+              <span className="request-skeleton-line is-heading skeleton-shimmer" />
+              <div className="request-sidebar-list">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <div className="request-sidebar-skeleton-row" key={index}>
+                    <span className="request-skeleton-icon skeleton-shimmer" />
+                    <span className="request-skeleton-line skeleton-shimmer" />
+                    <span className="request-skeleton-line is-small skeleton-shimmer" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="request-sidebar-card request-sidebar-skeleton">
+              <span className="request-skeleton-line is-heading skeleton-shimmer" />
+              <span className="request-skeleton-line skeleton-shimmer" />
+              <span className="request-skeleton-line is-small skeleton-shimmer" />
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ServiceRequestDetail() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -190,9 +258,7 @@ export default function ServiceRequestDetail() {
     return <span className={`badge ${s.cls}`}>{s.label}</span>;
   };
 
-  if (loading) return (
-    <div className="requests-page"><div className="container"><div className="requests-loading animate-fade-in"><div className="spinner-dots"><span /><span /><span /></div><p>Chargement...</p></div></div></div>
-  );
+  if (loading) return <RequestDetailSkeleton />;
   if (error || !request) return (
     <div className="requests-page"><div className="container"><div className="requests-empty animate-fade-in-up"><h3>{error || 'Demande introuvable'}</h3></div></div></div>
   );

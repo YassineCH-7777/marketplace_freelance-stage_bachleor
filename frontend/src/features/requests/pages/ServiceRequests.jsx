@@ -15,6 +15,49 @@ import {
 import { Search, MapPin, Calendar, Coins, Zap, ChevronRight, FileText, Filter } from 'lucide-react';
 import '@/styles/requests.css';
 
+function RequestCardSkeleton({ index }) {
+  return (
+    <article
+      className="request-card request-card-skeleton animate-fade-in-up"
+      style={{ animationDelay: `${index * 0.08}s` }}
+      aria-hidden="true"
+    >
+      <div className="request-card-header">
+        <div className="request-skeleton-title-block">
+          <span className="request-skeleton-line is-title skeleton-shimmer" />
+          <span className="request-skeleton-line is-title-short skeleton-shimmer" />
+        </div>
+        <span className="request-skeleton-pill skeleton-shimmer" />
+      </div>
+      <span className="request-skeleton-line skeleton-shimmer" />
+      <span className="request-skeleton-line skeleton-shimmer" />
+      <span className="request-skeleton-line is-short skeleton-shimmer" />
+      <div className="request-card-meta">
+        <span className="request-skeleton-meta skeleton-shimmer" />
+        <span className="request-skeleton-meta skeleton-shimmer" />
+        <span className="request-skeleton-meta is-wide skeleton-shimmer" />
+      </div>
+      <div className="request-card-footer">
+        <div className="request-card-info">
+          <span className="request-skeleton-chip skeleton-shimmer" />
+          <span className="request-skeleton-line is-count skeleton-shimmer" />
+        </div>
+        <span className="request-skeleton-cta skeleton-shimmer" />
+      </div>
+    </article>
+  );
+}
+
+function RequestsGridSkeleton() {
+  return (
+    <div className="requests-grid requests-grid-skeleton" aria-hidden="true">
+      {Array.from({ length: 6 }, (_, index) => (
+        <RequestCardSkeleton key={index} index={index} />
+      ))}
+    </div>
+  );
+}
+
 export default function ServiceRequests() {
   const { user } = useAuth();
   const preferredSearchCity = user?.searchCity || user?.city || '';
@@ -184,10 +227,10 @@ export default function ServiceRequests() {
         </form>
 
         {loading ? (
-          <div className="requests-loading animate-fade-in">
-            <div className="spinner-dots"><span /><span /><span /></div>
-            <p>Chargement des demandes...</p>
-          </div>
+          <>
+            <span className="sr-only">Chargement des demandes...</span>
+            <RequestsGridSkeleton />
+          </>
         ) : filteredRequests.length === 0 ? (
           <div className="requests-empty animate-fade-in-up">
             <FileText size={48} />

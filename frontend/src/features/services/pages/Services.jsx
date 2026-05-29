@@ -178,6 +178,56 @@ function readCoordinateParam(value, fallback = null) {
   return Number.isFinite(coordinate) ? coordinate : null;
 }
 
+function ServiceCardSkeleton({ index }) {
+  return (
+    <article
+      className="service-result-card service-result-card-skeleton animate-fade-in-up"
+      style={{ animationDelay: `${index * 0.08}s` }}
+      aria-hidden="true"
+    >
+      <div className="service-skeleton-media skeleton-shimmer" />
+      <div className="service-skeleton-row is-split">
+        <span className="service-skeleton-pill skeleton-shimmer" />
+        <span className="service-skeleton-pill is-short skeleton-shimmer" />
+      </div>
+      <span className="service-skeleton-line is-title skeleton-shimmer" />
+      <span className="service-skeleton-line is-title-short skeleton-shimmer" />
+      <div className="service-skeleton-author">
+        <span className="service-skeleton-avatar skeleton-shimmer" />
+        <div>
+          <span className="service-skeleton-line skeleton-shimmer" />
+          <span className="service-skeleton-line is-small skeleton-shimmer" />
+        </div>
+        <span className="service-skeleton-rating skeleton-shimmer" />
+      </div>
+      <div className="service-skeleton-row">
+        <span className="service-skeleton-chip skeleton-shimmer" />
+        <span className="service-skeleton-chip skeleton-shimmer" />
+      </div>
+      <span className="service-skeleton-line skeleton-shimmer" />
+      <span className="service-skeleton-line skeleton-shimmer" />
+      <span className="service-skeleton-line is-small skeleton-shimmer" />
+      <div className="service-skeleton-footer">
+        <div>
+          <span className="service-skeleton-line is-mini skeleton-shimmer" />
+          <span className="service-skeleton-line is-price skeleton-shimmer" />
+        </div>
+        <span className="service-skeleton-button skeleton-shimmer" />
+      </div>
+    </article>
+  );
+}
+
+function ServicesResultsSkeleton() {
+  return (
+    <div className="services-results-grid services-results-skeleton" aria-hidden="true">
+      {Array.from({ length: 6 }, (_, index) => (
+        <ServiceCardSkeleton key={index} index={index} />
+      ))}
+    </div>
+  );
+}
+
 export default function Services() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
@@ -804,9 +854,10 @@ export default function Services() {
             </div>
 
             {loading ? (
-              <div className="services-empty-state">
-                <Loader2 size={30} className="spinner" />
-              </div>
+              <>
+                <span className="sr-only">Chargement des services...</span>
+                <ServicesResultsSkeleton />
+              </>
             ) : filteredServices.length === 0 ? (
               <div className="services-empty-state">
                 <Search size={42} />
