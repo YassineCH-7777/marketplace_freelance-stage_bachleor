@@ -43,6 +43,12 @@ public class MessageController {
         return ResponseEntity.ok(messageService.getMessages(id, user.getId()));
     }
 
+    @DeleteMapping("/conversations/{id}")
+    public ResponseEntity<Void> deleteConversation(@PathVariable Long id, @AuthenticationPrincipal User user) {
+        messageService.deleteConversation(id, user.getId());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/conversations/{id}")
     public ResponseEntity<MessageDto> sendMessage(
             @PathVariable Long id, 

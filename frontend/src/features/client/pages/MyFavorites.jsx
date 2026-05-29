@@ -21,6 +21,7 @@ export default function MyFavorites() {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [removingKey, setRemovingKey] = useState(null);
+  const [removeError, setRemoveError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -58,6 +59,7 @@ export default function MyFavorites() {
 
   const handleRemoveFavorite = async (favorite) => {
     const key = `${favorite.type}-${favorite.id}`;
+    setRemoveError('');
     setRemovingKey(key);
 
     try {
@@ -68,7 +70,7 @@ export default function MyFavorites() {
       }
       setFavorites((current) => current.filter((entry) => entry.id !== favorite.id));
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la suppression du favori.');
+      setRemoveError(error.response?.data?.message || 'Erreur lors de la suppression du favori.');
     } finally {
       setRemovingKey(null);
     }
@@ -100,6 +102,8 @@ export default function MyFavorites() {
             <Briefcase size={16} /> Explorer les services
           </Link>
         </div>
+
+        {removeError && <p className="form-error">{removeError}</p>}
 
         {favorites.length === 0 ? (
           <div className="empty-state animate-fade-in-up">

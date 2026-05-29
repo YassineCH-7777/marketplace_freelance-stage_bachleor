@@ -35,6 +35,7 @@ export default function FreelancerPublicProfile() {
   const [loading, setLoading] = useState(true);
   const [contacting, setContacting] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [actionError, setActionError] = useState('');
   const previewServices = services.slice(0, 3);
   const hasMoreServices = services.length > previewServices.length;
 
@@ -73,16 +74,17 @@ export default function FreelancerPublicProfile() {
     }
 
     if (user?.role !== 'CLIENT') {
-      alert('Seuls les clients peuvent contacter un freelance depuis son profil.');
+      setActionError('Seuls les clients peuvent contacter un freelance depuis son profil.');
       return;
     }
 
+    setActionError('');
     setContacting(true);
     try {
       const response = await createConversation(id, 'FREELANCER');
       navigate('/messages', { state: { conversationId: response.data.id } });
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
+      setActionError(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
     } finally {
       setContacting(false);
     }
@@ -95,11 +97,12 @@ export default function FreelancerPublicProfile() {
     }
 
     if (user?.role !== 'CLIENT') {
-      alert('Seuls les clients peuvent sauvegarder des favoris.');
+      setActionError('Seuls les clients peuvent sauvegarder des favoris.');
       return;
     }
 
     const isFavorite = freelancerIds.has(String(id));
+    setActionError('');
     setFavoriteLoading(true);
     try {
       if (isFavorite) {
@@ -110,7 +113,7 @@ export default function FreelancerPublicProfile() {
         upsertFavorite(response.data);
       }
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
+      setActionError(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
     } finally {
       setFavoriteLoading(false);
     }
@@ -180,6 +183,7 @@ export default function FreelancerPublicProfile() {
             Contacter ce freelance
           </button>
         </div>
+        {actionError && <p className="form-error">{actionError}</p>}
 
         <LocalTrustSection profile={profile} services={services} reviews={reviews} />
 

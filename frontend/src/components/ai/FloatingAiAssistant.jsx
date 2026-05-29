@@ -6,7 +6,7 @@ import { getRecommendedServices, matchClientNeed } from '@/api/serviceApi';
 import useAuth from '@/hooks/useAuth';
 import '@/styles/ai-assistant.css';
 
-const STORAGE_PREFIX = 'proxiskills-floating-assistant-v2';
+const STORAGE_PREFIX = 'proxiskills-floating-assistant-v3';
 
 const ASSISTANT_CONFIG = {
   general: {
@@ -571,10 +571,32 @@ function isGreetingOnly(message) {
   return tokens.length <= 3 && tokens.every((token) => greetingWords.includes(token));
 }
 
+function isCreateServiceOfferIntent(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return [
+    'creer un service',
+    'cree un service',
+    'creer mon service',
+    'cree mon service',
+    'ajouter un service',
+    'publier un service',
+    'poster un service',
+    'nouveau service',
+    'mon service de',
+    'service de creation',
+    'offre service',
+    'creer une offre',
+    'cree une offre',
+    'publier une offre',
+    'vendre mes services',
+    'proposer mes services',
+  ].some((signal) => normalizedMessage.includes(signal));
+}
+
 function hasServiceRecommendationIntent(message) {
   const normalizedMessage = normalizeAssistantText(message);
 
-  if (isGreetingOnly(message) || isAccountIntent(message) || isLoginIntent(message)) {
+  if (isGreetingOnly(message) || isAccountIntent(message) || isLoginIntent(message) || isCreateServiceOfferIntent(message)) {
     return false;
   }
 
@@ -629,7 +651,7 @@ function hasServiceRecommendationIntent(message) {
 
 function isServiceDraftIntent(message) {
   const normalizedMessage = normalizeAssistantText(message);
-  return [
+  return isCreateServiceOfferIntent(message) || [
     'ameliorer mon service',
     'ameliorer mon offre',
     'description de service',
@@ -1084,10 +1106,29 @@ function buildGeneralResultFromPayload(payload, message, user) {
     payload?.output ||
     'Voici la meilleure suite proposee.';
   const navigationActions = navigationToActions(structuredPayload.navigation);
+  const messageContext = structuredPayload.messageContext || structuredPayload.message_context;
+  const contextAction = messageContext?.action || messageContext?.nextAction || '';
+  const intent = structuredPayload.intent || structuredPayload.nextAction || structuredPayload.next_action || '';
+  const shouldShowServiceDraft =
+    isServiceDraftIntent(message) || intent === 'service_optimizer' || contextAction === 'create_service_offer';
   const deterministicGuide = buildDeterministicGlobalGuide(message, user);
 
   if (deterministicGuide && deterministicGuide.generalResult?.kind !== 'platformGuide') {
     return deterministicGuide.generalResult;
+  }
+
+  if (shouldShowServiceDraft) {
+    return {
+      kind: 'platformGuide',
+      title: 'Offre service amelioree',
+      description: assistantMessage,
+      actions: navigationActions.length
+        ? navigationActions
+        : [
+            { label: 'Publier un service', path: '/freelancer/services' },
+            { label: 'Mon profil', path: '/freelancer/profile' },
+          ],
+    };
   }
 
   const recommendations = normalizeList(structuredPayload.recommendations)
@@ -1121,8 +1162,6 @@ function buildGeneralResultFromPayload(payload, message, user) {
       },
     };
   }
-
-  const intent = structuredPayload.intent || structuredPayload.nextAction || structuredPayload.next_action || '';
 
   if (intent === 'account_help' || intent === 'login_help') {
     const guide = intent === 'login_help' ? buildLoginGuide().generalResult : buildAccountGuide(user).generalResult;
@@ -1827,6 +1866,23 @@ export default function FloatingAiAssistant() {
               type === 'client'
                 ? 'Brief confirme. Voici les prochaines actions recommandees.'
                 : 'Profil confirme. Voici la prochaine action.',
+          },
+        ]);
+        return;
+      }
+
+      if (type === 'general' && isServiceDraftIntent(nextMessage)) {
+        const localResponse = await buildLocalAssistantResponse({ type, message: nextMessage, user });
+
+        setStructuredResult(localResponse.structured || null);
+        setGeneralResult(localResponse.generalResult || null);
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            id: createId(),
+            role: 'assistant',
+            content: localResponse.content,
+            generalResult: localResponse.generalResult || null,
           },
         ]);
         return;

@@ -295,7 +295,7 @@ export async function downloadMissionReport(order) {
     link.remove();
     window.URL.revokeObjectURL(url);
   } catch (error) {
-    alert(await resolveDownloadErrorMessage(error));
+    throw new Error(await resolveDownloadErrorMessage(error));
   }
 }
 

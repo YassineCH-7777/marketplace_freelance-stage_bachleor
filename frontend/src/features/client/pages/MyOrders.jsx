@@ -67,6 +67,11 @@ export default function MyOrders() {
   const [disputeReason, setDisputeReason] = useState('');
   const [confirmingEscrowId, setConfirmingEscrowId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pageError, setPageError] = useState('');
+  const [reviewError, setReviewError] = useState('');
+  const [deliveryError, setDeliveryError] = useState('');
+  const [revisionError, setRevisionError] = useState('');
+  const [disputeError, setDisputeError] = useState('');
 
   const sortedOrders = useMemo(
     () =>
@@ -93,12 +98,14 @@ export default function MyOrders() {
   const closeReviewModal = () => {
     setReviewModal(null);
     setReviewDraft(defaultReviewDraft);
+    setReviewError('');
     setSubmitting(false);
   };
 
   const openReviewModal = (order) => {
     setReviewModal(order);
     setReviewDraft(buildReviewDraft(order));
+    setReviewError('');
   };
 
   const handleAxisRating = (axisKey, value) => {
@@ -114,6 +121,7 @@ export default function MyOrders() {
       return;
     }
 
+    setReviewError('');
     setSubmitting(true);
 
     try {
@@ -128,7 +136,7 @@ export default function MyOrders() {
       alert(reviewModal.reviewId ? 'Avis mis a jour avec succes !' : 'Avis enregistre avec succes !');
       closeReviewModal();
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur');
+      setReviewError(error.response?.data?.message || 'Erreur lors de l enregistrement de l avis');
       setSubmitting(false);
     }
   };
@@ -140,13 +148,14 @@ export default function MyOrders() {
   };
 
   const handleConfirmEscrow = async (order) => {
+    setPageError('');
     setConfirmingEscrowId(order.id);
     try {
       const response = await confirmEscrowPayment(order.id);
       updateOrderInState(response.data);
       alert('Paiement simule bloque. Le freelance peut demarrer la mission.');
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors du blocage du paiement simule');
+      setPageError(error.response?.data?.message || 'Erreur lors du blocage du paiement simule');
     } finally {
       setConfirmingEscrowId(null);
     }
@@ -155,11 +164,13 @@ export default function MyOrders() {
   const openDeliveryModal = (order) => {
     setDeliveryModal(order);
     setDeliveryComment('');
+    setDeliveryError('');
   };
 
   const closeDeliveryModal = () => {
     setDeliveryModal(null);
     setDeliveryComment('');
+    setDeliveryError('');
     setSubmitting(false);
   };
 
@@ -169,6 +180,7 @@ export default function MyOrders() {
       return;
     }
 
+    setDeliveryError('');
     setSubmitting(true);
     try {
       const response = await acceptOrderDelivery(deliveryModal.id, {
@@ -178,24 +190,26 @@ export default function MyOrders() {
       alert('Livraison validee. La mission est maintenant terminee.');
       closeDeliveryModal();
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la validation de la livraison');
+      setDeliveryError(error.response?.data?.message || 'Erreur lors de la validation de la livraison');
       setSubmitting(false);
     }
   };
 
   const openRevisionModal = (order) => {
     if (getRevisionCount(order) >= getMaxRevisionRounds(order)) {
-      alert('Le nombre maximum de revisions est atteint pour cette mission.');
+      setPageError('Le nombre maximum de revisions est atteint pour cette mission.');
       return;
     }
 
     setRevisionModal(order);
     setRevisionComment(order.revisionRequest || '');
+    setRevisionError('');
   };
 
   const closeRevisionModal = () => {
     setRevisionModal(null);
     setRevisionComment('');
+    setRevisionError('');
     setSubmitting(false);
   };
 
@@ -205,6 +219,7 @@ export default function MyOrders() {
       return;
     }
 
+    setRevisionError('');
     setSubmitting(true);
     try {
       const response = await requestOrderRevision(revisionModal.id, { comment: revisionComment });
@@ -212,7 +227,7 @@ export default function MyOrders() {
       alert('Demande de revision envoyee au freelance.');
       closeRevisionModal();
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la demande de revision');
+      setRevisionError(error.response?.data?.message || 'Erreur lors de la demande de revision');
       setSubmitting(false);
     }
   };
@@ -220,11 +235,13 @@ export default function MyOrders() {
   const openDisputeModal = (order) => {
     setDisputeModal(order);
     setDisputeReason(order.disputeReason || '');
+    setDisputeError('');
   };
 
   const closeDisputeModal = () => {
     setDisputeModal(null);
     setDisputeReason('');
+    setDisputeError('');
     setSubmitting(false);
   };
 
@@ -234,6 +251,7 @@ export default function MyOrders() {
       return;
     }
 
+    setDisputeError('');
     setSubmitting(true);
     try {
       const response = await openClientOrderDispute(disputeModal.id, { reason: disputeReason });
@@ -241,7 +259,7 @@ export default function MyOrders() {
       alert('Litige ouvert. Un administrateur pourra arbitrer la mission.');
       closeDisputeModal();
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de l ouverture du litige');
+      setDisputeError(error.response?.data?.message || 'Erreur lors de l ouverture du litige');
       setSubmitting(false);
     }
   };
@@ -271,6 +289,8 @@ export default function MyOrders() {
             ))}
           </div>
         )}
+
+        {pageError && <p className="form-error">{pageError}</p>}
 
         {loading ? (
           <div className="empty-state">
@@ -371,6 +391,8 @@ export default function MyOrders() {
                   />
                 </div>
 
+                {reviewError && <p className="form-error">{reviewError}</p>}
+
                 <div className="modal-actions">
                   <button type="button" className="btn btn-secondary" onClick={closeReviewModal}>
                     Annuler
@@ -435,6 +457,8 @@ export default function MyOrders() {
                   />
                 </div>
 
+                {deliveryError && <p className="form-error">{deliveryError}</p>}
+
                 <div className="modal-actions">
                   <button type="button" className="btn btn-secondary" onClick={closeDeliveryModal}>
                     Annuler
@@ -494,6 +518,8 @@ export default function MyOrders() {
                   />
                 </div>
 
+                {revisionError && <p className="form-error">{revisionError}</p>}
+
                 <div className="modal-actions">
                   <button type="button" className="btn btn-secondary" onClick={closeRevisionModal}>
                     Annuler
@@ -538,6 +564,8 @@ export default function MyOrders() {
                     rows={5}
                   />
                 </div>
+
+                {disputeError && <p className="form-error">{disputeError}</p>}
 
                 <div className="modal-actions">
                   <button type="button" className="btn btn-secondary" onClick={closeDisputeModal}>

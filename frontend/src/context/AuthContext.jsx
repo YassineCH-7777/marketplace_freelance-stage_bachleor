@@ -1,11 +1,41 @@
 import { useState } from 'react';
 import AuthContext from './authContextValue';
 
+function parseJwtPayload(token) {
+  const payload = token?.split('.')?.[1];
+
+  if (!payload || typeof atob !== 'function') {
+    return null;
+  }
+
+  try {
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const paddedBase64 = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    return JSON.parse(atob(paddedBase64));
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token) {
+  const payload = parseJwtPayload(token);
+  const expirationSeconds = Number(payload?.exp);
+
+  if (!Number.isFinite(expirationSeconds)) {
+    return true;
+  }
+
+  return expirationSeconds * 1000 <= Date.now();
+}
+
 function readStoredAuth() {
   const storedToken = localStorage.getItem('token');
   const storedUser = localStorage.getItem('user');
 
-  if (!storedToken || !storedUser) {
+  if (!storedToken || !storedUser || isTokenExpired(storedToken)) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
     return {
       loading: false,
       token: null,

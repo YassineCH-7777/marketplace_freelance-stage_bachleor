@@ -39,7 +39,9 @@ export default function CreateServiceRequest() {
         try {
           await uploadServiceRequestAttachments(response.data.id, attachments, 'BRIEF');
         } catch (uploadError) {
-          alert(uploadError.response?.data?.message || 'Demande publiee, mais les fichiers n ont pas pu etre ajoutes.');
+          setError(uploadError.response?.data?.message || 'Demande publiee, mais les fichiers n ont pas pu etre ajoutes.');
+          setLoading(false);
+          return;
         }
       }
       navigate('/client/requests');

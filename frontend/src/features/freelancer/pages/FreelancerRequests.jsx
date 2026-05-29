@@ -11,6 +11,7 @@ export default function FreelancerRequests() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [messageLoading, setMessageLoading] = useState(null);
+  const [actionError, setActionError] = useState('');
 
   const fetchRequests = () => {
     setLoading(true);
@@ -23,31 +24,34 @@ export default function FreelancerRequests() {
   useEffect(() => { fetchRequests(); }, []);
 
   const handleAccept = async (id) => {
+    setActionError('');
     setActionLoading(id);
     try {
       await acceptRequest(id);
       fetchRequests();
-    } catch { alert('Erreur'); }
+    } catch { setActionError('Erreur lors de l acceptation de la demande.'); }
     finally { setActionLoading(null); }
   };
 
   const handleRefuse = async (id) => {
     if (!window.confirm('Refuser cette demande ?')) return;
+    setActionError('');
     setActionLoading(id);
     try {
       await refuseRequest(id);
       fetchRequests();
-    } catch { alert('Erreur'); }
+    } catch { setActionError('Erreur lors du refus de la demande.'); }
     finally { setActionLoading(null); }
   };
 
   const handleMessageClient = async (request) => {
+    setActionError('');
     setMessageLoading(request.id);
     try {
       const response = await createConversation(request.clientId, 'CLIENT');
       navigate('/messages', { state: { conversationId: response.data.id } });
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
+      setActionError(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
     } finally {
       setMessageLoading(null);
     }
@@ -70,6 +74,8 @@ export default function FreelancerRequests() {
           <h1 className="dashboard-title"><ClipboardList size={28} style={{ display: 'inline', verticalAlign: 'middle' }} /> Demandes Reçues</h1>
           <p className="dashboard-subtitle">Traitez les demandes de prestation envoyées par vos clients.</p>
         </div>
+
+        {actionError && <p className="form-error">{actionError}</p>}
 
         {loading ? (
           <div className="empty-state"><Loader2 size={32} className="spinner" /></div>

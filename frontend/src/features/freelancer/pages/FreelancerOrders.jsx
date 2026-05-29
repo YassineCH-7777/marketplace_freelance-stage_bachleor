@@ -24,6 +24,9 @@ export default function FreelancerOrders() {
   const [savingMission, setSavingMission] = useState(false);
   const [savingMilestoneId, setSavingMilestoneId] = useState(null);
   const [submittingDispute, setSubmittingDispute] = useState(false);
+  const [pageError, setPageError] = useState('');
+  const [missionError, setMissionError] = useState('');
+  const [disputeError, setDisputeError] = useState('');
 
   const sortedOrders = useMemo(
     () =>
@@ -77,6 +80,7 @@ export default function FreelancerOrders() {
       missionPayload.progressPercentage = Math.max(Number(missionPayload.progressPercentage) || 0, 90);
     }
 
+    setMissionError('');
     setSavingMission(true);
     try {
       const response = await updateFreelancerOrderExecution(activeMission.id, missionPayload);
@@ -90,7 +94,7 @@ export default function FreelancerOrders() {
             attachments: [...(updatedOrder.attachments || []), ...attachmentsResponse.data],
           };
         } catch (uploadError) {
-          alert(uploadError.response?.data?.message || 'Suivi mis a jour, mais les fichiers n ont pas pu etre ajoutes.');
+          setMissionError(uploadError.response?.data?.message || 'Suivi mis a jour, mais les fichiers n ont pas pu etre ajoutes.');
         }
       }
 
@@ -100,29 +104,41 @@ export default function FreelancerOrders() {
       setActiveMission(null);
       alert('Suivi de mission mis a jour avec succes !');
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la mise a jour de la mission');
+      setMissionError(error.response?.data?.message || 'Erreur lors de la mise a jour de la mission');
     } finally {
       setSavingMission(false);
     }
   };
 
+  const openMissionModal = (order) => {
+    setMissionError('');
+    setActiveMission(order);
+  };
+
+  const closeMissionModal = () => {
+    setMissionError('');
+    setActiveMission(null);
+  };
+
   const handleMessageClient = async (order) => {
+    setPageError('');
     try {
       const response = await createOrderConversation(order.id);
       navigate('/messages', { state: { conversationId: response.data.id } });
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
+      setPageError(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
     }
   };
 
   const handleMilestoneUpdate = async (order, milestone, status) => {
+    setPageError('');
     setSavingMilestoneId(milestone.id);
     try {
       await updateFreelancerMissionMilestone(order.id, milestone.id, { status });
       await fetchOrders(false);
       alert(status === 'COMPLETED' ? 'Phase terminee et avancement mis a jour.' : 'Timer de phase demarre.');
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la mise a jour de la phase');
+      setPageError(error.response?.data?.message || 'Erreur lors de la mise a jour de la phase');
     } finally {
       setSavingMilestoneId(null);
     }
@@ -131,11 +147,13 @@ export default function FreelancerOrders() {
   const openDisputeModal = (order) => {
     setDisputeModal(order);
     setDisputeReason(order.disputeReason || '');
+    setDisputeError('');
   };
 
   const closeDisputeModal = () => {
     setDisputeModal(null);
     setDisputeReason('');
+    setDisputeError('');
     setSubmittingDispute(false);
   };
 
@@ -145,6 +163,7 @@ export default function FreelancerOrders() {
       return;
     }
 
+    setDisputeError('');
     setSubmittingDispute(true);
     try {
       const response = await openFreelancerOrderDispute(disputeModal.id, { reason: disputeReason });
@@ -154,7 +173,7 @@ export default function FreelancerOrders() {
       alert('Litige ouvert. Un administrateur pourra arbitrer la mission.');
       closeDisputeModal();
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de l ouverture du litige');
+      setDisputeError(error.response?.data?.message || 'Erreur lors de l ouverture du litige');
       setSubmittingDispute(false);
     }
   };
@@ -185,6 +204,8 @@ export default function FreelancerOrders() {
           </div>
         )}
 
+        {pageError && <p className="form-error">{pageError}</p>}
+
         {loading ? (
           <div className="empty-state">
             <Loader2 size={32} className="spinner" />
@@ -206,7 +227,7 @@ export default function FreelancerOrders() {
                 key={order.id}
                 order={order}
                 role="freelancer"
-                onManage={setActiveMission}
+                onManage={openMissionModal}
                 onMessage={handleMessageClient}
                 onMilestoneUpdate={handleMilestoneUpdate}
                 onOpenDispute={openDisputeModal}
@@ -220,9 +241,10 @@ export default function FreelancerOrders() {
           <MissionUpdateModal
             key={activeMission.id}
             order={activeMission}
-            onClose={() => setActiveMission(null)}
+            onClose={closeMissionModal}
             onSubmit={handleMissionUpdate}
             submitting={savingMission}
+            error={missionError}
           />
         )}
 
@@ -251,6 +273,8 @@ export default function FreelancerOrders() {
                     rows={5}
                   />
                 </div>
+
+                {disputeError && <p className="form-error">{disputeError}</p>}
 
                 <div className="modal-actions">
                   <button type="button" className="btn btn-secondary" onClick={closeDisputeModal}>

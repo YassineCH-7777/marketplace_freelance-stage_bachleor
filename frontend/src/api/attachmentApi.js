@@ -17,3 +17,6 @@ export const uploadServiceRequestAttachments = (requestId, files, type = 'BRIEF'
 
 export const uploadOrderAttachments = (orderId, files, type = 'DELIVERY_PROOF') =>
   API.post(`/attachments/orders/${orderId}`, buildAttachmentFormData(files, type));
+
+export const downloadAttachment = (fileUrl) =>
+  API.get(fileUrl, { responseType: 'blob' });

@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -73,8 +74,7 @@ class MessageServiceTest {
         when(userRepository.findById(5L)).thenReturn(Optional.of(client));
         when(userRepository.findById(9L)).thenReturn(Optional.of(freelancerUser));
         when(freelancerProfileRepository.findByUserId(9L)).thenReturn(Optional.of(freelancer));
-        when(conversationRepository.findByClient_IdAndFreelancer_User_IdAndOrderIsNull(5L, 9L))
-                .thenReturn(Optional.empty());
+        when(conversationRepository.findByClient_IdAndFreelancer_User_Id(5L, 9L)).thenReturn(List.of());
         when(conversationRepository.save(any(Conversation.class))).thenAnswer(invocation -> {
             Conversation saved = invocation.getArgument(0);
             saved.setId(44L);
@@ -90,6 +90,35 @@ class MessageServiceTest {
         assertThat(result.getClientId()).isEqualTo(5L);
         assertThat(result.getFreelancerId()).isEqualTo(9L);
         assertThat(result.getUnreadCount()).isZero();
+    }
+
+    @Test
+    void getUserConversationsReturnsOneConversationPerClientFreelancerPair() {
+        User client = user(5L, "client@marketplace.com", UserRole.CLIENT);
+        User freelancerUser = user(9L, "freelancer@marketplace.com", UserRole.FREELANCER);
+        Conversation emptyRecentConversation = conversation(45L, client, freelancerUser);
+        emptyRecentConversation.setLastMessageAt(LocalDateTime.of(2026, 5, 28, 9, 0));
+        Conversation olderConversationWithMessages = conversation(44L, client, freelancerUser);
+        olderConversationWithMessages.setLastMessageAt(LocalDateTime.of(2026, 5, 26, 9, 0));
+        Message lastMessage = Message.builder()
+                .id(88L)
+                .conversation(olderConversationWithMessages)
+                .sender(client)
+                .content("hhhhh")
+                .createdAt(LocalDateTime.of(2026, 5, 26, 9, 30))
+                .build();
+
+        when(conversationRepository.findByClient_IdOrFreelancer_User_Id(5L, 5L))
+                .thenReturn(List.of(emptyRecentConversation, olderConversationWithMessages));
+        when(messageRepository.findTopByConversation_IdOrderByCreatedAtDesc(45L)).thenReturn(Optional.empty());
+        when(messageRepository.findTopByConversation_IdOrderByCreatedAtDesc(44L)).thenReturn(Optional.of(lastMessage));
+        when(messageRepository.countUnreadMessages(44L, 5L)).thenReturn(0L);
+
+        List<ConversationDto> result = messageService.getUserConversations(5L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getId()).isEqualTo(44L);
+        assertThat(result.get(0).getLastMessageContent()).isEqualTo("hhhhh");
     }
 
     @Test
@@ -193,6 +222,34 @@ class MessageServiceTest {
 
         assertThatThrownBy(() -> messageService.getMessages(44L, 99L))
                 .isInstanceOf(UnauthorizedException.class);
+    }
+
+    @Test
+    void deleteConversationRemovesConversationForParticipants() {
+        User client = user(5L, "client@marketplace.com", UserRole.CLIENT);
+        User freelancerUser = user(9L, "freelancer@marketplace.com", UserRole.FREELANCER);
+        Conversation conversation = conversation(44L, client, freelancerUser);
+
+        when(conversationRepository.findById(44L)).thenReturn(Optional.of(conversation));
+
+        messageService.deleteConversation(44L, 5L);
+
+        verify(notificationService).deleteNotificationsForRelatedEntity("CONVERSATION", 44L);
+        verify(conversationRepository).delete(conversation);
+    }
+
+    @Test
+    void deleteConversationRejectsNonParticipant() {
+        User client = user(5L, "client@marketplace.com", UserRole.CLIENT);
+        User freelancerUser = user(9L, "freelancer@marketplace.com", UserRole.FREELANCER);
+        Conversation conversation = conversation(44L, client, freelancerUser);
+
+        when(conversationRepository.findById(44L)).thenReturn(Optional.of(conversation));
+
+        assertThatThrownBy(() -> messageService.deleteConversation(44L, 99L))
+                .isInstanceOf(UnauthorizedException.class);
+        verify(notificationService, never()).deleteNotificationsForRelatedEntity(any(), any());
+        verify(conversationRepository, never()).delete(conversation);
     }
 
     private Conversation conversation(Long id, User client, User freelancerUser) {

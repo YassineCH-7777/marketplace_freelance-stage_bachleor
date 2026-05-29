@@ -51,6 +51,7 @@ export default function MissionExecutionCard({
   savingMilestoneId,
 }) {
   const [, setTimerTick] = useState(0);
+  const [reportError, setReportError] = useState('');
   const reviewableDelivery = hasClientReviewableDelivery(order);
   const effectiveStatus =
     role === 'client' && reviewableDelivery && !['DELIVERED', 'WAITING_CLIENT'].includes(order.status)
@@ -114,6 +115,15 @@ export default function MissionExecutionCard({
     const intervalId = window.setInterval(() => setTimerTick((tick) => tick + 1), 60000);
     return () => window.clearInterval(intervalId);
   }, []);
+
+  const handleDownloadReport = async () => {
+    setReportError('');
+    try {
+      await downloadMissionReport(order);
+    } catch (error) {
+      setReportError(error.message || 'Impossible de telecharger le rapport PDF.');
+    }
+  };
 
   return (
     <article className="mission-card card animate-fade-in-up">
@@ -326,7 +336,7 @@ export default function MissionExecutionCard({
       )}
 
       <div className="mission-actions">
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => void downloadMissionReport(order)}>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => void handleDownloadReport()}>
           <Download size={14} /> Telecharger le compte-rendu
         </button>
 
@@ -394,6 +404,7 @@ export default function MissionExecutionCard({
           </button>
         )}
       </div>
+      {reportError && <p className="form-error">{reportError}</p>}
     </article>
   );
 }

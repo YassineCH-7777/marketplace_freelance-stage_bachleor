@@ -24,10 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -171,11 +171,7 @@ public class AttachmentService {
                 Files.copy(inputStream, targetFile, StandardCopyOption.REPLACE_EXISTING);
             }
 
-            String fileUrl = ServletUriComponentsBuilder
-                    .fromCurrentContextPath()
-                    .path("/api/public/uploads/attachments/")
-                    .path(storedFilename)
-                    .toUriString();
+            String fileUrl = "/uploads/attachments/" + storedFilename;
 
             Attachment attachment = Attachment.builder()
                     .uploader(uploader)
@@ -219,9 +215,11 @@ public class AttachmentService {
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
+        String normalizedContentType = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
+        if (!ALLOWED_CONTENT_TYPES.contains(normalizedContentType)) {
             throw new BusinessException("Format de fichier non supporte.", HttpStatus.BAD_REQUEST);
         }
+        validateFileSignature(file, normalizedContentType);
     }
 
     private String resolveOriginalFilename(MultipartFile file) {
@@ -255,6 +253,59 @@ public class AttachmentService {
             return "PDF";
         }
         return "DOCUMENT";
+    }
+
+    private void validateFileSignature(MultipartFile file, String contentType) {
+        try (InputStream inputStream = file.getInputStream()) {
+            byte[] header = inputStream.readNBytes(16);
+            if (!hasAllowedSignature(contentType, header)) {
+                throw new BusinessException("Le contenu du fichier ne correspond pas a son format.", HttpStatus.BAD_REQUEST);
+            }
+        } catch (IOException exception) {
+            throw new BusinessException("Impossible de lire le fichier.", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private boolean hasAllowedSignature(String contentType, byte[] header) {
+        return switch (contentType) {
+            case MediaType.IMAGE_JPEG_VALUE -> startsWith(header, 0xFF, 0xD8, 0xFF);
+            case MediaType.IMAGE_PNG_VALUE -> startsWith(header, 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A);
+            case MediaType.IMAGE_GIF_VALUE -> startsWithAscii(header, "GIF87a") || startsWithAscii(header, "GIF89a");
+            case "image/webp" -> startsWithAscii(header, "RIFF") && startsWithAsciiAt(header, "WEBP", 8);
+            case MediaType.APPLICATION_PDF_VALUE -> startsWithAscii(header, "%PDF-");
+            case "application/msword" -> startsWith(header, 0xD0, 0xCF, 0x11, 0xE0);
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> startsWithAscii(header, "PK");
+            default -> false;
+        };
+    }
+
+    private boolean startsWith(byte[] value, int... prefix) {
+        if (value.length < prefix.length) {
+            return false;
+        }
+        for (int index = 0; index < prefix.length; index++) {
+            if ((value[index] & 0xFF) != prefix[index]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean startsWithAscii(byte[] value, String prefix) {
+        return startsWithAsciiAt(value, prefix, 0);
+    }
+
+    private boolean startsWithAsciiAt(byte[] value, String prefix, int offset) {
+        byte[] prefixBytes = prefix.getBytes(StandardCharsets.US_ASCII);
+        if (value.length < offset + prefixBytes.length) {
+            return false;
+        }
+        for (int index = 0; index < prefixBytes.length; index++) {
+            if (value[offset + index] != prefixBytes[index]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean isOrderParticipant(Order order, Long userId) {

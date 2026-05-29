@@ -18,6 +18,7 @@ export default function AdminOrders() {
   const [decisionModal, setDecisionModal] = useState(null);
   const [decisionNotes, setDecisionNotes] = useState('');
   const [submittingDecision, setSubmittingDecision] = useState(false);
+  const [decisionError, setDecisionError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -46,11 +47,13 @@ export default function AdminOrders() {
   const openDecisionModal = (order, action) => {
     setDecisionModal({ order, action });
     setDecisionNotes(order.disputeAdminNotes || '');
+    setDecisionError('');
   };
 
   const closeDecisionModal = () => {
     setDecisionModal(null);
     setDecisionNotes('');
+    setDecisionError('');
     setSubmittingDecision(false);
   };
 
@@ -60,6 +63,7 @@ export default function AdminOrders() {
       return;
     }
 
+    setDecisionError('');
     setSubmittingDecision(true);
     try {
       const response = await resolveAdminOrderDispute(decisionModal.order.id, {
@@ -72,7 +76,7 @@ export default function AdminOrders() {
       alert(`Litige ${disputeActionLabels[decisionModal.action].toLowerCase()} avec succes.`);
       closeDecisionModal();
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la decision de litige');
+      setDecisionError(error.response?.data?.message || 'Erreur lors de la decision de litige');
       setSubmittingDecision(false);
     }
   };
@@ -239,6 +243,8 @@ export default function AdminOrders() {
                     rows={5}
                   />
                 </div>
+
+                {decisionError && <p className="form-error">{decisionError}</p>}
 
                 <div className="modal-actions">
                   <button type="button" className="btn btn-secondary" onClick={closeDecisionModal}>

@@ -209,6 +209,7 @@ export default function Services() {
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
   const [sort, setSort] = useState(searchParams.get('sort') || 'recommended');
   const [favoriteLoadingId, setFavoriteLoadingId] = useState(null);
+  const [favoriteError, setFavoriteError] = useState('');
   const localPriorityCity = city || preferredSearchCity;
   const searchLocation = useMemo(
     () => ({
@@ -578,11 +579,12 @@ export default function Services() {
     }
 
     if (user?.role !== 'CLIENT') {
-      alert('Seuls les clients peuvent sauvegarder des favoris.');
+      setFavoriteError('Seuls les clients peuvent sauvegarder des favoris.');
       return;
     }
 
     const isFavorite = serviceIds.has(String(serviceId));
+    setFavoriteError('');
     setFavoriteLoadingId(serviceId);
 
     try {
@@ -594,7 +596,7 @@ export default function Services() {
         upsertFavorite(response.data);
       }
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
+      setFavoriteError(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
     } finally {
       setFavoriteLoadingId(null);
     }
@@ -778,6 +780,7 @@ export default function Services() {
           </aside>
 
           <section className="services-results" id="services-results" aria-live="polite">
+            {favoriteError && <p className="form-error">{favoriteError}</p>}
             <div className="services-results-head">
               <div>
                 <p>Resultats</p>

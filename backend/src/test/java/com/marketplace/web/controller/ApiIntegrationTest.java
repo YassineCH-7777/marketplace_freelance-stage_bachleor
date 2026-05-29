@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marketplace.domain.model.Category;
 import com.marketplace.domain.model.Attachment;
 import com.marketplace.domain.model.FreelancerProfile;
+import com.marketplace.domain.model.Order;
 import com.marketplace.domain.model.ServiceRequest;
 import com.marketplace.domain.model.ServiceEntity;
 import com.marketplace.domain.model.User;
@@ -43,6 +44,7 @@ import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequ
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -57,6 +59,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(
         properties = {
+                "jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+                "jwt.expiration=86400000",
                 "spring.autoconfigure.exclude=" +
                         "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration," +
                         "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration"
@@ -219,7 +223,7 @@ class ApiIntegrationTest {
                 "image",
                 "cover.png",
                 MediaType.IMAGE_PNG_VALUE,
-                new byte[] {1, 2, 3, 4}
+                new byte[] {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
         );
 
         mockMvc.perform(multipart("/api/freelancer/uploads/image")
@@ -245,7 +249,7 @@ class ApiIntegrationTest {
                 "files",
                 "brief.pdf",
                 MediaType.APPLICATION_PDF_VALUE,
-                new byte[] {1, 2, 3, 4}
+                "%PDF-1.4\n%test".getBytes(StandardCharsets.US_ASCII)
         );
 
         when(userRepository.findById(20L)).thenReturn(Optional.of(clientUser));
@@ -266,6 +270,37 @@ class ApiIntegrationTest {
                 .andExpect(jsonPath("$[0].attachmentType").value("BRIEF"))
                 .andExpect(jsonPath("$[0].originalFileName").value("brief.pdf"))
                 .andExpect(jsonPath("$[0].serviceRequestId").value(55));
+    }
+
+    @Test
+    void protectedAttachmentRejectsNonParticipant() throws Exception {
+        User clientUser = clientUser(20L, "client1@marketplace.com");
+        User otherUser = clientUser(99L, "other@marketplace.com");
+        User freelancerUser = freelancerUser(13L, "freelancer1@marketplace.com", "Casablanca");
+        FreelancerProfile profile = freelancerProfile(6L, freelancerUser);
+        Order order = Order.builder()
+                .id(77L)
+                .client(clientUser)
+                .freelancer(profile)
+                .agreedPrice(new BigDecimal("250.00"))
+                .build();
+        Attachment attachment = Attachment.builder()
+                .id(301L)
+                .uploader(clientUser)
+                .order(order)
+                .attachmentType("DELIVERY_PROOF")
+                .originalFileName("proof.pdf")
+                .storedFileName("proof.pdf")
+                .contentType(MediaType.APPLICATION_PDF_VALUE)
+                .fileSize(32L)
+                .fileUrl("/uploads/attachments/proof.pdf")
+                .build();
+
+        when(attachmentRepository.findByStoredFileName("proof.pdf")).thenReturn(Optional.of(attachment));
+
+        mockMvc.perform(get("/api/uploads/attachments/proof.pdf")
+                        .with(SecurityMockMvcRequestPostProcessors.user(otherUser)))
+                .andExpect(status().isForbidden());
     }
 
     @Test

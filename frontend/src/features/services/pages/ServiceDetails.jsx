@@ -160,6 +160,9 @@ export default function ServiceDetails() {
   const [contacting, setContacting] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(null);
   const [sent, setSent] = useState(false);
+  const [requestError, setRequestError] = useState('');
+  const [contactError, setContactError] = useState('');
+  const [favoriteError, setFavoriteError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -200,15 +203,16 @@ export default function ServiceDetails() {
     const proposedPrice = Number(price);
 
     if (normalizedMessage.length < 5) {
-      alert('Le message doit contenir au moins 5 caracteres.');
+      setRequestError('Le message doit contenir au moins 5 caracteres.');
       return;
     }
 
     if (!Number.isFinite(proposedPrice) || proposedPrice < 0) {
-      alert('Le prix propose doit etre un montant valide.');
+      setRequestError('Le prix propose doit etre un montant valide.');
       return;
     }
 
+    setRequestError('');
     setSending(true);
 
     try {
@@ -220,7 +224,7 @@ export default function ServiceDetails() {
       });
       setSent(true);
     } catch (error) {
-      alert(getRequestErrorMessage(error));
+      setRequestError(getRequestErrorMessage(error));
     } finally {
       setSending(false);
     }
@@ -233,16 +237,17 @@ export default function ServiceDetails() {
     }
 
     if (user?.role !== 'CLIENT') {
-      alert('Seuls les clients peuvent contacter un freelance depuis un service.');
+      setContactError('Seuls les clients peuvent contacter un freelance depuis un service.');
       return;
     }
 
+    setContactError('');
     setContacting(true);
     try {
       const response = await createConversation(service.freelancerId, 'FREELANCER');
       navigate('/messages', { state: { conversationId: response.data.id } });
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
+      setContactError(error.response?.data?.message || 'Erreur lors de la creation de la conversation');
     } finally {
       setContacting(false);
     }
@@ -254,9 +259,10 @@ export default function ServiceDetails() {
       return false;
     }
     if (user?.role !== 'CLIENT') {
-      alert('Seuls les clients peuvent sauvegarder des favoris.');
+      setFavoriteError('Seuls les clients peuvent sauvegarder des favoris.');
       return false;
     }
+    setFavoriteError('');
     return true;
   };
 
@@ -266,6 +272,7 @@ export default function ServiceDetails() {
     }
 
     const isFavorite = serviceIds.has(String(service.id));
+    setFavoriteError('');
     setFavoriteLoading('service');
     try {
       if (isFavorite) {
@@ -276,7 +283,7 @@ export default function ServiceDetails() {
         upsertFavorite(response.data);
       }
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
+      setFavoriteError(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
     } finally {
       setFavoriteLoading(null);
     }
@@ -288,6 +295,7 @@ export default function ServiceDetails() {
     }
 
     const isFavorite = freelancerIds.has(String(service.freelancerId));
+    setFavoriteError('');
     setFavoriteLoading('freelancer');
     try {
       if (isFavorite) {
@@ -298,7 +306,7 @@ export default function ServiceDetails() {
         upsertFavorite(response.data);
       }
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
+      setFavoriteError(error.response?.data?.message || 'Erreur lors de la mise a jour des favoris.');
     } finally {
       setFavoriteLoading(null);
     }
@@ -554,6 +562,7 @@ export default function ServiceDetails() {
                         </>
                       )}
                     </button>
+                    {requestError && <p className="form-error">{requestError}</p>}
                   </form>
                 </>
               )}
@@ -576,6 +585,7 @@ export default function ServiceDetails() {
                 onClick={handleToggleFreelancerFavorite}
                 label="Sauvegarder freelance"
               />
+              {favoriteError && <p className="form-error">{favoriteError}</p>}
               <button
                 type="button"
                 className="btn btn-secondary service-detail-side-action"
@@ -589,6 +599,7 @@ export default function ServiceDetails() {
                 )}
                 Contacter
               </button>
+              {contactError && <p className="form-error">{contactError}</p>}
             </div>
           </aside>
         </div>

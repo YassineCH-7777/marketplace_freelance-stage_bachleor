@@ -292,18 +292,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      <footer className="site-footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-brand">
-              <Briefcase size={20} />
-              <span>Proxi<span className="gradient-text">Skills</span></span>
-            </div>
-            <p className="footer-text">(c) 2026 ProxiSkills. Marketplace hyper-locale de services.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

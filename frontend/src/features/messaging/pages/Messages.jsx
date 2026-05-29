@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
-import { getConversations, getMessages, sendMessage, updateMessageImportant } from '@/api/messageApi';
+import { deleteConversation, getConversations, getMessages, sendMessage, updateMessageImportant } from '@/api/messageApi';
 import { uploadMessageAttachments } from '@/api/attachmentApi';
 import AttachmentList from '@/components/common/AttachmentList';
 import AttachmentPicker from '@/components/common/AttachmentPicker';
 import { formatFileSize } from '@/utils/attachments';
-import { ArrowLeft, Check, CheckCheck, Inbox, Loader2, MessageSquare, Send, Star, X } from 'lucide-react';
+import { requestNotificationsRefresh } from '@/utils/notificationEvents';
+import { ArrowLeft, Check, CheckCheck, Inbox, Loader2, MessageSquare, Send, Star, Trash2, X } from 'lucide-react';
 import '@/styles/dashboard.css';
 import '@/styles/messages.css';
 
@@ -76,6 +77,9 @@ export default function Messages() {
   const [loading, setLoading] = useState(true);
   const [msgsLoading, setMsgsLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [deletingConversationId, setDeletingConversationId] = useState(null);
+  const [conversationToDelete, setConversationToDelete] = useState(null);
+  const [chatError, setChatError] = useState('');
 
   const markConversationReadLocally = useCallback((conversationId) => {
     setConversations((current) =>
@@ -94,8 +98,10 @@ export default function Messages() {
         const response = await getMessages(convo.id);
         setMessages(normalizeMessages(response.data));
         markConversationReadLocally(convo.id);
-      } catch {
+        setChatError('');
+      } catch (error) {
         setMessages([]);
+        setChatError(error.response?.data?.message || 'Impossible de charger cette conversation.');
       } finally {
         setMsgsLoading(false);
       }
@@ -183,6 +189,7 @@ export default function Messages() {
     const content = newMsg.trim();
     if ((!content && selectedFiles.length === 0) || !activeConvo) return;
 
+    setChatError('');
     setSending(true);
     try {
       const response = await sendMessage(activeConvo.id, content || 'Piece jointe');
@@ -196,7 +203,7 @@ export default function Messages() {
             attachments: attachmentsResponse.data,
           };
         } catch (uploadError) {
-          alert(uploadError.response?.data?.message || 'Message envoye, mais les fichiers n ont pas pu etre ajoutes.');
+          setChatError(uploadError.response?.data?.message || 'Message envoye, mais les fichiers n ont pas pu etre ajoutes.');
         }
       }
 
@@ -218,7 +225,7 @@ export default function Messages() {
         ),
       );
     } catch (error) {
-      alert(error.response?.data?.message || "Erreur lors de l'envoi du message");
+      setChatError(error.response?.data?.message || "Erreur lors de l'envoi du message");
     } finally {
       setSending(false);
     }
@@ -237,11 +244,37 @@ export default function Messages() {
       setMessages((current) =>
         current.map((item) => (item.id === updatedMessage.id ? updatedMessage : item)),
       );
+      setChatError('');
     } catch (error) {
       setMessages((current) =>
         current.map((item) => (item.id === message.id ? { ...item, isImportant: message.isImportant } : item)),
       );
-      alert(error.response?.data?.message || "Impossible de modifier l'importance du message.");
+      setChatError(error.response?.data?.message || "Impossible de modifier l'importance du message.");
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!conversationToDelete) {
+      return;
+    }
+
+    const conversationId = conversationToDelete.id;
+    setDeletingConversationId(conversationId);
+    try {
+      await deleteConversation(conversationId);
+      setConversations((current) => current.filter((item) => item.id !== conversationId));
+      if (activeConvo?.id === conversationId) {
+        setActiveConvo(null);
+        setMessages([]);
+        setSelectedFiles([]);
+      }
+      requestNotificationsRefresh();
+      setConversationToDelete(null);
+      setChatError('');
+    } catch (error) {
+      setChatError(error.response?.data?.message || 'Erreur lors de la suppression de la conversation');
+    } finally {
+      setDeletingConversationId(null);
     }
   };
 
@@ -260,6 +293,8 @@ export default function Messages() {
           <p className="dashboard-subtitle">Communiquez avec vos clients et freelances.</p>
         </div>
 
+        {chatError && !activeConvo && <p className="form-error">{chatError}</p>}
+
         <div className="chat-layout animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <div className={`chat-sidebar ${activeConvo ? 'hide-mobile' : ''}`}>
             {loading ? (
@@ -273,28 +308,46 @@ export default function Messages() {
               </div>
             ) : (
               conversations.map((conversation) => (
-                <button
-                  type="button"
+                <div
                   key={conversation.id}
                   className={`chat-convo-item ${activeConvo?.id === conversation.id ? 'active' : ''}`}
-                  onClick={() => openConversation(conversation)}
                 >
-                  <div className="chat-convo-avatar">{getOtherName(conversation)?.[0]?.toUpperCase()}</div>
-                  <div className="chat-convo-info">
-                    <div className="chat-convo-main">
-                      <span className="chat-convo-name">{getOtherName(conversation)}</span>
-                      <span className="chat-convo-time">{formatConversationDate(conversation)}</span>
+                  <button
+                    type="button"
+                    className="chat-convo-open"
+                    onClick={() => openConversation(conversation)}
+                  >
+                    <div className="chat-convo-avatar">{getOtherName(conversation)?.[0]?.toUpperCase()}</div>
+                    <div className="chat-convo-info">
+                      <div className="chat-convo-main">
+                        <span className="chat-convo-name">{getOtherName(conversation)}</span>
+                        <span className="chat-convo-time">{formatConversationDate(conversation)}</span>
+                      </div>
+                      <div className="chat-convo-meta">
+                        <span className="chat-convo-preview">
+                          {conversation.lastMessageContent || 'Conversation ouverte'}
+                        </span>
+                        {conversation.unreadCount > 0 && (
+                          <span className="chat-unread-badge">{conversation.unreadCount}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="chat-convo-meta">
-                      <span className="chat-convo-preview">
-                        {conversation.lastMessageContent || 'Conversation ouverte'}
-                      </span>
-                      {conversation.unreadCount > 0 && (
-                        <span className="chat-unread-badge">{conversation.unreadCount}</span>
-                      )}
-                    </div>
-                  </div>
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    className="chat-convo-delete"
+                    onClick={() => setConversationToDelete(conversation)}
+                    disabled={deletingConversationId === conversation.id}
+                    title="Supprimer la conversation"
+                    aria-label="Supprimer la conversation"
+                  >
+                    {deletingConversationId === conversation.id ? (
+                      <Loader2 size={15} className="spinner" />
+                    ) : (
+                      <Trash2 size={15} />
+                    )}
+                  </button>
+                </div>
               ))
             )}
           </div>
@@ -367,6 +420,7 @@ export default function Messages() {
                 </div>
 
                 <form className="chat-composer" onSubmit={handleSend}>
+                  {chatError && <p className="form-error">{chatError}</p>}
                   {selectedFiles.length > 0 && (
                     <div className="attachment-selected-list chat-selected-files">
                       {selectedFiles.map((file, index) => (
@@ -417,6 +471,56 @@ export default function Messages() {
             )}
           </div>
         </div>
+
+        {conversationToDelete && (
+          <div className="modal-overlay" onClick={() => setConversationToDelete(null)}>
+            <div className="modal-content chat-delete-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">Supprimer la conversation</h2>
+                <button
+                  type="button"
+                  className="modal-close"
+                  onClick={() => setConversationToDelete(null)}
+                  aria-label="Fermer"
+                  disabled={deletingConversationId === conversationToDelete.id}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <p className="chat-delete-copy">
+                La conversation avec {getOtherName(conversationToDelete)} et ses messages seront supprimes.
+              </p>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setConversationToDelete(null)}
+                  disabled={deletingConversationId === conversationToDelete.id}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-refuse"
+                  onClick={handleDeleteConversation}
+                  disabled={deletingConversationId === conversationToDelete.id}
+                >
+                  {deletingConversationId === conversationToDelete.id ? (
+                    <>
+                      <Loader2 size={16} className="spinner" /> Suppression...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} /> Supprimer
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

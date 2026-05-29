@@ -27,13 +27,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class MessageService {
+
+    private static final String CONVERSATION_ENTITY_TYPE = "CONVERSATION";
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
@@ -57,10 +61,10 @@ public class MessageService {
         Conversation conversation;
         if (requester.getRole() == UserRole.CLIENT && target.getRole() == UserRole.FREELANCER) {
             FreelancerProfile freelancer = getFreelancerProfile(targetUserId);
-            conversation = getOrCreateGeneralConversation(requester, freelancer);
+            conversation = getOrCreateSingleConversation(requester, freelancer);
         } else if (requester.getRole() == UserRole.FREELANCER && target.getRole() == UserRole.CLIENT) {
             FreelancerProfile freelancer = getFreelancerProfile(requesterId);
-            conversation = getOrCreateGeneralConversation(target, freelancer);
+            conversation = getOrCreateSingleConversation(target, freelancer);
         } else {
             throw new BusinessException("La messagerie est reservee aux echanges client/freelance.", HttpStatus.BAD_REQUEST);
         }
@@ -83,7 +87,7 @@ public class MessageService {
 
     @Transactional
     public void addOrderRequestOpeningMessage(OrderRequest request) {
-        Conversation conversation = getOrCreateGeneralConversation(request.getClient(), request.getService().getFreelancer());
+        Conversation conversation = getOrCreateSingleConversation(request.getClient(), request.getService().getFreelancer());
         if (request.getMessage() != null && !request.getMessage().trim().isEmpty()) {
             saveMessage(conversation, request.getClient(), request.getMessage(), true);
         }
@@ -91,28 +95,22 @@ public class MessageService {
 
     @Transactional
     public Conversation ensureOrderConversation(Order order) {
-        return conversationRepository.findByOrder_Id(order.getId())
-                .orElseGet(() -> {
-                    Conversation conversation = conversationRepository
-                            .findByClient_IdAndFreelancer_User_IdAndOrderIsNull(
-                                    order.getClient().getId(),
-                                    order.getFreelancer().getUser().getId())
-                            .orElseGet(() -> Conversation.builder()
-                                    .client(order.getClient())
-                                    .freelancer(order.getFreelancer())
-                                    .lastMessageAt(LocalDateTime.now())
-                                    .build());
+        Optional<Conversation> existingOrderConversation = conversationRepository.findByOrder_Id(order.getId());
+        Conversation conversation = getOrCreateSingleConversation(order.getClient(), order.getFreelancer());
 
-                    conversation.setOrder(order);
-                    if (conversation.getLastMessageAt() == null) {
-                        conversation.setLastMessageAt(LocalDateTime.now());
-                    }
-                    return conversationRepository.save(conversation);
-                });
+        if (conversation.getOrder() == null && existingOrderConversation.isEmpty()) {
+            conversation.setOrder(order);
+            if (conversation.getLastMessageAt() == null) {
+                conversation.setLastMessageAt(LocalDateTime.now());
+            }
+            return conversationRepository.save(conversation);
+        }
+
+        return conversation;
     }
 
     public List<ConversationDto> getUserConversations(Long userId) {
-        return conversationRepository.findByClient_IdOrFreelancer_User_Id(userId, userId)
+        return deduplicateConversations(conversationRepository.findByClient_IdOrFreelancer_User_Id(userId, userId))
                 .stream()
                 .sorted(Comparator.comparing(this::getConversationActivityAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
@@ -133,6 +131,18 @@ public class MessageService {
                 .stream()
                 .map(this::mapToMessageDto)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void deleteConversation(Long conversationId, Long userId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation introuvable"));
+        if (!isParticipant(conversation, userId)) {
+            throw new UnauthorizedException("Acces refuse");
+        }
+
+        notificationService.deleteNotificationsForRelatedEntity(CONVERSATION_ENTITY_TYPE, conversationId);
+        conversationRepository.delete(conversation);
     }
 
     @Transactional
@@ -191,15 +201,92 @@ public class MessageService {
         return normalizedContent;
     }
 
-    private Conversation getOrCreateGeneralConversation(User client, FreelancerProfile freelancer) {
+    private Conversation getOrCreateSingleConversation(User client, FreelancerProfile freelancer) {
         validateClient(client);
-        return conversationRepository
-                .findByClient_IdAndFreelancer_User_IdAndOrderIsNull(client.getId(), freelancer.getUser().getId())
-                .orElseGet(() -> conversationRepository.save(Conversation.builder()
-                        .client(client)
-                        .freelancer(freelancer)
-                        .lastMessageAt(LocalDateTime.now())
-                        .build()));
+        List<Conversation> conversations = conversationRepository
+                .findByClient_IdAndFreelancer_User_Id(client.getId(), freelancer.getUser().getId());
+
+        if (!conversations.isEmpty()) {
+            return selectCanonicalConversation(conversations);
+        }
+
+        return conversationRepository.save(Conversation.builder()
+                .client(client)
+                .freelancer(freelancer)
+                .lastMessageAt(LocalDateTime.now())
+                .build());
+    }
+
+    private List<Conversation> deduplicateConversations(List<Conversation> conversations) {
+        Map<String, Conversation> uniqueConversations = new LinkedHashMap<>();
+        for (Conversation conversation : conversations) {
+            uniqueConversations.merge(
+                    getConversationPairKey(conversation),
+                    conversation,
+                    this::selectCanonicalConversation);
+        }
+        return List.copyOf(uniqueConversations.values());
+    }
+
+    private String getConversationPairKey(Conversation conversation) {
+        return conversation.getClient().getId() + ":" + conversation.getFreelancer().getUser().getId();
+    }
+
+    private Conversation selectCanonicalConversation(List<Conversation> conversations) {
+        return conversations.stream()
+                .reduce(this::selectCanonicalConversation)
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation introuvable"));
+    }
+
+    private Conversation selectCanonicalConversation(Conversation left, Conversation right) {
+        return compareCanonicalConversation(left, right) >= 0 ? left : right;
+    }
+
+    private int compareCanonicalConversation(Conversation left, Conversation right) {
+        Optional<Message> leftLastMessage = getLastMessage(left);
+        Optional<Message> rightLastMessage = getLastMessage(right);
+
+        if (leftLastMessage.isPresent() && rightLastMessage.isEmpty()) {
+            return 1;
+        }
+        if (leftLastMessage.isEmpty() && rightLastMessage.isPresent()) {
+            return -1;
+        }
+
+        LocalDateTime leftActivityAt = leftLastMessage
+                .map(Message::getCreatedAt)
+                .orElseGet(() -> getConversationActivityAt(left));
+        LocalDateTime rightActivityAt = rightLastMessage
+                .map(Message::getCreatedAt)
+                .orElseGet(() -> getConversationActivityAt(right));
+        int activityComparison = compareNullableDateTime(leftActivityAt, rightActivityAt);
+        if (activityComparison != 0) {
+            return activityComparison;
+        }
+
+        return Long.compare(left.getId() != null ? left.getId() : 0L, right.getId() != null ? right.getId() : 0L);
+    }
+
+    private Optional<Message> getLastMessage(Conversation conversation) {
+        if (conversation.getId() == null) {
+            return Optional.empty();
+        }
+
+        Optional<Message> lastMessage = messageRepository.findTopByConversation_IdOrderByCreatedAtDesc(conversation.getId());
+        return lastMessage != null ? lastMessage : Optional.empty();
+    }
+
+    private int compareNullableDateTime(LocalDateTime left, LocalDateTime right) {
+        if (left == null && right == null) {
+            return 0;
+        }
+        if (left == null) {
+            return -1;
+        }
+        if (right == null) {
+            return 1;
+        }
+        return left.compareTo(right);
     }
 
     private FreelancerProfile getFreelancerProfile(Long freelancerUserId) {
@@ -222,7 +309,7 @@ public class MessageService {
                 recipientId,
                 NotificationType.NEW_MESSAGE,
                 "Nouveau message de " + sender.getEmail() + " : " + preview,
-                "CONVERSATION",
+                CONVERSATION_ENTITY_TYPE,
                 conversation.getId());
     }
 
@@ -247,7 +334,7 @@ public class MessageService {
     }
 
     private ConversationDto mapToConversationDto(Conversation conversation, Long viewerId) {
-        Optional<Message> lastMessage = messageRepository.findTopByConversation_IdOrderByCreatedAtDesc(conversation.getId());
+        Optional<Message> lastMessage = getLastMessage(conversation);
         return ConversationDto.builder()
                 .id(conversation.getId())
                 .clientId(conversation.getClient().getId())

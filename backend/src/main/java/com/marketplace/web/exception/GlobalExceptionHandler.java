@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -98,6 +99,17 @@ public class GlobalExceptionHandler {
 		body.put("message", "Ressource introuvable");
 		body.put("details", ex.getMessage());
 		return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+	}
+
+	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+	public ResponseEntity<Object> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+		Map<String, Object> body = new HashMap<>();
+		body.put("timestamp", Instant.now().toString());
+		body.put("status", HttpStatus.METHOD_NOT_ALLOWED.value());
+		body.put("error", HttpStatus.METHOD_NOT_ALLOWED.getReasonPhrase());
+		body.put("message", "Impossible d'executer cette action. Redemarrez le backend si vous venez de mettre a jour le code.");
+		body.put("details", ex.getMessage());
+		return new ResponseEntity<>(body, HttpStatus.METHOD_NOT_ALLOWED);
 	}
 
 	@ExceptionHandler({MultipartException.class, MissingServletRequestParameterException.class})

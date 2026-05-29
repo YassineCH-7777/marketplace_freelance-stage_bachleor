@@ -1,13 +1,14 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from '@/components/common/Navbar';
 import Footer from '@/components/common/Footer';
 import NotificationCenter from '@/components/common/NotificationCenter';
 import RoleDashboardBar from '@/components/dashboard/RoleDashboardBar';
-import FloatingAiAssistant from '@/components/ai/FloatingAiAssistant';
 import useAuth from '@/hooks/useAuth';
 import AppRoutes from '@/routes/AppRoutes';
 import { shouldShowDashboardBar } from '@/utils/dashboardBar';
+
+const FloatingAiAssistant = lazy(() => import('@/components/ai/FloatingAiAssistant'));
 
 function App() {
   const location = useLocation();
@@ -54,8 +55,10 @@ function App() {
         {showDashboardBar && <RoleDashboardBar />}
         <AppRoutes />
       </main>
-      {location.pathname !== '/' && <Footer />}
-      <FloatingAiAssistant />
+      <Footer />
+      <Suspense fallback={null}>
+        <FloatingAiAssistant />
+      </Suspense>
       <NotificationCenter />
     </>
   );

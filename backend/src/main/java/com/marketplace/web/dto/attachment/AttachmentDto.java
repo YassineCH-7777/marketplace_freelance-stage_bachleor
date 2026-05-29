@@ -27,6 +27,10 @@ public class AttachmentDto {
     private LocalDateTime createdAt;
 
     public static AttachmentDto from(Attachment attachment) {
+        String fileUrl = attachment.getStoredFileName() != null
+                ? "/uploads/attachments/" + attachment.getStoredFileName()
+                : attachment.getFileUrl();
+
         return AttachmentDto.builder()
                 .id(attachment.getId())
                 .uploaderId(attachment.getUploader() != null ? attachment.getUploader().getId() : null)
@@ -38,7 +42,7 @@ public class AttachmentDto {
                 .originalFileName(attachment.getOriginalFileName())
                 .contentType(attachment.getContentType())
                 .fileSize(attachment.getFileSize())
-                .fileUrl(attachment.getFileUrl())
+                .fileUrl(fileUrl)
                 .createdAt(attachment.getCreatedAt())
                 .build();
     }

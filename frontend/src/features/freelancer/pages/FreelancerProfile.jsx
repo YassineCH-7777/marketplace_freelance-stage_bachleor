@@ -44,6 +44,7 @@ export default function FreelancerProfileEdit() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -137,6 +138,7 @@ export default function FreelancerProfileEdit() {
     event.preventDefault();
     setSaving(true);
     setSaved(false);
+    setSaveError('');
 
     try {
       const response = await updateFreelancerProfile(form);
@@ -155,7 +157,7 @@ export default function FreelancerProfileEdit() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la mise a jour du profil');
+      setSaveError(error.response?.data?.message || 'Erreur lors de la mise a jour du profil');
     } finally {
       setSaving(false);
     }
@@ -392,6 +394,7 @@ export default function FreelancerProfileEdit() {
                   )}
                 </button>
               </div>
+              {saveError && <p className="form-error full-width">{saveError}</p>}
             </form>
           </section>
         </div>

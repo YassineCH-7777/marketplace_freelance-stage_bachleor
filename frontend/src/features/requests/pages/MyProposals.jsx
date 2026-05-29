@@ -14,6 +14,7 @@ const statusMap = {
 export default function MyProposals() {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -54,17 +55,19 @@ export default function MyProposals() {
 
   const handleWithdraw = async (id) => {
     if (!window.confirm('Retirer cette candidature ?')) return;
+    setActionError('');
     try {
       await withdrawProposal(id);
       await load();
     } catch (error) {
-      alert(error.response?.data?.message || 'Impossible de retirer cette candidature.');
+      setActionError(error.response?.data?.message || 'Impossible de retirer cette candidature.');
     }
   };
 
   return (
     <div className="requests-page"><div className="container">
       <div className="my-requests-header animate-fade-in-up"><h1>Mes candidatures</h1></div>
+      {actionError && <div className="form-error" style={{ marginBottom: '1rem' }}>{actionError}</div>}
       {loading ? (
         <div className="requests-loading animate-fade-in"><div className="spinner-dots"><span /><span /><span /></div></div>
       ) : proposals.length === 0 ? (

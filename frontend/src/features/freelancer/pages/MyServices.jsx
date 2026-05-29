@@ -207,6 +207,7 @@ export default function MyServices() {
   const [categories, setCategories] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [pageError, setPageError] = useState('');
   const [draftMessage, setDraftMessage] = useState('');
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
@@ -254,6 +255,7 @@ export default function MyServices() {
   };
 
   const openCreate = () => {
+    setPageError('');
     setEditId(null);
     setForm(readDraft(user?.city) || buildEmptyForm(user?.city));
     setCurrentStep(0);
@@ -263,6 +265,7 @@ export default function MyServices() {
   };
 
   const openEdit = (service) => {
+    setPageError('');
     setEditId(service.id);
     setForm({
       ...buildEmptyForm(service.serviceCity || user?.city),
@@ -390,7 +393,7 @@ export default function MyServices() {
       const imageUrl = await uploadImageFile(file);
       updateForm({ coverImageUrl: imageUrl });
     } catch (error) {
-      alert(error.response?.data?.message || error.message || "Erreur lors de l'upload de l'image");
+      setValidationError(error.response?.data?.message || error.message || "Erreur lors de l'upload de l'image");
     } finally {
       setUploadingCover(false);
       event.target.value = '';
@@ -409,7 +412,7 @@ export default function MyServices() {
       const previousUrls = normalizeLines(form.galleryUrls);
       updateForm({ galleryUrls: [...previousUrls, ...imageUrls.filter(Boolean)].join('\n') });
     } catch (error) {
-      alert(error.response?.data?.message || error.message || "Erreur lors de l'upload des images");
+      setValidationError(error.response?.data?.message || error.message || "Erreur lors de l'upload des images");
     } finally {
       setUploadingGallery(false);
       event.target.value = '';
@@ -428,6 +431,7 @@ export default function MyServices() {
       return;
     }
 
+    setValidationError('');
     setSubmitting(true);
 
     try {
@@ -453,7 +457,7 @@ export default function MyServices() {
       setShowModal(false);
       refreshServices();
     } catch (error) {
-      alert(error.response?.data?.message || 'Erreur lors de la sauvegarde');
+      setValidationError(error.response?.data?.message || 'Erreur lors de la sauvegarde');
     } finally {
       setSubmitting(false);
     }
@@ -875,9 +879,10 @@ export default function MyServices() {
 
     try {
       await deleteFreelancerService(id);
+      setPageError('');
       refreshServices();
-    } catch {
-      alert('Erreur lors de la suppression');
+    } catch (error) {
+      setPageError(error.response?.data?.message || 'Erreur lors de la suppression');
     }
   };
 
@@ -903,6 +908,8 @@ export default function MyServices() {
             </button>
           </div>
         </div>
+
+        {pageError && <p className="form-error">{pageError}</p>}
 
         {loading ? (
           <div className="empty-state">

@@ -6,6 +6,26 @@ import GoogleAuthButton from '@/features/auth/components/GoogleAuthButton';
 import { LogIn, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import '@/styles/auth.css';
 
+const LOGIN_CREDENTIALS_ERROR =
+  'Adresse e-mail ou mot de passe incorrect. Verifiez votre saisie, puis reessayez ou utilisez le lien Mot de passe oublie.';
+const SERVER_UNREACHABLE_ERROR =
+  'Impossible de joindre le serveur. Verifiez que le backend est lance sur http://localhost:8080.';
+
+function resolveLoginError(err) {
+  if (!err.response) {
+    return SERVER_UNREACHABLE_ERROR;
+  }
+
+  const message = err.response?.data?.message;
+  const normalizedMessage = typeof message === 'string' ? message.trim().toLowerCase() : '';
+
+  if (!normalizedMessage || normalizedMessage === 'identifiants invalides' || normalizedMessage === 'bad credentials') {
+    return LOGIN_CREDENTIALS_ERROR;
+  }
+
+  return message;
+}
+
 function dashboardPath(role) {
   switch (role) {
     case 'ADMIN': return '/admin';
@@ -37,13 +57,7 @@ export default function Login() {
       login(authUser, token);
       navigate(dashboardPath(authUser.role));
     } catch (err) {
-      if (err.message && !err.response) {
-        setError(err.message);
-      } else if (!err.response) {
-        setError('Impossible de joindre le serveur. Verifiez que le backend est lance sur http://localhost:8080.');
-      } else {
-        setError(err.response?.data?.message || 'Email ou mot de passe incorrect.');
-      }
+      setError(resolveLoginError(err));
     } finally {
       setLoading(false);
     }

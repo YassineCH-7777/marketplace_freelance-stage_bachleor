@@ -11,7 +11,7 @@ const STATUS_OPTIONS = [
   { value: 'CANCELLED', label: 'Mission annulee' },
 ];
 
-export default function MissionUpdateModal({ order, onClose, onSubmit, submitting }) {
+export default function MissionUpdateModal({ order, onClose, onSubmit, submitting, error }) {
   const hasExistingDelivery = Boolean(
     order?.deliveryNote
       || order?.deliveredAt
@@ -189,6 +189,8 @@ export default function MissionUpdateModal({ order, onClose, onSubmit, submittin
               placeholder="Checklist terminee, blocages, prochaines etapes, validations obtenues..."
             />
           </div>
+
+          {error && <p className="form-error">{error}</p>}
 
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>

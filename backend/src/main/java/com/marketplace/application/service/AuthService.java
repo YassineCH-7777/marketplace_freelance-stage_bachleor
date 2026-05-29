@@ -30,6 +30,8 @@ import java.util.Base64;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+    private static final String INVALID_LOGIN_MESSAGE =
+            "Adresse e-mail ou mot de passe incorrect. Verifiez votre saisie, puis reessayez ou utilisez le lien Mot de passe oublie.";
 
     private final UserRepository userRepository;
     private final FreelancerProfileRepository profileRepository;
@@ -70,7 +72,7 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String email = normalizeEmail(request.getEmail());
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BadCredentialsException("Identifiants invalides"));
+                .orElseThrow(() -> new BadCredentialsException(INVALID_LOGIN_MESSAGE));
 
         if (user.getStatus() == UserStatus.PENDING || !user.isEmailVerified()) {
             throw new BusinessException("Veuillez valider votre e-mail avant de vous connecter.", HttpStatus.FORBIDDEN);
@@ -84,7 +86,7 @@ public class AuthService {
                     new UsernamePasswordAuthenticationToken(email, request.getPassword())
             );
         } catch (org.springframework.security.core.AuthenticationException ex) {
-            throw new BadCredentialsException("Identifiants invalides", ex);
+            throw new BadCredentialsException(INVALID_LOGIN_MESSAGE, ex);
         }
 
         String jwtToken = jwtService.generateToken(user);

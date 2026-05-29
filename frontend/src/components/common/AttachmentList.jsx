@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Download, FileImage, FileText, PackageCheck, Paperclip, Receipt } from 'lucide-react';
+import { downloadAttachment } from '@/api/attachmentApi';
 import { formatFileSize, getAttachmentTypeLabel } from '@/utils/attachments';
 
 const getIcon = (attachment) => {
@@ -11,21 +13,51 @@ const getIcon = (attachment) => {
 };
 
 export default function AttachmentList({ attachments = [], compact = false }) {
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [downloadError, setDownloadError] = useState('');
+
   if (!attachments.length) {
     return null;
   }
+
+  const handleDownload = async (attachment) => {
+    const attachmentKey = attachment.id || attachment.fileUrl;
+    setDownloadError('');
+    setDownloadingId(attachmentKey);
+    try {
+      const response = await downloadAttachment(attachment.fileUrl);
+      const blob = new Blob([response.data], {
+        type: response.headers['content-type'] || attachment.contentType || 'application/octet-stream',
+      });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = attachment.originalFileName || 'piece-jointe';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    } catch {
+      setDownloadError('Impossible de telecharger cette piece jointe.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <div className={`attachment-list ${compact ? 'is-compact' : ''}`}>
       {attachments.map((attachment) => {
         const Icon = getIcon(attachment);
+        const attachmentKey = attachment.id || attachment.fileUrl;
+        const isDownloading = downloadingId === attachmentKey;
         return (
-          <a
-            key={attachment.id || attachment.fileUrl}
+          <button
+            key={attachmentKey}
+            type="button"
             className="attachment-item"
-            href={attachment.fileUrl}
-            target="_blank"
-            rel="noreferrer"
+            onClick={() => handleDownload(attachment)}
+            disabled={isDownloading}
+            aria-label={`Telecharger ${attachment.originalFileName || 'la piece jointe'}`}
           >
             <span className="attachment-icon">
               <Icon size={16} />
@@ -39,9 +71,10 @@ export default function AttachmentList({ attachments = [], compact = false }) {
               </span>
             </span>
             <Download size={14} className="attachment-download" />
-          </a>
+          </button>
         );
       })}
+      {downloadError && <p className="attachment-error">{downloadError}</p>}
     </div>
   );
 }

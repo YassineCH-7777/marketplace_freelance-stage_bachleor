@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { getNotifications } from '@/api/notificationApi';
+import { NOTIFICATIONS_REFRESH_EVENT } from '@/utils/notificationEvents';
 import './Navbar.css';
 
 function NotificationIcon({ type }) {
@@ -84,6 +85,13 @@ export default function Navbar() {
   useEffect(() => {
     loadNotifications();
   }, [loadNotifications, user?.id]);
+
+  useEffect(() => {
+    const handleNotificationsRefresh = () => loadNotifications();
+
+    window.addEventListener(NOTIFICATIONS_REFRESH_EVENT, handleNotificationsRefresh);
+    return () => window.removeEventListener(NOTIFICATIONS_REFRESH_EVENT, handleNotificationsRefresh);
+  }, [loadNotifications]);
 
   useEffect(() => {
     if (!notificationOpen) return undefined;
