@@ -4,6 +4,9 @@ import { AlertCircle, Loader2, Mail, Send } from 'lucide-react';
 import { firebaseSendPasswordReset } from '@/api/firebaseAuthApi';
 import '@/styles/auth.css';
 
+const SERVICE_UNAVAILABLE_MESSAGE =
+  "Nous n'arrivons pas a contacter le service pour le moment. Verifiez votre connexion internet puis reessayez dans quelques instants.";
+
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -18,12 +21,12 @@ export default function ForgotPassword() {
 
     try {
       await firebaseSendPasswordReset(email);
-      setSuccess('Si un compte existe avec cet e-mail, Firebase vient d envoyer un lien.');
+      setSuccess('Si un compte existe avec cet e-mail, un lien de reinitialisation vient d etre envoye.');
     } catch (err) {
       if (err.message && !err.response) {
         setError(err.message);
       } else if (!err.response) {
-        setError('Impossible de joindre le serveur.');
+        setError(SERVICE_UNAVAILABLE_MESSAGE);
       } else {
         setError(err.response?.data?.message || 'Impossible d envoyer le lien.');
       }

@@ -3,7 +3,7 @@ const identityBaseUrl = 'https://identitytoolkit.googleapis.com/v1';
 
 function ensureFirebaseConfig() {
   if (!firebaseApiKey) {
-    throw new Error('Firebase Auth n est pas configure.');
+    throw new Error("La connexion est temporairement indisponible. Reessayez dans quelques instants.");
   }
 }
 
@@ -37,9 +37,9 @@ function mapFirebaseError(code = '') {
   if (code.includes('USER_DISABLED')) return 'Ce compte est desactive.';
   if (code.includes('TOO_MANY_ATTEMPTS_TRY_LATER')) return 'Trop de tentatives. Reessayez plus tard.';
   if (code.includes('WEAK_PASSWORD')) return 'Le mot de passe doit contenir au moins 6 caracteres.';
-  if (code.includes('OPERATION_NOT_ALLOWED')) return 'Le provider Google n est pas active dans Firebase Auth.';
-  if (code.includes('INVALID_IDP_RESPONSE')) return 'Firebase refuse le token Google. Verifiez le Client ID OAuth utilise par Firebase.';
-  return 'Firebase Auth a refuse la demande.';
+  if (code.includes('OPERATION_NOT_ALLOWED')) return 'La connexion Google est indisponible pour le moment.';
+  if (code.includes('INVALID_IDP_RESPONSE')) return "La connexion Google n'a pas pu aboutir. Reessayez avec le meme compte ou choisissez une autre methode.";
+  return "La demande n'a pas pu etre traitee. Reessayez dans quelques instants.";
 }
 
 export function isFirebaseConfigured() {

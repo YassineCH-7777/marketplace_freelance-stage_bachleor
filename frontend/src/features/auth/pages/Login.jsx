@@ -9,7 +9,7 @@ import '@/styles/auth.css';
 const LOGIN_CREDENTIALS_ERROR =
   'Adresse e-mail ou mot de passe incorrect. Verifiez votre saisie, puis reessayez ou utilisez le lien Mot de passe oublie.';
 const SERVER_UNREACHABLE_ERROR =
-  'Impossible de joindre le serveur. Verifiez que le backend est lance sur http://localhost:8080.';
+  "Nous n'arrivons pas a contacter le service pour le moment. Verifiez votre connexion internet puis reessayez dans quelques instants.";
 
 function resolveLoginError(err) {
   if (!err.response) {

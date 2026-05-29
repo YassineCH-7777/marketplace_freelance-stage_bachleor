@@ -97,7 +97,7 @@ function getDefaultDeadline(deliveryTimeDays) {
 
 function getRequestErrorMessage(error) {
   if (!error.response) {
-    return "Impossible de contacter le serveur API. Verifiez que le backend est demarre sur http://localhost:8080.";
+    return "Nous n'arrivons pas a envoyer votre demande pour le moment. Verifiez votre connexion internet puis reessayez dans quelques instants.";
   }
 
   return error.response?.data?.message || error.response?.data?.details || "Erreur lors de l'envoi de la demande";

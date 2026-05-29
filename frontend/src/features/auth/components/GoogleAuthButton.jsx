@@ -3,6 +3,8 @@ import { loginGoogleUser } from '@/api/authApi';
 
 const GOOGLE_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const GOOGLE_PROMPT_BLOCKED_MESSAGE =
+  "La fenetre Google ne peut pas s'ouvrir. Autorisez les pop-ups et les cookies tiers pour ce site, puis reessayez.";
 
 let googleScriptPromise;
 
@@ -112,7 +114,11 @@ export default function GoogleAuthButton({ role = 'CLIENT', onAuthenticated, onE
   /* Déclenche la connexion via One Tap quand on clique sur le bouton custom */
   const handleCustomClick = () => {
     if (!window.google?.accounts?.id || loading) return;
-    window.google.accounts.id.prompt();
+    window.google.accounts.id.prompt((notification) => {
+      if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+        onError?.(GOOGLE_PROMPT_BLOCKED_MESSAGE);
+      }
+    });
   };
 
   useEffect(() => {

@@ -7,6 +7,9 @@ import GoogleAuthButton from '@/features/auth/components/GoogleAuthButton';
 import { UserPlus, Mail, Lock, AlertCircle, Loader2, Users, UserRound } from 'lucide-react';
 import '@/styles/auth.css';
 
+const SERVICE_UNAVAILABLE_MESSAGE =
+  "Nous n'arrivons pas a contacter le service pour le moment. Verifiez votre connexion internet puis reessayez dans quelques instants.";
+
 function dashboardPath(role) {
   switch (role) {
     case 'ADMIN': return '/admin';
@@ -68,12 +71,12 @@ export default function Register() {
       });
 
       await firebaseSendEmailVerification(firebaseSession.idToken);
-      setSuccess('Compte cree. Firebase vous a envoye un e-mail de validation.');
+      setSuccess('Compte cree. Nous vous avons envoye un e-mail de validation.');
     } catch (err) {
       if (err.message && !err.response) {
         setError(err.message);
       } else if (!err.response) {
-        setError('Impossible de joindre le serveur. Verifiez que le backend est lance sur http://localhost:8080.');
+        setError(SERVICE_UNAVAILABLE_MESSAGE);
       } else {
         setError(err.response?.data?.message || "Erreur lors de l'inscription. Cet e-mail existe peut-etre deja.");
       }
