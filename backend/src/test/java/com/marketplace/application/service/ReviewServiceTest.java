@@ -1,14 +1,16 @@
 package com.marketplace.application.service;
 
-import com.marketplace.web.dto.review.ReviewDto;
-import com.marketplace.domain.model.FreelancerProfile;
-import com.marketplace.domain.model.Order;
-import com.marketplace.domain.model.Review;
-import com.marketplace.domain.model.User;
-import com.marketplace.domain.enums.OrderStatus;
-import com.marketplace.web.exception.BusinessException;
-import com.marketplace.infrastructure.persistence.OrderRepository;
-import com.marketplace.infrastructure.persistence.ReviewRepository;
+import com.marketplace.dto.review.ReviewDto;
+import com.marketplace.model.FreelancerProfile;
+import com.marketplace.model.Order;
+import com.marketplace.model.Review;
+import com.marketplace.model.User;
+import com.marketplace.enums.OrderStatus;
+import com.marketplace.exception.BusinessException;
+import com.marketplace.persistence.OrderRepository;
+import com.marketplace.persistence.ReviewRepository;
+import com.marketplace.service.ReviewService;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;

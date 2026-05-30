@@ -6,7 +6,6 @@ import {
   BriefcaseBusiness,
   CheckCircle2,
   Clock,
-  Loader2,
   MapPin,
   Search,
   ShieldCheck,
@@ -241,7 +240,6 @@ export default function Services() {
   const [services, setServices] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
   const [city, setCity] = useState(searchParams.get('city') || preferredSearchCity);
   const [searchPlaceId, setSearchPlaceId] = useState(searchParams.get('placeId') || user?.searchPlaceId || '');
@@ -300,11 +298,6 @@ export default function Services() {
     let isMounted = true;
     const requestedCity = city || preferredSearchCity;
 
-    Promise.resolve().then(() => {
-      if (isMounted) {
-        setRecommendationsLoading(true);
-      }
-    });
     getRecommendedServices({
       keyword,
       categoryName,
@@ -320,11 +313,6 @@ export default function Services() {
       .catch(() => {
         if (isMounted) {
           setRecommendations([]);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setRecommendationsLoading(false);
         }
       });
 
@@ -841,11 +829,7 @@ export default function Services() {
               </div>
               <span>
                 {sort === 'recommended' ? (
-                  recommendationsLoading ? (
-                    <Loader2 size={15} className="spinner" />
-                  ) : (
-                    <ShieldCheck size={15} />
-                  )
+                  <ShieldCheck size={15} />
                 ) : (
                   <ArrowUpDown size={15} />
                 )}

@@ -6,7 +6,6 @@ import {
   Clock,
   CreditCard,
   FileText,
-  Loader2,
   MapPin,
   MessageSquare,
   Send,
@@ -644,7 +643,7 @@ export default function ServiceDetails() {
                     >
                       {sending ? (
                         <>
-                          <Loader2 size={18} className="spinner" /> Envoi...
+                          <Send size={18} /> Envoi...
                         </>
                       ) : (
                         <>
@@ -682,12 +681,8 @@ export default function ServiceDetails() {
                 onClick={handleContactFreelancer}
                 disabled={contacting}
               >
-                {contacting ? (
-                  <Loader2 size={16} className="spinner" />
-                ) : (
-                  <MessageSquare size={16} />
-                )}
-                Contacter
+                <MessageSquare size={16} />
+                {contacting ? 'Contact...' : 'Contacter'}
               </button>
               {contactError && <p className="form-error">{contactError}</p>}
             </div>

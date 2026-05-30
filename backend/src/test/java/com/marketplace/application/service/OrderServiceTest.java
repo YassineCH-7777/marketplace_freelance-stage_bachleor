@@ -1,32 +1,35 @@
 package com.marketplace.application.service;
 
-import com.marketplace.web.dto.order.OrderDto;
-import com.marketplace.web.dto.order.AdminDisputeDecisionDto;
-import com.marketplace.web.dto.order.OrderDisputeRequestDto;
-import com.marketplace.web.dto.order.OrderExecutionUpdateDto;
-import com.marketplace.domain.model.Category;
-import com.marketplace.domain.model.FreelancerProfile;
-import com.marketplace.domain.model.Order;
-import com.marketplace.domain.model.OrderRequest;
-import com.marketplace.domain.model.Review;
-import com.marketplace.domain.model.ServiceEntity;
-import com.marketplace.domain.model.User;
-import com.marketplace.domain.enums.OrderStatus;
-import com.marketplace.domain.enums.PaymentStatus;
-import com.marketplace.domain.model.Attachment;
-import com.marketplace.domain.enums.MissionActivityType;
-import com.marketplace.domain.model.MissionActivity;
-import com.marketplace.web.exception.BusinessException;
-import com.marketplace.web.exception.UnauthorizedException;
-import com.marketplace.infrastructure.persistence.AttachmentRepository;
-import com.marketplace.infrastructure.persistence.FreelancerProfileRepository;
-import com.marketplace.infrastructure.persistence.MissionActivityRepository;
-import com.marketplace.infrastructure.persistence.MissionMilestoneRepository;
-import com.marketplace.infrastructure.persistence.OrderRepository;
-import com.marketplace.infrastructure.persistence.OrderRequestRepository;
-import com.marketplace.infrastructure.persistence.ReviewRepository;
-import com.marketplace.infrastructure.persistence.ServiceRepository;
-import com.marketplace.infrastructure.persistence.UserRepository;
+import com.marketplace.dto.order.OrderDto;
+import com.marketplace.dto.order.AdminDisputeDecisionDto;
+import com.marketplace.dto.order.OrderDisputeRequestDto;
+import com.marketplace.dto.order.OrderExecutionUpdateDto;
+import com.marketplace.model.Category;
+import com.marketplace.model.FreelancerProfile;
+import com.marketplace.model.Order;
+import com.marketplace.model.OrderRequest;
+import com.marketplace.model.Review;
+import com.marketplace.model.ServiceEntity;
+import com.marketplace.model.User;
+import com.marketplace.enums.OrderStatus;
+import com.marketplace.enums.PaymentStatus;
+import com.marketplace.model.Attachment;
+import com.marketplace.enums.MissionActivityType;
+import com.marketplace.model.MissionActivity;
+import com.marketplace.exception.BusinessException;
+import com.marketplace.exception.UnauthorizedException;
+import com.marketplace.persistence.AttachmentRepository;
+import com.marketplace.persistence.FreelancerProfileRepository;
+import com.marketplace.persistence.MissionActivityRepository;
+import com.marketplace.persistence.MissionMilestoneRepository;
+import com.marketplace.persistence.OrderRepository;
+import com.marketplace.persistence.OrderRequestRepository;
+import com.marketplace.persistence.ReviewRepository;
+import com.marketplace.persistence.ServiceRepository;
+import com.marketplace.persistence.UserRepository;
+import com.marketplace.service.MessageService;
+import com.marketplace.service.OrderService;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -230,7 +233,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderDto result = orderService.requestRevision(17L, 5L,
-                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                com.marketplace.dto.order.OrderClientDecisionDto.builder()
                         .comment("Merci de corriger la livraison.")
                         .build());
 
@@ -250,7 +253,7 @@ class OrderServiceTest {
         when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> orderService.requestRevision(17L, 5L,
-                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                com.marketplace.dto.order.OrderClientDecisionDto.builder()
                         .comment("Encore une correction.")
                         .build()))
                 .isInstanceOf(BusinessException.class)
@@ -268,7 +271,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderDto result = orderService.acceptDelivery(17L, 5L,
-                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                com.marketplace.dto.order.OrderClientDecisionDto.builder()
                         .comment("Livraison conforme.")
                         .build());
 
@@ -291,7 +294,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderDto result = orderService.requestRevision(17L, 5L,
-                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                com.marketplace.dto.order.OrderClientDecisionDto.builder()
                         .comment("Merci de corriger le fichier final.")
                         .build());
 
@@ -313,7 +316,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderDto result = orderService.acceptDelivery(17L, 5L,
-                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                com.marketplace.dto.order.OrderClientDecisionDto.builder()
                         .comment("Fichier de livraison verifie.")
                         .build());
 
@@ -345,7 +348,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderDto result = orderService.acceptDelivery(17L, 5L,
-                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                com.marketplace.dto.order.OrderClientDecisionDto.builder()
                         .comment("Relivraison conforme.")
                         .build());
 
@@ -376,7 +379,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderDto result = orderService.requestRevision(17L, 5L,
-                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                com.marketplace.dto.order.OrderClientDecisionDto.builder()
                         .comment("Il reste une correction a faire.")
                         .build());
 
@@ -407,7 +410,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderDto result = orderService.requestRevision(17L, 5L,
-                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                com.marketplace.dto.order.OrderClientDecisionDto.builder()
                         .comment("Il faut encore ajuster ce fichier.")
                         .build());
 
@@ -436,7 +439,7 @@ class OrderServiceTest {
                 .thenReturn(List.of(staleDeliveryProof));
 
         assertThatThrownBy(() -> orderService.requestRevision(17L, 5L,
-                com.marketplace.web.dto.order.OrderClientDecisionDto.builder()
+                com.marketplace.dto.order.OrderClientDecisionDto.builder()
                         .comment("Encore une correction.")
                         .build()))
                 .isInstanceOf(BusinessException.class)

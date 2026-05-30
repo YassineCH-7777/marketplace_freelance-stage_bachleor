@@ -1,0 +1,16 @@
+package com.marketplace.enums;
+
+public enum MissionActivityType {
+    CREATED,
+    ACCEPTED,
+    STARTED,
+    PROGRESS_UPDATED,
+    MILESTONE_UPDATED,
+    DELIVERY_SUBMITTED,
+    CLIENT_ACCEPTED,
+    REVISION_REQUESTED,
+    STATUS_CHANGED,
+    PAYMENT_UPDATED,
+    CANCELLED,
+    DISPUTED
+}

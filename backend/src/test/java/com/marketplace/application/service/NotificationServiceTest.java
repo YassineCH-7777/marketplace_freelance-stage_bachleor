@@ -1,12 +1,13 @@
 package com.marketplace.application.service;
 
-import com.marketplace.domain.enums.NotificationType;
-import com.marketplace.domain.model.Notification;
-import com.marketplace.domain.model.User;
-import com.marketplace.infrastructure.persistence.ConversationRepository;
-import com.marketplace.infrastructure.persistence.NotificationRepository;
-import com.marketplace.infrastructure.persistence.UserRepository;
-import com.marketplace.web.dto.notification.NotificationDto;
+import com.marketplace.enums.NotificationType;
+import com.marketplace.model.Notification;
+import com.marketplace.model.User;
+import com.marketplace.persistence.ConversationRepository;
+import com.marketplace.persistence.NotificationRepository;
+import com.marketplace.persistence.UserRepository;
+import com.marketplace.service.NotificationService;
+import com.marketplace.dto.notification.NotificationDto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

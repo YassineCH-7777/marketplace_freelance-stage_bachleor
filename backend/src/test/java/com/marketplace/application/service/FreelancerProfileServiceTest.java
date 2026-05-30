@@ -1,11 +1,13 @@
 package com.marketplace.application.service;
 
-import com.marketplace.web.dto.user.FreelancerProfileDto;
-import com.marketplace.domain.model.FreelancerProfile;
-import com.marketplace.domain.model.User;
-import com.marketplace.domain.enums.UserRole;
-import com.marketplace.web.exception.BusinessException;
-import com.marketplace.infrastructure.persistence.FreelancerProfileRepository;
+import com.marketplace.dto.user.FreelancerProfileDto;
+import com.marketplace.model.FreelancerProfile;
+import com.marketplace.model.User;
+import com.marketplace.enums.UserRole;
+import com.marketplace.exception.BusinessException;
+import com.marketplace.persistence.FreelancerProfileRepository;
+import com.marketplace.service.FreelancerProfileService;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
