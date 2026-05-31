@@ -16,6 +16,9 @@
   align-items: center;
   justify-content: space-between;
   min-height: 4rem;
+  max-width: 112rem;
+  padding-right: clamp(1.25rem, 3.4vw, 4rem);
+  padding-left: clamp(1.25rem, 3.4vw, 4rem);
 }
 
 .navbar-brand {

@@ -1,26 +1,20 @@
-import { Loader2 } from 'lucide-react';
+import { Briefcase, Loader2, Sparkles } from 'lucide-react';
 
 export default function Loader({ label = 'Chargement...' }) {
   return (
-    <div
-      style={{
-        minHeight: '40vh',
-        display: 'grid',
-        placeItems: 'center',
-        padding: '6rem 1.5rem',
-      }}
-    >
-      <div
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          color: 'var(--text-muted)',
-          fontSize: 'var(--text-sm)',
-        }}
-      >
-        <Loader2 size={22} className="spinner" />
-        <span>{label}</span>
+    <div className="premium-loader" role="status" aria-live="polite">
+      <div className="premium-loader-card">
+        <div className="premium-loader-mark" aria-hidden="true">
+          <Briefcase size={23} />
+          <Sparkles size={13} />
+        </div>
+        <div className="premium-loader-copy">
+          <strong>ProxiSkills</strong>
+          <span>
+            <Loader2 size={16} className="spinner" />
+            {label}
+          </span>
+        </div>
       </div>
     </div>
   );
