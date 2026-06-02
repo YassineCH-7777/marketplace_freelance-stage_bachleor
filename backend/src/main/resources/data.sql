@@ -248,7 +248,7 @@ JOIN freelancer_profiles fp ON s.freelancer_id = fp.id
 JOIN users u_client ON u_client.email = 'client1@marketplace.com'
 WHERE s.slug = 'support-informatique-pro'
 LIMIT 1
-ON CONFLICT (id) DO NOTHING; -- On ignore si déjà présent (id 1000 est arbitraire ici pour le test)
+ON CONFLICT (request_id) DO NOTHING;
 
 -- 6B) JALONS ET ACTIVITE DE MISSION
 INSERT INTO mission_milestones (order_id, title, description, amount, deadline, status, sort_order)
