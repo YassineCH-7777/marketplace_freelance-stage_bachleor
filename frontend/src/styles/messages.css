@@ -1,7 +1,7 @@
 /* ===== Messaging Styles ===== */
 .chat-layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr);
   gap: 0;
   height: 65vh;
   background: var(--bg-card);

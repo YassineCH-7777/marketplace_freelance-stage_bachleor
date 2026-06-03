@@ -105,6 +105,8 @@
   --text-3xl: 1.875rem;
   --text-4xl: 2.25rem;
   --text-5xl: 3rem;
+  --container-max: 112rem;
+  --container-padding: clamp(1rem, 3.4vw, 4rem);
 }
 
 *,
@@ -168,15 +170,9 @@ img {
 
 .container {
   width: 100%;
-  max-width: 80rem;
+  max-width: var(--container-max);
   margin: 0 auto;
-  padding: 0 var(--space-5);
-}
-
-@media (min-width: 768px) {
-  .container {
-    padding: 0 var(--space-8);
-  }
+  padding: 0 var(--container-padding);
 }
 
 .sr-only {
@@ -891,6 +887,6 @@ button.attachment-item {
 
 @media (max-width: 768px) {
   .container {
-    padding: 0 var(--space-4);
+    padding: 0 var(--container-padding);
   }
 }

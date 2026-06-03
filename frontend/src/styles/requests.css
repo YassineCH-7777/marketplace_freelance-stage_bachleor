@@ -19,7 +19,7 @@
 .requests-urgent-filter input { accent-color: var(--accent-500); }
 
 /* Grid */
-.requests-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--space-6); }
+.requests-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr)); gap: var(--space-6); }
 
 /* Request Card */
 .request-card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-6); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); cursor: pointer; transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base); }
@@ -202,7 +202,7 @@
 .requests-empty h3 { font-size: var(--text-xl); color: var(--text-primary); }
 
 /* Detail Page */
-.request-detail { display: grid; grid-template-columns: 1fr 320px; gap: var(--space-8); align-items: flex-start; }
+.request-detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem); gap: clamp(var(--space-5), 2vw, var(--space-8)); align-items: flex-start; }
 .request-detail-main { display: flex; flex-direction: column; gap: var(--space-6); }
 .request-detail-header h1 { font-size: var(--text-2xl); font-weight: 800; margin-bottom: var(--space-3); }
 .request-detail-badges { display: flex; flex-wrap: wrap; gap: var(--space-2); }

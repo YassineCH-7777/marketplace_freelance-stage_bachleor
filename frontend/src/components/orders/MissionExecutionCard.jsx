@@ -187,7 +187,7 @@ export default function MissionExecutionCard({
 
       <div className="mission-escrow-block">
         <span className="mission-meta-label">
-          <ShieldCheck size={14} /> Escrow simule
+          <ShieldCheck size={14} /> Paiement simule
         </span>
         <div className="mission-escrow-steps">
           {escrowSteps.map((step) => (

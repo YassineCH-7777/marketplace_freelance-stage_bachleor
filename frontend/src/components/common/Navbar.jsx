@@ -172,6 +172,7 @@ export default function Navbar() {
         </Link>
 
         <div className={`navbar-links ${mobileOpen ? 'active' : ''}`}>
+          <Link to="/" className="nav-link" onClick={closeMenus}>Accueil</Link>
           <Link to="/services" className="nav-link" onClick={closeMenus}>Services</Link>
           <Link to="/requests" className="nav-link" onClick={closeMenus}>Demandes</Link>
           {isHomePage && (
