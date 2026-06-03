@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { getActiveServices, getRecommendedServices } from '@/api/serviceApi';
 import { addServiceFavorite, removeServiceFavorite } from '@/api/favoriteApi';
+import CustomSelect from '@/components/common/CustomSelect';
 import FavoriteButton from '@/components/common/FavoriteButton';
 import GoogleLocationInput from '@/components/common/GoogleLocationInput';
 import MatchingAssistant from '@/components/services/MatchingAssistant';
@@ -564,9 +565,9 @@ export default function Services() {
     }, 0);
   };
 
-  const handleSelectChange = (setter, key) => (event) => {
-    setter(event.target.value);
-    updateSearchParams({ [key]: event.target.value });
+  const handleSelectValueChange = (setter, key) => (nextValue) => {
+    setter(nextValue);
+    updateSearchParams({ [key]: nextValue });
   };
 
   const handleSearchLocationTextChange = (value) => {
@@ -705,22 +706,18 @@ export default function Services() {
             <Search size={16} />
             Rechercher
           </button>
-          <label className="services-sort-control">
+          <div className="services-sort-control">
             <span className="sr-only">Trier les services</span>
             <ArrowUpDown size={16} />
-            <select
+            <CustomSelect
+              id="services-sort"
+              label="Trier les services"
               className="services-sort-select"
+              options={SORT_OPTIONS}
               value={sort}
-              onChange={handleSelectChange(setSort, 'sort')}
-              aria-label="Trier les services"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={handleSelectValueChange(setSort, 'sort')}
+            />
+          </div>
         </form>
 
         <div className="services-content">
@@ -782,17 +779,20 @@ export default function Services() {
               </div>
             </div>
 
-            <label className="services-filter-field">
+            <div className="services-filter-field">
               <span>Categorie</span>
-              <select value={categoryName} onChange={handleSelectChange(setCategoryName, 'categoryName')}>
-                <option value="">Toutes</option>
-                {categoryOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <CustomSelect
+                id="services-category-filter"
+                label="Filtrer par categorie"
+                className="services-filter-select"
+                options={[
+                  { value: '', label: 'Toutes' },
+                  ...categoryOptions.map((option) => ({ value: option, label: option })),
+                ]}
+                value={categoryName}
+                onChange={handleSelectValueChange(setCategoryName, 'categoryName')}
+              />
+            </div>
 
             <div className="services-filter-field">
               <span>Prix (MAD)</span>

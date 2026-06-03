@@ -377,7 +377,6 @@
 }
 
 .floating-ai-preview-control input,
-.floating-ai-preview-control select,
 .floating-ai-preview-control textarea {
   width: 100%;
   min-width: 0;
@@ -395,11 +394,44 @@
 }
 
 .floating-ai-preview-control input:focus,
-.floating-ai-preview-control select:focus,
 .floating-ai-preview-control textarea:focus {
   background: white;
   border-color: #10b981;
   box-shadow: 0 0 0 3px oklch(0.65 0.15 160 / 0.18);
+}
+
+.floating-ai-custom-select .custom-select-trigger {
+  min-height: 2.25rem;
+  padding: 0.5rem 0.65rem;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.4;
+  background: oklch(1 0 0 / 0.82);
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.floating-ai-custom-select .custom-select-trigger:hover,
+.floating-ai-custom-select.is-open .custom-select-trigger,
+.floating-ai-custom-select .custom-select-trigger:focus-visible {
+  background: white;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px oklch(0.65 0.15 160 / 0.18);
+}
+
+.floating-ai-custom-select .custom-select-icon,
+.floating-ai-custom-select .custom-select-check {
+  color: #047857;
+}
+
+.floating-ai-custom-select .custom-select-option:hover,
+.floating-ai-custom-select .custom-select-option.is-active,
+.floating-ai-custom-select .custom-select-option.is-selected {
+  color: #047857;
+  background: #dcfce7;
 }
 
 .floating-ai-preview-control textarea {

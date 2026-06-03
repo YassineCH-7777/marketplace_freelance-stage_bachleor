@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Ban, Briefcase, CheckCircle2, Loader2 } from 'lucide-react';
 import { getAdminServices, moderateAdminService } from '@/api/adminApi';
+import CustomSelect from '@/components/common/CustomSelect';
 import { formatAdminMoney, getAdminBadgeClass } from '@/utils/adminMeta';
 import '@/styles/dashboard.css';
+
+const serviceStatusFilterOptions = [
+  { value: 'ALL', label: 'Tous les statuts' },
+  { value: 'PUBLISHED', label: 'Publies' },
+  { value: 'SUSPENDED', label: 'Suspendus' },
+  { value: 'DRAFT', label: 'Brouillons' },
+  { value: 'ARCHIVED', label: 'Archives' },
+];
 
 export default function AdminServices() {
   const [services, setServices] = useState([]);
@@ -64,13 +73,12 @@ export default function AdminServices() {
               </span>
               <h2>Moderation des annonces</h2>
             </div>
-            <select value={serviceStatusFilter} onChange={(event) => setServiceStatusFilter(event.target.value)}>
-              <option value="ALL">Tous les statuts</option>
-              <option value="PUBLISHED">Publies</option>
-              <option value="SUSPENDED">Suspendus</option>
-              <option value="DRAFT">Brouillons</option>
-              <option value="ARCHIVED">Archives</option>
-            </select>
+            <CustomSelect
+              label="Filtrer par statut"
+              options={serviceStatusFilterOptions}
+              value={serviceStatusFilter}
+              onChange={setServiceStatusFilter}
+            />
           </div>
 
           {loading ? (

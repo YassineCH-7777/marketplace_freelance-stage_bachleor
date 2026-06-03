@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import AttachmentPicker from '@/components/common/AttachmentPicker';
+import CustomSelect from '@/components/common/CustomSelect';
 import { Loader2, Paperclip, Save, X } from 'lucide-react';
 import { getMissionProgress, hasDeliveryAttachment } from '@/utils/orderExecution';
 
@@ -80,17 +81,14 @@ export default function MissionUpdateModal({ order, onClose, onSubmit, submittin
         <form className="modal-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Etape actuelle</label>
-            <select
-              className="form-select"
+            <CustomSelect
+              id="mission-status"
+              label="Etape actuelle"
+              className="form-custom-select"
+              options={STATUS_OPTIONS}
               value={form.status}
-              onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              onChange={(status) => setForm((current) => ({ ...current, status }))}
+            />
           </div>
 
           <div className="mission-progress-editor">
@@ -158,18 +156,15 @@ export default function MissionUpdateModal({ order, onClose, onSubmit, submittin
           <div className="mission-attachment-box">
             <div className="mission-attachment-head">
               <label className="form-label"><Paperclip size={14} /> Fichiers de mission</label>
-              <select
-                className="form-select"
+              <CustomSelect
+                id="mission-attachment-type"
+                label="Type de fichier"
+                className="form-custom-select mission-attachment-select"
+                options={attachmentTypeOptions}
                 value={attachmentType}
-                onChange={(event) => setAttachmentType(event.target.value)}
+                onChange={setAttachmentType}
                 disabled={submitting}
-              >
-                {attachmentTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <AttachmentPicker
               files={attachmentFiles}

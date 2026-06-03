@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Bot, CheckCircle, FileText, Loader2, MessageSquare, Search, Send, Sparkles, UserPlus, X } from 'lucide-react';
 import { getAssistantWebhookUrl, sendAssistantMessage } from '@/api/assistantApi';
 import { getRecommendedServices, matchClientNeed } from '@/api/serviceApi';
+import CustomSelect from '@/components/common/CustomSelect';
 import useAuth from '@/hooks/useAuth';
 import '@/styles/ai-assistant.css';
 
@@ -1455,9 +1456,15 @@ function EditablePreviewField({ field, value, onChange }) {
     field.control === 'number' ? String(normalizeEditableNumber(value) ?? '') : toEditableValue(value);
   const selectOptions = field.options || [];
   const hasCurrentSelectValue = selectOptions.some(([optionValue]) => optionValue === editableValue);
+  const normalizedSelectOptions =
+    !hasCurrentSelectValue && editableValue ? [[editableValue, editableValue], ...selectOptions] : selectOptions;
 
   const handleChange = (event) => {
     onChange(field.key, event.target.value);
+  };
+
+  const handleSelectChange = (nextValue) => {
+    onChange(field.key, nextValue);
   };
 
   return (
@@ -1465,14 +1472,17 @@ function EditablePreviewField({ field, value, onChange }) {
       <span>{field.label}</span>
       <div className="floating-ai-preview-control">
         {field.control === 'select' ? (
-          <select id={inputId} value={editableValue} onChange={handleChange}>
-            {!hasCurrentSelectValue && editableValue && <option value={editableValue}>{editableValue}</option>}
-            {selectOptions.map(([optionValue, optionLabel]) => (
-              <option value={optionValue} key={optionValue || optionLabel}>
-                {optionLabel}
-              </option>
-            ))}
-          </select>
+          <CustomSelect
+            id={inputId}
+            label={field.label}
+            className="floating-ai-custom-select"
+            options={normalizedSelectOptions.map(([optionValue, optionLabel]) => ({
+              value: optionValue,
+              label: optionLabel,
+            }))}
+            value={editableValue}
+            onChange={handleSelectChange}
+          />
         ) : field.control === 'textarea' || field.control === 'list' ? (
           <textarea
             id={inputId}

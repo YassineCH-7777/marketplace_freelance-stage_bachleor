@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import { Bell, Loader2, Megaphone } from 'lucide-react';
 import { sendAdminSystemNotification } from '@/api/adminApi';
+import CustomSelect from '@/components/common/CustomSelect';
 import { notificationInitialState } from '@/utils/adminMeta';
 import '@/styles/dashboard.css';
+
+const audienceOptions = [
+  { value: 'ALL', label: 'Tous les utilisateurs' },
+  { value: 'CLIENT', label: 'Clients' },
+  { value: 'FREELANCER', label: 'Freelances' },
+];
 
 export default function AdminNotifications() {
   const [notificationForm, setNotificationForm] = useState(notificationInitialState);
@@ -53,17 +60,13 @@ export default function AdminNotifications() {
             <div className="profile-form">
               <div className="form-group">
                 <label className="form-label">Audience</label>
-                <select
-                  className="form-input"
+                <CustomSelect
+                  label="Audience"
+                  options={audienceOptions}
                   value={notificationForm.audience}
-                  onChange={(event) =>
-                    setNotificationForm((current) => ({ ...current, audience: event.target.value }))
-                  }
-                >
-                  <option value="ALL">Tous les utilisateurs</option>
-                  <option value="CLIENT">Clients</option>
-                  <option value="FREELANCER">Freelances</option>
-                </select>
+                  onChange={(audience) => setNotificationForm((current) => ({ ...current, audience }))}
+                  className="form-custom-select"
+                />
               </div>
               <div className="form-group full-width">
                 <label className="form-label">Message</label>

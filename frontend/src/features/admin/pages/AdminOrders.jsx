@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ClipboardList, Loader2, RotateCcw, X } from 'lucide-react';
 import { getAdminOrders, resolveAdminOrderDispute } from '@/api/adminApi';
+import CustomSelect from '@/components/common/CustomSelect';
 import { formatAdminDate, formatAdminMoney, getAdminBadgeClass } from '@/utils/adminMeta';
 import { getMissionProgress, getOrderStatusMeta, getPaymentStatusMeta } from '@/utils/orderExecution';
 import '@/styles/dashboard.css';
@@ -10,6 +11,19 @@ const disputeActionLabels = {
   REFUND: 'Rembourser',
   CLOSE: 'Cloturer',
 };
+
+const orderStatusFilterOptions = [
+  { value: 'ALL', label: 'Tous les statuts' },
+  { value: 'PENDING', label: 'En attente' },
+  { value: 'ACCEPTED', label: 'Validees' },
+  { value: 'IN_PROGRESS', label: 'En cours' },
+  { value: 'WAITING_CLIENT', label: 'Attente client' },
+  { value: 'DELIVERED', label: 'Livrees' },
+  { value: 'REVISION', label: 'Revision' },
+  { value: 'COMPLETED', label: 'Terminees' },
+  { value: 'CANCELLED', label: 'Annulees' },
+  { value: 'DISPUTED', label: 'Litiges' },
+];
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
@@ -99,18 +113,12 @@ export default function AdminOrders() {
               </span>
               <h2>Suivi des missions</h2>
             </div>
-            <select value={orderStatusFilter} onChange={(event) => setOrderStatusFilter(event.target.value)}>
-              <option value="ALL">Tous les statuts</option>
-              <option value="PENDING">En attente</option>
-              <option value="ACCEPTED">Validees</option>
-              <option value="IN_PROGRESS">En cours</option>
-              <option value="WAITING_CLIENT">Attente client</option>
-              <option value="DELIVERED">Livrees</option>
-              <option value="REVISION">Revision</option>
-              <option value="COMPLETED">Terminees</option>
-              <option value="CANCELLED">Annulees</option>
-              <option value="DISPUTED">Litiges</option>
-            </select>
+            <CustomSelect
+              label="Filtrer par statut"
+              options={orderStatusFilterOptions}
+              value={orderStatusFilter}
+              onChange={setOrderStatusFilter}
+            />
           </div>
 
           {loading ? (

@@ -4,6 +4,7 @@ import { createServiceRequest } from '@/api/requestApi';
 import { getCategories } from '@/api/serviceApi';
 import { uploadServiceRequestAttachments } from '@/api/attachmentApi';
 import AttachmentPicker from '@/components/common/AttachmentPicker';
+import CustomSelect from '@/components/common/CustomSelect';
 import { Plus, Send, ArrowLeft, Paperclip } from 'lucide-react';
 import '@/styles/requests.css';
 
@@ -25,8 +26,18 @@ export default function CreateServiceRequest() {
     setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
+  const handleCategoryChange = (categoryId) => {
+    setForm(prev => ({ ...prev, categoryId }));
+    setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.categoryId) {
+      setError('Selectionnez une categorie.');
+      return;
+    }
+
     setError(''); setLoading(true);
     try {
       const skills = form.requiredSkills ? form.requiredSkills.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -68,7 +79,7 @@ export default function CreateServiceRequest() {
           <AttachmentPicker files={attachments} onChange={setAttachments} disabled={loading} />
         </div>
         <div className="form-row">
-          <div className="form-group"><label className="form-label">Categorie *</label><select className="form-select" name="categoryId" value={form.categoryId} onChange={handleChange} required><option value="">Selectionnez...</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+          <div className="form-group"><label className="form-label">Categorie *</label><CustomSelect id="request-category" label="Categorie" className="form-custom-select" options={[{ value: '', label: 'Selectionnez...' }, ...categories.map(c => ({ value: String(c.id), label: c.name }))]} value={form.categoryId} onChange={handleCategoryChange} /></div>
           <div className="form-group"><label className="form-label">Ville</label><input className="form-input" name="city" value={form.city} onChange={handleChange} placeholder="Ex: Casablanca" /></div>
         </div>
         <div className="form-row">

@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Ban, Loader2, Search, UserCheck, Users } from 'lucide-react';
 import { activateAdminUser, getAdminUsers, suspendAdminUser } from '@/api/adminApi';
+import CustomSelect from '@/components/common/CustomSelect';
 import { formatAdminDate, getAdminBadgeClass } from '@/utils/adminMeta';
 import '@/styles/dashboard.css';
+
+const userRoleFilterOptions = [
+  { value: 'ALL', label: 'Tous les roles' },
+  { value: 'CLIENT', label: 'Clients' },
+  { value: 'FREELANCER', label: 'Freelances' },
+  { value: 'ADMIN', label: 'Admins' },
+];
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
@@ -83,12 +91,12 @@ export default function AdminUsers() {
                   placeholder="Rechercher..."
                 />
               </div>
-              <select value={userRoleFilter} onChange={(event) => setUserRoleFilter(event.target.value)}>
-                <option value="ALL">Tous les roles</option>
-                <option value="CLIENT">Clients</option>
-                <option value="FREELANCER">Freelances</option>
-                <option value="ADMIN">Admins</option>
-              </select>
+              <CustomSelect
+                label="Filtrer par role"
+                options={userRoleFilterOptions}
+                value={userRoleFilter}
+                onChange={setUserRoleFilter}
+              />
             </div>
           </div>
 

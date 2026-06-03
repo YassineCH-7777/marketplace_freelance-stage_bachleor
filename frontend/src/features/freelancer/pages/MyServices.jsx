@@ -18,6 +18,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import CustomSelect from '@/components/common/CustomSelect';
 import useAuth from '@/hooks/useAuth';
 import { getActiveServices, getCategories } from '@/api/serviceApi';
 import {
@@ -59,6 +60,8 @@ const PRICING_OPTIONS = [
 
 const AVAILABILITY_OPTIONS = ['Disponible', 'Occupe', 'A confirmer'];
 const COMMUNICATION_OPTIONS = ['Messagerie plateforme', 'Appel', 'Visio', 'Email'];
+const availabilitySelectOptions = AVAILABILITY_OPTIONS.map((option) => ({ value: option, label: option }));
+const communicationSelectOptions = COMMUNICATION_OPTIONS.map((option) => ({ value: option, label: option }));
 
 function buildEmptyForm(defaultCity = '') {
   return {
@@ -500,19 +503,17 @@ export default function MyServices() {
             </div>
             <div className="form-group">
               <label className="form-label">Categorie</label>
-              <select
-                className="form-input"
+              <CustomSelect
+                id="service-category"
+                label="Categorie"
+                className="form-custom-select"
+                options={[
+                  { value: '', label: 'Choisir une categorie' },
+                  ...categories.map((category) => ({ value: String(category.id), label: category.name })),
+                ]}
                 value={form.categoryId}
-                onChange={(event) => updateForm({ categoryId: event.target.value })}
-                required
-              >
-                <option value="">Choisir une categorie</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(categoryId) => updateForm({ categoryId })}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Sous-categorie</label>
@@ -647,17 +648,14 @@ export default function MyServices() {
             </div>
             <div className="form-group">
               <label className="form-label">Disponibilite actuelle</label>
-              <select
-                className="form-input"
+              <CustomSelect
+                id="service-availability"
+                label="Disponibilite actuelle"
+                className="form-custom-select"
+                options={availabilitySelectOptions}
                 value={form.availability}
-                onChange={(event) => updateForm({ availability: event.target.value })}
-              >
-                {AVAILABILITY_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                onChange={(availability) => updateForm({ availability })}
+              />
             </div>
             <div className="form-group full-width">
               <label className="form-label">Jours de travail</label>
@@ -795,17 +793,14 @@ export default function MyServices() {
             </div>
             <div className="form-group">
               <label className="form-label">Mode de communication</label>
-              <select
-                className="form-input"
+              <CustomSelect
+                id="service-communication-mode"
+                label="Mode de communication"
+                className="form-custom-select"
+                options={communicationSelectOptions}
                 value={form.communicationMode}
-                onChange={(event) => updateForm({ communicationMode: event.target.value })}
-              >
-                {COMMUNICATION_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                onChange={(communicationMode) => updateForm({ communicationMode })}
+              />
             </div>
             <div className="form-group full-width">
               <label className="form-label">Conditions d'annulation</label>
