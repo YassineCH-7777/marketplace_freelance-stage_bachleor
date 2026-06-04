@@ -63,7 +63,6 @@ export default function CreateServiceRequest() {
   return (
     <div className="requests-page"><div className="container">
       <div className="create-request-header animate-fade-in-up">
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate(-1)}><ArrowLeft size={14} /> Retour</button>
         <h1><Plus size={22} /> Publier une demande</h1>
         <p>Décrivez votre besoin et les freelances pourront vous proposer leurs services.</p>
       </div>
