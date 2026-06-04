@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { getMyServiceRequests } from '@/api/requestApi';
-import { Plus, FileText, ChevronRight, Zap, MapPin } from 'lucide-react';
+import { Plus, FileText, ChevronRight, Zap, MapPin, CheckCircle, X } from 'lucide-react';
 import '@/styles/requests.css';
 
 const statusMap = {
@@ -13,12 +13,28 @@ const statusMap = {
 };
 
 export default function MyServiceRequests() {
+  const location = useLocation();
+  const refreshRequestsAt = location.state?.refreshRequestsAt;
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [successMessage, setSuccessMessage] = useState(() => location.state?.message || '');
 
   useEffect(() => {
-    getMyServiceRequests().then(r => setRequests(r.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    let isMounted = true;
+
+    getMyServiceRequests()
+      .then(r => {
+        if (isMounted) setRequests(r.data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshRequestsAt]);
 
   return (
     <div className="requests-page"><div className="container">
@@ -26,6 +42,12 @@ export default function MyServiceRequests() {
         <h1>Mes demandes</h1>
         <Link to="/client/requests/new" className="btn btn-primary"><Plus size={16} /> Nouvelle demande</Link>
       </div>
+      {successMessage && (
+        <div className="request-success-banner animate-fade-in">
+          <CheckCircle size={16} /> {successMessage}
+          <button type="button" onClick={() => setSuccessMessage('')} aria-label="Fermer"><X size={14} /></button>
+        </div>
+      )}
       {loading ? (
         <div className="requests-loading animate-fade-in"><div className="spinner-dots"><span /><span /><span /></div></div>
       ) : requests.length === 0 ? (

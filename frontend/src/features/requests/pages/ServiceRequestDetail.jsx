@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
 import { getRequestDetail } from '@/api/requestApi';
 import { getServiceRequestDetail, acceptProposal, rejectProposal, closeServiceRequest } from '@/api/requestApi';
 import { submitProposal } from '@/api/requestApi';
 import AttachmentList from '@/components/common/AttachmentList';
-import { MapPin, Calendar, Coins, Zap, Star, CheckCircle, XCircle, Clock, Send, Award, X, Paperclip, ListChecks, Plus, Trash2 } from 'lucide-react';
+import { MapPin, Calendar, Coins, Zap, Star, CheckCircle, XCircle, Clock, Send, Award, X, Paperclip, ListChecks, Plus, Trash2, ArrowLeft } from 'lucide-react';
 import '@/styles/requests.css';
 
 const DEFAULT_PROPOSAL_STEPS = [
@@ -86,12 +86,16 @@ function RequestDetailSkeleton() {
 
 export default function ServiceRequestDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [closingRequest, setClosingRequest] = useState(false);
+  const [closeError, setCloseError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   // Proposal form
@@ -215,14 +219,22 @@ export default function ServiceRequestDetail() {
   };
 
   const handleCloseRequest = async () => {
-    if (!window.confirm('Cloturer cette demande ? Les candidatures en attente seront automatiquement rejetees.')) return;
+    setClosingRequest(true);
+    setProposalError('');
+    setCloseError('');
     try {
       await closeServiceRequest(id);
-      setSuccessMessage('Demande cloturee.');
-      const r = await getServiceRequestDetail(id);
-      setRequest(r.data);
+      setShowCloseConfirm(false);
+      navigate('/client/requests', {
+        state: {
+          refreshRequestsAt: Date.now(),
+          message: 'Demande clôturée.',
+        },
+      });
     } catch (err) {
-      setProposalError(err.response?.data?.message || 'Erreur.');
+      setCloseError(err.response?.data?.message || 'Erreur lors de la clôture.');
+    } finally {
+      setClosingRequest(false);
     }
   };
 
@@ -275,6 +287,7 @@ export default function ServiceRequestDetail() {
 
         <div className="request-detail animate-fade-in-up">
           <div className="request-detail-main">
+            <button type="button" className="request-detail-back" onClick={() => navigate(-1)}><ArrowLeft size={14} /> Retour aux demandes</button>
             <div className="request-detail-header">
               <div>
                 <h1>{request.title}</h1>
@@ -410,7 +423,16 @@ export default function ServiceRequestDetail() {
                 <div className="request-proposals-header">
                   <h3><Award size={18} /> Offres personnalisees ({request.proposals.length})</h3>
                   {(request.status === 'OPEN' || request.status === 'IN_DISCUSSION' || request.status === 'IN_PROGRESS') && (
-                    <button className="btn btn-secondary btn-sm" onClick={handleCloseRequest}>Cloturer la demande</button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        setCloseError('');
+                        setShowCloseConfirm(true);
+                      }}
+                      disabled={closingRequest}
+                    >
+                      Clôturer la demande
+                    </button>
                   )}
                 </div>
                 {proposalError && <div className="form-error" style={{ marginBottom: '1rem' }}>{proposalError}</div>}
@@ -512,6 +534,58 @@ export default function ServiceRequestDetail() {
             </div>
           </aside>
         </div>
+
+        {showCloseConfirm && (
+          <div
+            className="request-confirm-overlay animate-fade-in"
+            role="presentation"
+            onClick={() => {
+              if (!closingRequest) setShowCloseConfirm(false);
+            }}
+          >
+            <div
+              className="request-confirm-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="close-request-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="request-confirm-close"
+                aria-label="Fermer"
+                onClick={() => setShowCloseConfirm(false)}
+                disabled={closingRequest}
+              >
+                <X size={16} />
+              </button>
+              <span className="request-confirm-icon">
+                <XCircle size={22} />
+              </span>
+              <h3 id="close-request-title">Clôturer cette demande ?</h3>
+              <p>Les candidatures en attente seront automatiquement rejetées.</p>
+              {closeError && <div className="form-error request-confirm-error">{closeError}</div>}
+              <div className="request-confirm-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowCloseConfirm(false)}
+                  disabled={closingRequest}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-reject"
+                  onClick={handleCloseRequest}
+                  disabled={closingRequest}
+                >
+                  {closingRequest ? 'Clôture...' : 'Clôturer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

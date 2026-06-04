@@ -204,6 +204,10 @@
 /* Detail Page */
 .request-detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem); gap: clamp(var(--space-5), 2vw, var(--space-8)); align-items: flex-start; }
 .request-detail-main { display: flex; flex-direction: column; gap: var(--space-6); }
+.request-detail-back { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; width: fit-content; min-height: 2.2rem; padding: 0 0.8rem; color: var(--text-secondary); font-family: var(--font-display); font-size: 0.77rem; font-weight: 800; line-height: 1.2; background: #ffffff; border: 1px solid #d8e7f0; border-radius: 0.5rem; box-shadow: 0 1px 3px oklch(0.27 0.07 245 / 0.07); cursor: pointer; transition: color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast); }
+.request-detail-back:hover { color: var(--text-primary); border-color: oklch(0.62 0.12 220 / 0.45); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.request-detail-back:focus-visible { outline: 3px solid oklch(0.62 0.12 220 / 0.18); outline-offset: 2px; }
+.request-detail-back svg { flex-shrink: 0; }
 .request-detail-header h1 { font-size: var(--text-2xl); font-weight: 800; margin-bottom: var(--space-3); }
 .request-detail-badges { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .request-detail-description { padding: var(--space-6); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); }
@@ -276,6 +280,18 @@
 .request-success-banner { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-5); background: #dcfce7; color: #087f5b; border-radius: var(--radius-lg); font-weight: 600; font-size: var(--text-sm); margin-bottom: var(--space-6); }
 .request-success-banner button { background: none; border: none; cursor: pointer; color: inherit; margin-left: auto; }
 
+/* Confirm Modal */
+.request-confirm-overlay { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: var(--space-4); background: oklch(0.18 0.02 240 / 0.58); backdrop-filter: blur(8px); }
+.request-confirm-modal { position: relative; display: grid; gap: var(--space-4); width: min(100%, 420px); padding: var(--space-6); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow-xl); }
+.request-confirm-close { position: absolute; top: var(--space-3); right: var(--space-3); display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; color: var(--text-muted); background: transparent; border: none; border-radius: var(--radius-md); cursor: pointer; transition: color var(--transition-fast), background var(--transition-fast); }
+.request-confirm-close:hover { color: var(--text-primary); background: var(--surface); }
+.request-confirm-close:disabled { cursor: not-allowed; opacity: 0.5; }
+.request-confirm-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; color: #b91c1c; background: #fef2f2; border-radius: var(--radius-lg); }
+.request-confirm-modal h3 { padding-right: var(--space-6); font-size: var(--text-xl); font-weight: 800; }
+.request-confirm-modal p { color: var(--text-secondary); line-height: 1.6; }
+.request-confirm-error { margin: 0; }
+.request-confirm-actions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-2); }
+
 /* Form helpers */
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 .form-checkboxes { display: flex; gap: var(--space-6); }
@@ -316,6 +332,8 @@
   .requests-grid { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
   .create-request-form { padding: var(--space-5); }
+  .request-confirm-actions { flex-direction: column-reverse; }
+  .request-confirm-actions .btn { width: 100%; }
   .form-checkboxes { flex-direction: column; }
   .proposal-steps-head { align-items: flex-start; flex-direction: column; }
   .proposal-step-input { grid-template-columns: 1.8rem minmax(0, 1fr) 2.1rem; }

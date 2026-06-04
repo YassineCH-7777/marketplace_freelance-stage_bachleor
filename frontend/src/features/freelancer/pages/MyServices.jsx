@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -201,6 +202,7 @@ function normalizePublicCategories(categories) {
 
 export default function MyServices() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -881,6 +883,10 @@ export default function MyServices() {
     }
   };
 
+  const openServiceDetails = (serviceId) => {
+    navigate(`/services/${serviceId}`);
+  };
+
   return (
     <div className="dashboard-page">
       <div className="container">
@@ -907,8 +913,33 @@ export default function MyServices() {
         {pageError && <p className="form-error">{pageError}</p>}
 
         {loading ? (
-          <div className="empty-state">
-            <Loader2 size={32} className="spinner" />
+          <div className="dash-table-wrapper dash-table-skeleton-wrapper animate-fade-in-up" aria-busy="true">
+            <span className="sr-only">Chargement des services...</span>
+            <table className="dash-table dash-table-skeleton">
+              <thead>
+                <tr>
+                  <th>Titre</th>
+                  <th>Categorie</th>
+                  <th>Prix</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }, (_, index) => (
+                  <tr key={`service-skeleton-${index}`}>
+                    <td><span className="dash-skeleton-line is-title skeleton-shimmer" /></td>
+                    <td><span className="dash-skeleton-line is-chip skeleton-shimmer" /></td>
+                    <td><span className="dash-skeleton-line is-price skeleton-shimmer" /></td>
+                    <td>
+                      <div className="action-btns">
+                        <span className="dash-skeleton-line is-action skeleton-shimmer" />
+                        <span className="dash-skeleton-line is-icon-action skeleton-shimmer" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : services.length === 0 ? (
           <div className="empty-state animate-fade-in-up">
@@ -936,7 +967,18 @@ export default function MyServices() {
               </thead>
               <tbody>
                 {services.map((service) => (
-                  <tr key={service.id}>
+                  <tr
+                    key={service.id}
+                    className="dash-table-clickable-row"
+                    tabIndex={0}
+                    onClick={() => openServiceDetails(service.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openServiceDetails(service.id);
+                      }
+                    }}
+                  >
                     <td className="td-title">{service.title}</td>
                     <td>
                       <span className="badge badge-primary">
@@ -948,7 +990,10 @@ export default function MyServices() {
                         {service.price} MAD
                       </span>
                     </td>
-                    <td>
+                    <td
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
                       <div className="action-btns">
                         <button className="btn btn-sm btn-edit" onClick={() => openEdit(service)}>
                           <Edit3 size={14} /> Modifier
