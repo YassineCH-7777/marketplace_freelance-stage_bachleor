@@ -34,7 +34,7 @@ export default function CreateServiceRequest() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.categoryId) {
-      setError('Selectionnez une categorie.');
+      setError('Sélectionnez une catégorie.');
       return;
     }
 
@@ -50,13 +50,13 @@ export default function CreateServiceRequest() {
         try {
           await uploadServiceRequestAttachments(response.data.id, attachments, 'BRIEF');
         } catch (uploadError) {
-          setError(uploadError.response?.data?.message || 'Demande publiee, mais les fichiers n ont pas pu etre ajoutes.');
+          setError(uploadError.response?.data?.message || "Demande publiée, mais les fichiers n'ont pas pu être ajoutés.");
           setLoading(false);
           return;
         }
       }
       navigate('/client/requests');
-    } catch (err) { setError(err.response?.data?.message || 'Erreur lors de la creation.'); }
+    } catch (err) { setError(err.response?.data?.message || 'Erreur lors de la création.'); }
     finally { setLoading(false); }
   };
 
@@ -65,21 +65,21 @@ export default function CreateServiceRequest() {
       <div className="create-request-header animate-fade-in-up">
         <button className="btn btn-secondary btn-sm" onClick={() => navigate(-1)}><ArrowLeft size={14} /> Retour</button>
         <h1><Plus size={22} /> Publier une demande</h1>
-        <p>Decrivez votre besoin et les freelances pourront vous proposer leurs services.</p>
+        <p>Décrivez votre besoin et les freelances pourront vous proposer leurs services.</p>
       </div>
       <form className="create-request-form animate-fade-in-up" onSubmit={handleSubmit} style={{ animationDelay: '0.15s' }}>
         {error && <div className="form-error" style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fef2f2', borderRadius: 'var(--radius-md)' }}>{error}</div>}
-        <div className="form-group"><label className="form-label">Titre du projet *</label><input className="form-input" name="title" value={form.title} onChange={handleChange} placeholder="Ex: Developpement d'un site de reservation" required /></div>
-        <div className="form-group"><label className="form-label">Description detaillee *</label><textarea className="form-input" name="description" rows={5} value={form.description} onChange={handleChange} placeholder="Decrivez votre projet..." required /></div>
+        <div className="form-group"><label className="form-label">Titre du projet *</label><input className="form-input" name="title" value={form.title} onChange={handleChange} placeholder="Ex: Développement d'un site de réservation" required /></div>
+        <div className="form-group"><label className="form-label">Description détaillée *</label><textarea className="form-input" name="description" rows={5} value={form.description} onChange={handleChange} placeholder="Décrivez votre projet..." required /></div>
         <div className="request-attachment-box">
           <div>
             <label className="form-label"><Paperclip size={14} /> Brief et fichiers utiles</label>
-            <p>Images, PDF, brief ou document de reference. 5 fichiers max, 10 Mo chacun.</p>
+            <p>Images, PDF, brief ou document de référence. 5 fichiers max, 10 Mo chacun.</p>
           </div>
           <AttachmentPicker files={attachments} onChange={setAttachments} disabled={loading} />
         </div>
         <div className="form-row">
-          <div className="form-group"><label className="form-label">Categorie *</label><CustomSelect id="request-category" label="Categorie" className="form-custom-select" options={[{ value: '', label: 'Selectionnez...' }, ...categories.map(c => ({ value: String(c.id), label: c.name }))]} value={form.categoryId} onChange={handleCategoryChange} /></div>
+          <div className="form-group"><label className="form-label">Catégorie *</label><CustomSelect id="request-category" label="Catégorie" className="form-custom-select" options={[{ value: '', label: 'Sélectionnez...' }, ...categories.map(c => ({ value: String(c.id), label: c.name }))]} value={form.categoryId} onChange={handleCategoryChange} /></div>
           <div className="form-group"><label className="form-label">Ville</label><input className="form-input" name="city" value={form.city} onChange={handleChange} placeholder="Ex: Casablanca" /></div>
         </div>
         <div className="form-row">
@@ -88,10 +88,10 @@ export default function CreateServiceRequest() {
         </div>
         <div className="form-row">
           <div className="form-group"><label className="form-label">Date limite</label><input type="date" className="form-input" name="deadline" value={form.deadline} onChange={handleChange} /></div>
-          <div className="form-group"><label className="form-label">Competences requises</label><input className="form-input" name="requiredSkills" value={form.requiredSkills} onChange={handleChange} placeholder="React, Spring Boot (virgules)" /></div>
+          <div className="form-group"><label className="form-label">Compétences requises</label><input className="form-input" name="requiredSkills" value={form.requiredSkills} onChange={handleChange} placeholder="React, Spring Boot (virgules)" /></div>
         </div>
         <div className="form-checkboxes">
-          <label className="form-checkbox"><input type="checkbox" name="remote" checked={form.remote} onChange={handleChange} /> Travail a distance</label>
+          <label className="form-checkbox"><input type="checkbox" name="remote" checked={form.remote} onChange={handleChange} /> Travail à distance</label>
           <label className="form-checkbox"><input type="checkbox" name="urgent" checked={form.urgent} onChange={handleChange} /> Besoin urgent</label>
         </div>
         <div className="form-actions"><button type="submit" className="btn btn-primary btn-lg" disabled={loading}><Send size={16} /> {loading ? 'Publication...' : 'Publier la demande'}</button></div>
