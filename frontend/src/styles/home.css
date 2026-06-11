@@ -1659,6 +1659,28 @@
     grid-template-columns: 1fr;
   }
 
+  .home-page .categories-grid > :nth-child(n + 2),
+  .home-page .requests-grid > :nth-child(n + 2),
+  .home-page .services-grid > :nth-child(n + 2),
+  .home-page .freelancers-grid > :nth-child(n + 2) {
+    display: none;
+  }
+
+  .home-page .section-heading-row {
+    margin-bottom: var(--space-5);
+  }
+
+  .home-page .section-link {
+    align-self: stretch;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.7rem var(--space-4);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
   .home-page .stat-card,
   .home-page .category-card,
   .home-page .request-card,

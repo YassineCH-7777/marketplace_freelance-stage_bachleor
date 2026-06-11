@@ -43,10 +43,8 @@ function App() {
       };
     }
 
-    if (location.pathname === '/') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [location.pathname, location.hash]);
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname, location.search, location.hash, location.key]);
 
   return (
     <>
