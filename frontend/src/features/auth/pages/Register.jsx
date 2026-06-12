@@ -245,14 +245,6 @@ export default function Register() {
           </button>
         </form>
 
-        <div className="auth-divider"><span>ou</span></div>
-
-        <GoogleAuthButton
-          role={form.role}
-          onAuthenticated={handleGoogleAuthenticated}
-          onError={setError}
-        />
-
         <div className="auth-footer">
           <p>Deja un compte ? <Link to="/login" className="auth-link">Se connecter</Link></p>
         </div>
