@@ -348,6 +348,7 @@
 /* ---------- Filter Panel ---------- */
 .services-filter-panel {
   position: sticky;
+  z-index: 5;
   top: 5rem;
   padding: 1.1rem;
   background: #ffffff;
@@ -425,8 +426,10 @@
   color: oklch(0.48 0.12 220);
   font-size: 0.62rem;
   font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
   background: #edf5fb;
   border: 1px solid #c8dcea;
   border-radius: 999px;
@@ -491,6 +494,7 @@
 }
 
 .services-filter-select .custom-select-menu {
+  z-index: 90;
   max-height: 12rem;
 }
 

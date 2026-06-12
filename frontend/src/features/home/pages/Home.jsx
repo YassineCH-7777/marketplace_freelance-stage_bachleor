@@ -48,12 +48,46 @@ import '@/styles/home.css';
 const cities = ['Casablanca', 'Fes', 'Rabat', 'Marrakech', 'Tanger', 'Agadir', 'Meknes', 'Oujda'];
 
 const categoryRules = [
-  { category: 'Photo', keywords: ['photo', 'photographe', 'mariage', 'shooting', 'video'] },
-  { category: 'Site web', keywords: ['site', 'web', 'react', 'application', 'developpeur', 'frontend'] },
-  { category: 'Design', keywords: ['design', 'logo', 'identite', 'brand', 'affiche'] },
-  { category: 'Cours', keywords: ['cours', 'prof', 'soutien', 'anglais', 'math'] },
-  { category: 'Depannage', keywords: ['depannage', 'reparation', 'pc', 'ordinateur', 'installation'] },
-  { category: 'Evenementiel', keywords: ['evenement', 'traiteur', 'mariage', 'conference', 'restaurant'] },
+  {
+    category: 'Application mobile',
+    categoryName: 'Developpement web',
+    keywords: ['application mobile', 'app mobile', 'appli mobile', 'ios', 'android', 'flutter', 'react native'],
+  },
+  {
+    category: 'Photo',
+    categoryName: 'Photographie',
+    keywords: ['photo', 'photographe', 'mariage', 'shooting'],
+  },
+  {
+    category: 'Montage video',
+    categoryName: 'Montage video',
+    keywords: ['montage video', 'video', 'reel', 'short', 'youtube'],
+  },
+  {
+    category: 'Site web',
+    categoryName: 'Developpement web',
+    keywords: ['site web', 'site', 'web', 'react', 'application web', 'developpeur', 'frontend'],
+  },
+  {
+    category: 'Design',
+    categoryName: 'Design graphique',
+    keywords: ['design', 'logo', 'identite', 'brand', 'affiche'],
+  },
+  {
+    category: 'Cours',
+    categoryName: 'Cours particuliers',
+    keywords: ['cours', 'prof', 'soutien', 'anglais', 'math'],
+  },
+  {
+    category: 'Depannage',
+    categoryName: 'Support informatique',
+    keywords: ['depannage', 'reparation', 'pc', 'ordinateur', 'installation', 'wifi', 'reseau', 'imprimante'],
+  },
+  {
+    category: 'Evenementiel',
+    categoryName: 'Photographie',
+    keywords: ['evenement', 'traiteur', 'mariage', 'conference'],
+  },
 ];
 
 const smartSuggestions = [
@@ -75,6 +109,7 @@ const stats = [
 const categories = [
   {
     name: 'Photo',
+    categoryName: 'Photographie',
     icon: Camera,
     count: '126 talents',
     trend: '+18%',
@@ -82,6 +117,7 @@ const categories = [
   },
   {
     name: 'Site web',
+    categoryName: 'Developpement web',
     icon: Code2,
     count: '210 talents',
     trend: '+24%',
@@ -89,6 +125,7 @@ const categories = [
   },
   {
     name: 'Design',
+    categoryName: 'Design graphique',
     icon: Paintbrush,
     count: '154 talents',
     trend: '+15%',
@@ -96,6 +133,7 @@ const categories = [
   },
   {
     name: 'Cours',
+    categoryName: 'Cours particuliers',
     icon: GraduationCap,
     count: '98 talents',
     trend: '+11%',
@@ -103,6 +141,7 @@ const categories = [
   },
   {
     name: 'Depannage',
+    categoryName: 'Support informatique',
     icon: Wrench,
     count: '83 talents',
     trend: '+9%',
@@ -110,6 +149,7 @@ const categories = [
   },
   {
     name: 'Evenementiel',
+    categoryName: 'Photographie',
     icon: CalendarCheck,
     count: '72 talents',
     trend: '+13%',
@@ -117,6 +157,7 @@ const categories = [
   },
   {
     name: 'Installation',
+    categoryName: 'Support informatique',
     icon: Monitor,
     count: '65 talents',
     trend: '+7%',
@@ -124,6 +165,7 @@ const categories = [
   },
   {
     name: 'Conseil',
+    categoryName: 'Community management',
     icon: BrainCircuit,
     count: '44 talents',
     trend: '+21%',
@@ -171,7 +213,7 @@ const fallbackFeaturedServices = [
     id: 'featured-react-website',
     title: 'Site vitrine React pour restaurant',
     description: 'Creation d un site moderne, responsive et optimise pour presenter menu, galerie et reservations.',
-    categoryName: 'Site web',
+    categoryName: 'Developpement web',
     serviceCity: 'Casablanca',
     executionMode: 'HYBRID',
     deliveryTimeDays: 7,
@@ -179,13 +221,13 @@ const fallbackFeaturedServices = [
     rating: '4.9',
     missionsCount: 32,
     responseTime: 'Reponse < 1h',
-    previewUrl: '/services?categoryName=Site%20web&city=Casablanca&keyword=React',
+    previewUrl: '/services?categoryName=Developpement%20web&city=Casablanca&keyword=React',
   },
   {
     id: 'featured-wedding-photo',
     title: 'Photographie mariage et evenement',
     description: 'Reportage photo complet avec retouches, galerie partageable et livraison rapide des meilleurs moments.',
-    categoryName: 'Photo',
+    categoryName: 'Photographie',
     serviceCity: 'Fes',
     executionMode: 'ON_SITE',
     deliveryTimeDays: 3,
@@ -193,13 +235,13 @@ const fallbackFeaturedServices = [
     rating: '5.0',
     missionsCount: 28,
     responseTime: 'Reponse < 30 min',
-    previewUrl: '/services?categoryName=Photo&city=Fes&keyword=mariage',
+    previewUrl: '/services?categoryName=Photographie&city=Fes&keyword=mariage',
   },
   {
     id: 'featured-brand-design',
     title: 'Identite visuelle complete',
     description: 'Logo, palette, typographies et supports reseaux sociaux pour lancer une marque locale credible.',
-    categoryName: 'Design',
+    categoryName: 'Design graphique',
     serviceCity: 'Rabat',
     executionMode: 'REMOTE',
     deliveryTimeDays: 5,
@@ -207,7 +249,7 @@ const fallbackFeaturedServices = [
     rating: '4.8',
     missionsCount: 24,
     responseTime: 'Reponse < 2h',
-    previewUrl: '/services?categoryName=Design&city=Rabat&keyword=logo',
+    previewUrl: '/services?categoryName=Design%20graphique&city=Rabat&keyword=logo',
   },
 ];
 
@@ -298,14 +340,15 @@ function normalizeValue(value) {
 function analyzePrompt(prompt) {
   const normalizedPrompt = normalizeValue(prompt);
   const detectedCity = cities.find((city) => normalizedPrompt.includes(normalizeValue(city)));
-  const detectedCategory = categoryRules.find((rule) =>
+  const detectedRule = categoryRules.find((rule) =>
     rule.keywords.some((keyword) => normalizedPrompt.includes(keyword)),
-  )?.category;
+  );
   const budgetMatch = normalizedPrompt.match(/(\d[\d\s]*)\s*(mad|dh|dhs|dirham|dirhams)/);
   const budget = budgetMatch ? `${budgetMatch[1].replace(/\s/g, '')} MAD` : null;
 
   return {
-    category: detectedCategory || 'A detecter',
+    category: detectedRule?.category || 'A detecter',
+    categoryName: detectedRule?.categoryName || '',
     city: detectedCity || 'Ville a confirmer',
     budget: budget || 'Budget a estimer',
   };
@@ -357,7 +400,7 @@ function AnimatedStat({ stat }) {
 
 export default function Home() {
   const [services, setServices] = useState([]);
-  const [searchPrompt, setSearchPrompt] = useState('Je cherche un developpeur React a Fes pour creer un site web');
+  const [searchPrompt, setSearchPrompt] = useState('');
   const [heroMotion, setHeroMotion] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -373,7 +416,7 @@ export default function Home() {
     const params = new URLSearchParams();
     if (searchPrompt.trim()) params.set('keyword', searchPrompt.trim());
     if (aiInsight.city !== 'Ville a confirmer') params.set('city', aiInsight.city);
-    if (aiInsight.category !== 'A detecter') params.set('categoryName', aiInsight.category);
+    if (aiInsight.categoryName) params.set('categoryName', aiInsight.categoryName);
     return params.toString() ? `/services?${params.toString()}` : '/services';
   }, [aiInsight, searchPrompt]);
 
@@ -577,7 +620,7 @@ export default function Home() {
 
               return (
                 <Link
-                  to={`/services?categoryName=${encodeURIComponent(category.name)}`}
+                  to={`/services?categoryName=${encodeURIComponent(category.categoryName || category.name)}`}
                   className="category-card animate-fade-in-up"
                   key={category.name}
                 >

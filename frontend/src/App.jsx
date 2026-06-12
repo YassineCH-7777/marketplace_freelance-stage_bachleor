@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from '@/components/common/Navbar';
 import Footer from '@/components/common/Footer';
@@ -12,10 +12,15 @@ const FloatingAiAssistant = lazy(() => import('@/components/ai/FloatingAiAssista
 
 function App() {
   const location = useLocation();
+  const previousPathnameRef = useRef(location.pathname);
   const { isAuthenticated, user } = useAuth();
   const showDashboardBar = isAuthenticated && shouldShowDashboardBar(user?.role, location.pathname);
 
   useEffect(() => {
+    const previousPathname = previousPathnameRef.current;
+    const pathnameChanged = previousPathname !== location.pathname;
+    previousPathnameRef.current = location.pathname;
+
     if (location.hash) {
       const targetId = decodeURIComponent(location.hash.slice(1));
       let retryTimeout;
@@ -43,8 +48,10 @@ function App() {
       };
     }
 
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [location.pathname, location.search, location.hash, location.key]);
+    if (pathnameChanged) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  }, [location.pathname, location.hash]);
 
   return (
     <>

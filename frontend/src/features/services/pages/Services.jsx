@@ -178,6 +178,51 @@ function readCoordinateParam(value, fallback = null) {
   return Number.isFinite(coordinate) ? coordinate : null;
 }
 
+const CATEGORY_ALIASES = {
+  'application mobile': 'Developpement web',
+  'app mobile': 'Developpement web',
+  'appli mobile': 'Developpement web',
+  android: 'Developpement web',
+  ios: 'Developpement web',
+  'site web': 'Developpement web',
+  site: 'Developpement web',
+  web: 'Developpement web',
+  react: 'Developpement web',
+  developpeur: 'Developpement web',
+  design: 'Design graphique',
+  logo: 'Design graphique',
+  photo: 'Photographie',
+  photographe: 'Photographie',
+  video: 'Montage video',
+  'montage video': 'Montage video',
+  cours: 'Cours particuliers',
+  depannage: 'Support informatique',
+  reparation: 'Support informatique',
+  installation: 'Support informatique',
+  informatique: 'Support informatique',
+};
+
+function resolveCategoryName(value, options) {
+  const normalizedValue = normalize(value);
+
+  if (!normalizedValue) {
+    return '';
+  }
+
+  const exactOption = options.find((option) => normalize(option) === normalizedValue);
+  if (exactOption) {
+    return exactOption;
+  }
+
+  const alias = CATEGORY_ALIASES[normalizedValue];
+  if (!alias) {
+    return value;
+  }
+
+  const normalizedAlias = normalize(alias);
+  return options.find((option) => normalize(option) === normalizedAlias) || alias;
+}
+
 function ServiceCardSkeleton({ index }) {
   return (
     <article
@@ -269,6 +314,14 @@ export default function Services() {
     }),
     [city, searchLatitude, searchLongitude, searchPlaceId],
   );
+  const categoryOptions = useMemo(() => {
+    const values = services.map((service) => service.categoryName).filter(Boolean);
+    return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+  }, [services]);
+  const resolvedCategoryName = useMemo(
+    () => resolveCategoryName(categoryName, categoryOptions),
+    [categoryName, categoryOptions],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -301,7 +354,7 @@ export default function Services() {
 
     getRecommendedServices({
       keyword,
-      categoryName,
+      categoryName: resolvedCategoryName,
       city: requestedCity,
       maxBudget: maxPrice || undefined,
       limit: 50,
@@ -320,7 +373,7 @@ export default function Services() {
     return () => {
       isMounted = false;
     };
-  }, [categoryName, city, keyword, maxPrice, preferredSearchCity]);
+  }, [city, keyword, maxPrice, preferredSearchCity, resolvedCategoryName]);
 
   const servicesWithRecommendation = useMemo(() => {
     const recommendationByServiceId = new Map(
@@ -355,15 +408,10 @@ export default function Services() {
     return [...new Set(values)].sort((a, b) => a.localeCompare(b));
   }, [preferredSearchCity, services]);
 
-  const categoryOptions = useMemo(() => {
-    const values = services.map((service) => service.categoryName).filter(Boolean);
-    return [...new Set(values)].sort((a, b) => a.localeCompare(b));
-  }, [services]);
-
   const filteredServices = useMemo(() => {
     const normalizedKeyword = normalize(keyword);
     const normalizedCity = normalize(city);
-    const normalizedCategory = normalize(categoryName);
+    const normalizedCategory = normalize(resolvedCategoryName);
     const min = minPrice === '' ? null : Number(minPrice);
     const max = maxPrice === '' ? null : Number(maxPrice);
     const radius = resolveSearchRadius(radiusKm);
@@ -454,7 +502,7 @@ export default function Services() {
             return getPrice(b) - getPrice(a);
         }
       });
-  }, [categoryName, city, freelancerIdFilter, keyword, localPriorityCity, maxPrice, minPrice, radiusKm, searchLocation, servicesWithRecommendation, sort]);
+  }, [city, freelancerIdFilter, keyword, localPriorityCity, maxPrice, minPrice, radiusKm, resolvedCategoryName, searchLocation, servicesWithRecommendation, sort]);
 
   const catalogStats = useMemo(() => {
     const rapidServices = services.filter((service) => Number(service.deliveryTimeDays || 999) <= 3).length;
@@ -490,11 +538,11 @@ export default function Services() {
         city && `Ville : ${city}`,
         city && `Rayon : ${formatRadiusLabel(radiusKm)}`,
         freelancerIdFilter && 'Freelance selectionne',
-        categoryName && `Categorie : ${categoryName}`,
+        resolvedCategoryName && `Categorie : ${resolvedCategoryName}`,
         minPrice && `Min : ${formatPrice(minPrice)} MAD`,
         maxPrice && `Max : ${formatPrice(maxPrice)} MAD`,
       ].filter(Boolean),
-    [categoryName, city, freelancerIdFilter, keyword, maxPrice, minPrice, radiusKm],
+    [city, freelancerIdFilter, keyword, maxPrice, minPrice, radiusKm, resolvedCategoryName],
   );
 
   const hasActiveFilters = activeFilters.length > 0;
@@ -510,7 +558,7 @@ export default function Services() {
       lat: searchLatitude,
       lng: searchLongitude,
       radiusKm,
-      categoryName,
+      categoryName: resolvedCategoryName,
       freelancerId: freelancerIdFilter,
       minPrice,
       maxPrice,
@@ -789,7 +837,7 @@ export default function Services() {
                   { value: '', label: 'Toutes' },
                   ...categoryOptions.map((option) => ({ value: option, label: option })),
                 ]}
-                value={categoryName}
+                value={resolvedCategoryName}
                 onChange={handleSelectValueChange(setCategoryName, 'categoryName')}
               />
             </div>

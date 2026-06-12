@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
 import { getRequestDetail } from '@/api/requestApi';
 import { getServiceRequestDetail, acceptProposal, rejectProposal, closeServiceRequest } from '@/api/requestApi';
@@ -87,7 +87,7 @@ function RequestDetailSkeleton() {
 export default function ServiceRequestDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -319,6 +319,20 @@ export default function ServiceRequestDetail() {
                   {request.requiredSkills.map((skill, i) => (
                     <span key={i} className="request-skill-tag">{skill}</span>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {!isAuthenticated && REQUEST_STATUSES_ACCEPTING_PROPOSALS.includes(request?.status) && (
+              <div className="request-proposal-section">
+                <div className="request-detail-state">
+                  <h3>Interesse par cette demande ?</h3>
+                  <p>
+                    Connectez-vous avec un compte freelance pour envoyer une candidature.
+                  </p>
+                  <Link to="/login" className="btn btn-primary">
+                    Se connecter
+                  </Link>
                 </div>
               </div>
             )}
