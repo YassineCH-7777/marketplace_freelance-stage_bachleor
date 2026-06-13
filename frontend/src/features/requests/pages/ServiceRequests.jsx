@@ -71,6 +71,7 @@ export default function ServiceRequests() {
   const [searchLongitude, setSearchLongitude] = useState(user?.searchLongitude ?? null);
   const [radiusKm, setRadiusKm] = useState(preferredSearchRadius);
   const [urgentOnly, setUrgentOnly] = useState(false);
+  const [cityOptionsOpen, setCityOptionsOpen] = useState(false);
   const navigate = useNavigate();
   const searchLocation = useMemo(
     () => ({
@@ -109,6 +110,18 @@ export default function ServiceRequests() {
     return [...new Set(values)].sort((a, b) => a.localeCompare(b));
   }, [preferredSearchCity, requests]);
 
+  const visibleCityOptions = useMemo(() => {
+    const normalizedCity = normalizeLocationKey(city);
+    const options = cityOptions.filter((option) => normalizeLocationKey(option) !== normalizedCity);
+
+    if (!normalizedCity) {
+      return options;
+    }
+
+    const matchingOptions = options.filter((option) => normalizeLocationKey(option).includes(normalizedCity));
+    return matchingOptions.length ? matchingOptions : options;
+  }, [city, cityOptions]);
+
   const filteredRequests = useMemo(() => {
     const normalizedKeyword = normalizeLocationKey(keyword);
     const radius = resolveSearchRadius(radiusKm);
@@ -143,6 +156,7 @@ export default function ServiceRequests() {
     setSearchPlaceId('');
     setSearchLatitude(null);
     setSearchLongitude(null);
+    setCityOptionsOpen(true);
   }, []);
 
   const handleSearchLocationSelect = useCallback((place) => {
@@ -150,7 +164,16 @@ export default function ServiceRequests() {
     setSearchPlaceId(place.placeId || '');
     setSearchLatitude(place.lat);
     setSearchLongitude(place.lng);
+    setCityOptionsOpen(false);
   }, []);
+
+  const handleCityOptionSelect = (option) => {
+    setCity(option);
+    setSearchPlaceId('');
+    setSearchLatitude(null);
+    setSearchLongitude(null);
+    setCityOptionsOpen(false);
+  };
 
   const handleRadiusChange = (event) => {
     setRadiusKm(SEARCH_RADIUS_OPTIONS[Number(event.target.value)]);
@@ -189,20 +212,33 @@ export default function ServiceRequests() {
               className="form-input"
             />
           </div>
-          <div className="requests-search-bar">
+          <div className="requests-search-bar requests-city-field">
             <MapPin size={18} />
             <GoogleLocationInput
               placeholder="Ville, quartier ou adresse..."
               value={city}
               onTextChange={handleSearchLocationTextChange}
               onPlaceSelect={handleSearchLocationSelect}
-              list="request-city-options"
+              onFocus={() => setCityOptionsOpen(true)}
+              onBlur={() => window.setTimeout(() => setCityOptionsOpen(false), 120)}
+              aria-expanded={cityOptionsOpen && visibleCityOptions.length > 0}
+              aria-haspopup="listbox"
             />
-            <datalist id="request-city-options">
-              {cityOptions.map((option) => (
-                <option key={option} value={option} />
-              ))}
-            </datalist>
+            {cityOptionsOpen && visibleCityOptions.length > 0 && (
+              <div className="requests-city-options" role="listbox" aria-label="Suggestions de villes">
+                {visibleCityOptions.map((option) => (
+                  <button
+                    type="button"
+                    key={option}
+                    role="option"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => handleCityOptionSelect(option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="requests-radius-filter">
             <span>{formatRadiusLabel(radiusKm)}</span>

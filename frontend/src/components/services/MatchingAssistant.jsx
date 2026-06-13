@@ -213,7 +213,12 @@ export default function MatchingAssistant({ defaultCity = '', onApplyFilters }) 
                 const service = recommendation.service;
 
                 return (
-                  <article className="matching-assistant-result" key={service.id}>
+                  <Link
+                    className="matching-assistant-result"
+                    key={service.id}
+                    to={`/services/${service.id}`}
+                    aria-label={`Voir l'offre ${service.title}`}
+                  >
                     <div className="matching-assistant-score">
                       <strong>{formatScore(recommendation.score)}</strong>
                       <span>match</span>
@@ -238,12 +243,12 @@ export default function MatchingAssistant({ defaultCity = '', onApplyFilters }) 
                       <div className="matching-assistant-result-actions">
                         <span>{getDeliveryTimeLabel(service.deliveryTimeDays)}</span>
                         <span>{getExecutionModeLabel(service.executionMode)}</span>
-                        <Link to={`/services/${service.id}`}>
+                        <span className="matching-assistant-result-link">
                           Voir l'offre <ArrowRight size={14} />
-                        </Link>
+                        </span>
                       </div>
                     </div>
-                  </article>
+                  </Link>
                 );
               })}
             </div>

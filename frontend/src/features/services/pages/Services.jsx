@@ -202,6 +202,177 @@ const CATEGORY_ALIASES = {
   informatique: 'Support informatique',
 };
 
+const KEYWORD_STOP_WORDS = new Set([
+  'a',
+  'ai',
+  'avec',
+  'avoir',
+  'besoin',
+  'cherche',
+  'chercher',
+  'dans',
+  'de',
+  'des',
+  'du',
+  'en',
+  'et',
+  'faire',
+  'freelance',
+  'freelancer',
+  'je',
+  'la',
+  'le',
+  'les',
+  'me',
+  'mon',
+  'nous',
+  'pour',
+  'recherche',
+  'service',
+  'services',
+  'sur',
+  'un',
+  'une',
+  'veux',
+  'votre',
+  'vous',
+  'voudrais',
+  'want',
+  'need',
+  'the',
+  'and',
+  'budget',
+  'delai',
+  'delais',
+  'dh',
+  'dhs',
+  'dirham',
+  'dirhams',
+  'jour',
+  'jours',
+  'livraison',
+  'mad',
+  'max',
+  'maximum',
+  'prix',
+  'semain',
+  'semaine',
+  'semaines',
+  'tarif',
+  'tarifs',
+  'week',
+  'weeks',
+  'for',
+  'with',
+]);
+
+const KEYWORD_TOKEN_ALIASES = {
+  application: ['app', 'logiciel'],
+  business: ['commerce', 'entreprise', 'marque'],
+  commerce: ['business', 'entreprise', 'marque'],
+  entreprise: ['business', 'commerce', 'marque'],
+  identite: ['branding', 'logo', 'charte'],
+  logo: ['branding', 'identite', 'charte'],
+  marque: ['business', 'commerce', 'entreprise'],
+  photo: ['photographie', 'shooting'],
+  reseau: ['wifi', 'informatique'],
+  restaurant: ['commerce', 'local', 'entreprise'],
+  site: ['web', 'vitrine'],
+  video: ['montage', 'reels'],
+  web: ['site', 'developpement'],
+};
+
+function stemKeywordToken(token) {
+  if (token.length > 5 && token.endsWith('es')) {
+    return token.slice(0, -2);
+  }
+
+  if (token.length > 4 && token.endsWith('s')) {
+    return token.slice(0, -1);
+  }
+
+  return token;
+}
+
+function tokenizeKeyword(value) {
+  const normalizedValue = normalize(value);
+
+  if (!normalizedValue) {
+    return [];
+  }
+
+  return normalizedValue
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(/\s+/)
+    .map(stemKeywordToken)
+    .filter((token) => token.length >= 3 && !/^\d+$/.test(token) && !KEYWORD_STOP_WORDS.has(token));
+}
+
+function getKeywordTokens(value, ignoredValues = []) {
+  const ignoredTokens = new Set(ignoredValues.flatMap(tokenizeKeyword));
+  return [...new Set(tokenizeKeyword(value).filter((token) => !ignoredTokens.has(token)))];
+}
+
+function getServiceSearchTokens(service) {
+  return new Set(
+    tokenizeKeyword(
+      [
+        service.title,
+        service.description,
+        service.categoryName,
+        getServiceLocationLabel(service),
+      ].filter(Boolean).join(' '),
+    ),
+  );
+}
+
+function tokenMatchesService(token, service, serviceTokens) {
+  if (serviceTokens.has(token)) {
+    return true;
+  }
+
+  const normalizedCategory = normalize(service.categoryName);
+  const categoryHint = CATEGORY_ALIASES[token];
+  if (categoryHint && normalizedCategory === normalize(categoryHint)) {
+    return true;
+  }
+
+  return (KEYWORD_TOKEN_ALIASES[token] || [])
+    .map(stemKeywordToken)
+    .some((alias) => serviceTokens.has(alias));
+}
+
+function matchesServiceKeyword(service, keyword, ignoredKeywordValues = []) {
+  const normalizedKeyword = normalize(keyword);
+
+  if (!normalizedKeyword) {
+    return true;
+  }
+
+  const serviceSearchText = normalize(
+    [service.title, service.description, service.categoryName].filter(Boolean).join(' '),
+  );
+
+  if (serviceSearchText.includes(normalizedKeyword)) {
+    return true;
+  }
+
+  const keywordTokens = getKeywordTokens(keyword, ignoredKeywordValues);
+
+  if (keywordTokens.length === 0) {
+    return true;
+  }
+
+  const serviceTokens = getServiceSearchTokens(service);
+  const matchedTokens = keywordTokens.filter((token) => tokenMatchesService(token, service, serviceTokens)).length;
+
+  if (keywordTokens.length === 1) {
+    return matchedTokens === 1;
+  }
+
+  return matchedTokens / keywordTokens.length >= 0.5;
+}
+
 function resolveCategoryName(value, options) {
   const normalizedValue = normalize(value);
 
@@ -409,7 +580,6 @@ export default function Services() {
   }, [preferredSearchCity, services]);
 
   const filteredServices = useMemo(() => {
-    const normalizedKeyword = normalize(keyword);
     const normalizedCity = normalize(city);
     const normalizedCategory = normalize(resolvedCategoryName);
     const min = minPrice === '' ? null : Number(minPrice);
@@ -418,18 +588,12 @@ export default function Services() {
 
     return [...servicesWithRecommendation]
       .filter((service) => {
-        const title = normalize(service.title);
-        const description = normalize(service.description);
         const category = normalize(service.categoryName);
         const location = normalize(getServiceLocationLabel(service));
         const executionMode = normalize(service.executionMode);
         const price = getPrice(service);
 
-        const matchesKeyword =
-          !normalizedKeyword ||
-          title.includes(normalizedKeyword) ||
-          description.includes(normalizedKeyword) ||
-          category.includes(normalizedKeyword);
+        const matchesKeyword = matchesServiceKeyword(service, keyword, [city]);
 
         const isRemoteCompatible = service.remote || executionMode === 'remote' || executionMode === 'hybrid';
         const matchesCity =
