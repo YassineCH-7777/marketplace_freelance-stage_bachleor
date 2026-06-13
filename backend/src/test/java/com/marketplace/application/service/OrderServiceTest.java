@@ -2,6 +2,7 @@ package com.marketplace.application.service;
 
 import com.marketplace.dto.order.OrderDto;
 import com.marketplace.dto.order.AdminDisputeDecisionDto;
+import com.marketplace.dto.order.MissionMilestoneDto;
 import com.marketplace.dto.order.OrderDisputeRequestDto;
 import com.marketplace.dto.order.OrderExecutionUpdateDto;
 import com.marketplace.model.Category;
@@ -16,6 +17,7 @@ import com.marketplace.enums.PaymentStatus;
 import com.marketplace.model.Attachment;
 import com.marketplace.enums.MissionActivityType;
 import com.marketplace.model.MissionActivity;
+import com.marketplace.model.MissionMilestone;
 import com.marketplace.exception.BusinessException;
 import com.marketplace.exception.UnauthorizedException;
 import com.marketplace.persistence.AttachmentRepository;
@@ -143,6 +145,38 @@ class OrderServiceTest {
     }
 
     @Test
+    void updateFreelancerOrderRejectsStartDateBeforeMissionCreation() {
+        Order order = buildOrder(17L, 13L);
+        OrderExecutionUpdateDto request = OrderExecutionUpdateDto.builder()
+                .status(OrderStatus.IN_PROGRESS)
+                .startDate(LocalDate.of(2026, 4, 23))
+                .build();
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.updateFreelancerOrder(17L, 13L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("creation de la mission")
+                .satisfies(error -> assertThat(((BusinessException) error).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void updateFreelancerOrderRejectsDueDateBeforeMissionCreation() {
+        Order order = buildOrder(17L, 13L);
+        OrderExecutionUpdateDto request = OrderExecutionUpdateDto.builder()
+                .status(OrderStatus.IN_PROGRESS)
+                .dueDate(LocalDate.of(2026, 4, 20))
+                .build();
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.updateFreelancerOrder(17L, 13L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("creation de la mission")
+                .satisfies(error -> assertThat(((BusinessException) error).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
     void updateFreelancerOrderRejectsAnotherFreelancer() {
         Order order = buildOrder(17L, 13L);
         OrderExecutionUpdateDto request = OrderExecutionUpdateDto.builder()
@@ -207,6 +241,32 @@ class OrderServiceTest {
     }
 
     @Test
+    void createOrderRequestRejectsPastProposedDate() {
+        User client = User.builder()
+                .id(5L)
+                .email("client@marketplace.com")
+                .password("hashed")
+                .build();
+        ServiceEntity service = ServiceEntity.builder()
+                .id(3L)
+                .title("Reportage photo local")
+                .build();
+        com.marketplace.dto.order.OrderRequestDto request = com.marketplace.dto.order.OrderRequestDto.builder()
+                .serviceId(3L)
+                .initialMessage("Besoin d'une mission terrain rapide")
+                .proposedDate(LocalDate.now().minusDays(1))
+                .build();
+
+        when(userRepository.findById(5L)).thenReturn(Optional.of(client));
+        when(serviceRepository.findById(3L)).thenReturn(Optional.of(service));
+        when(orderRequestRepository.existsByClient_IdAndService(5L, service)).thenReturn(false);
+
+        assertThatThrownBy(() -> orderService.createOrderRequest(5L, request))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
     void updateFreelancerOrderRejectsWhenEscrowIsNotHeld() {
         Order order = buildOrder(17L, 13L);
         order.setPaymentStatus(PaymentStatus.PENDING);
@@ -218,6 +278,43 @@ class OrderServiceTest {
 
         assertThatThrownBy(() -> orderService.updateFreelancerOrder(17L, 13L, request))
                 .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void addMissionMilestoneRejectsDeadlineBeforeMissionCreation() {
+        Order order = buildOrder(17L, 13L);
+        MissionMilestoneDto request = MissionMilestoneDto.builder()
+                .title("Recherche")
+                .deadline(LocalDate.of(2026, 4, 20))
+                .build();
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.addMissionMilestone(17L, 13L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("creation de la mission")
+                .satisfies(error -> assertThat(((BusinessException) error).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void updateMissionMilestoneRejectsDeadlineBeforeMissionCreation() {
+        Order order = buildOrder(17L, 13L);
+        MissionMilestone milestone = MissionMilestone.builder()
+                .id(44L)
+                .order(order)
+                .title("Execution")
+                .build();
+        MissionMilestoneDto request = MissionMilestoneDto.builder()
+                .deadline(LocalDate.of(2026, 4, 20))
+                .build();
+
+        when(orderRepository.findById(17L)).thenReturn(Optional.of(order));
+        when(missionMilestoneRepository.findById(44L)).thenReturn(Optional.of(milestone));
+
+        assertThatThrownBy(() -> orderService.updateMissionMilestone(17L, 44L, 13L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("creation de la mission")
                 .satisfies(error -> assertThat(((BusinessException) error).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
 

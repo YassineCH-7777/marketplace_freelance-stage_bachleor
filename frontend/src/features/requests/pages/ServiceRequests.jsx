@@ -191,7 +191,6 @@ export default function ServiceRequests() {
             />
           </div>
           <div className="requests-search-bar requests-city-field">
-            <MapPin size={18} />
             <CustomSelect
               id="request-city-filter"
               label="Filtrer par ville"

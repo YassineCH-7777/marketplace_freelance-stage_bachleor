@@ -145,6 +145,7 @@ public class OrderService {
 
         LocalDate nextStartDate = dto.getStartDate() != null ? dto.getStartDate() : order.getStartDate();
         LocalDate nextEndDate = dto.getEndDate() != null ? dto.getEndDate() : order.getEndDate();
+        LocalDate nextDueDate = dto.getDueDate() != null ? dto.getDueDate() : order.getDueDate();
 
         if (nextStatus == OrderStatus.IN_PROGRESS && nextStartDate == null) {
             nextStartDate = LocalDate.now();
@@ -157,6 +158,7 @@ public class OrderService {
         if (nextStartDate != null && nextEndDate != null && nextEndDate.isBefore(nextStartDate)) {
             throw new BusinessException("La date de fin doit etre posterieure a la date de debut.", HttpStatus.BAD_REQUEST);
         }
+        validateMissionDatesNotBeforeCreation(order, nextStartDate, nextEndDate, nextDueDate);
 
         int nextProgress = dto.getProgressPercentage() != null
                 ? dto.getProgressPercentage()
@@ -167,9 +169,7 @@ public class OrderService {
         order.setProgressPercentage(nextProgress);
         order.setStartDate(nextStartDate);
         order.setEndDate(nextEndDate);
-        if (dto.getDueDate() != null) {
-            order.setDueDate(dto.getDueDate());
-        }
+        order.setDueDate(nextDueDate);
 
         if (dto.getNotes() != null) {
             order.setNotes(normalizeOptionalText(dto.getNotes()));
@@ -213,6 +213,7 @@ public class OrderService {
         if (dto.getStatus() != null && dto.getStatus() != MissionMilestoneStatus.PENDING) {
             ensureEscrowIsHeld(order);
         }
+        validateMissionDateNotBeforeCreation(order, dto.getDeadline(), "La date du jalon");
 
         MissionMilestone milestone = MissionMilestone.builder()
                 .order(order)
@@ -264,6 +265,7 @@ public class OrderService {
             milestone.setAmount(dto.getAmount());
         }
         if (dto.getDeadline() != null) {
+            validateMissionDateNotBeforeCreation(order, dto.getDeadline(), "La date du jalon");
             milestone.setDeadline(dto.getDeadline());
         }
         if (dto.getTimerDurationMinutes() != null) {
@@ -313,6 +315,7 @@ public class OrderService {
         if (orderRequestRepository.existsByClient_IdAndService(clientId, service)) {
             throw new BusinessException("Une demande existe deja pour ce service.", HttpStatus.CONFLICT);
         }
+        validateRequestedDateNotInPast(dto.getProposedDate());
 
         OrderRequest request = OrderRequest.builder()
                 .service(service)
@@ -1043,6 +1046,34 @@ public class OrderService {
     private void validateProgress(int progress) {
         if (progress < 0 || progress > 100) {
             throw new BusinessException("La progression doit etre comprise entre 0 et 100.", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void validateMissionDatesNotBeforeCreation(
+            Order order,
+            LocalDate startDate,
+            LocalDate endDate,
+            LocalDate dueDate
+    ) {
+        validateMissionDateNotBeforeCreation(order, startDate, "La date de debut");
+        validateMissionDateNotBeforeCreation(order, dueDate, "La date d'echeance");
+        validateMissionDateNotBeforeCreation(order, endDate, "La date de fin");
+    }
+
+    private void validateMissionDateNotBeforeCreation(Order order, LocalDate value, String fieldLabel) {
+        if (value == null || order.getCreatedAt() == null) {
+            return;
+        }
+
+        LocalDate creationDate = order.getCreatedAt().toLocalDate();
+        if (value.isBefore(creationDate)) {
+            throw new BusinessException(fieldLabel + " ne peut pas etre anterieure a la creation de la mission.", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void validateRequestedDateNotInPast(LocalDate proposedDate) {
+        if (proposedDate != null && proposedDate.isBefore(LocalDate.now())) {
+            throw new BusinessException("La date proposee ne peut pas etre dans le passe.", HttpStatus.BAD_REQUEST);
         }
     }
 

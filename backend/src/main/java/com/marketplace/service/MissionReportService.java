@@ -109,7 +109,7 @@ public class MissionReportService {
                 resolveMissionTitle(order),
                 List.of(
                         "Mission #" + order.getId(),
-                        "Genere le " + formatDateTime(LocalDateTime.now()),
+                        "Généré le " + formatDateTime(LocalDateTime.now()),
                         "Client: " + order.getClient().getEmail(),
                         "Freelance: " + order.getFreelancer().getUser().getEmail()
                 ));
@@ -122,11 +122,13 @@ public class MissionReportService {
         ));
         writer.addProgressBar("Progression globale", safeProgress(order.getProgressPercentage()));
 
-        writer.addSection("Resume");
+        writer.addSection("Résumé");
         writer.addParagraph(resolveInitialBrief(order));
         if (hasText(order.getNotes())) {
-            writer.addParagraph("Suivi partage: " + order.getNotes());
+            writer.addParagraph("Suivi partagé: " + order.getNotes());
         }
+
+        writer.addAuditSummary(detectedIssues.size(), platformRecommendations.size());
 
         writer.addSection("Problèmes détectés");
         if (detectedIssues.isEmpty()) {
@@ -138,11 +140,13 @@ public class MissionReportService {
         }
 
         writer.addSection("Ce qu'il faut ajouter à la plateforme");
+        int recommendationIndex = 1;
         for (PlatformRecommendation recommendation : platformRecommendations) {
-            writer.addRecommendationCard(recommendation.title(), recommendation.description());
+            writer.addRecommendationCard(recommendationIndex, recommendation.title(), recommendation.description());
+            recommendationIndex += 1;
         }
 
-        writer.addSection("Etapes");
+        writer.addSection("Étapes");
         if (milestones.isEmpty()) {
             writer.addParagraph("Aucun jalon renseigne pour cette mission.");
         } else {
@@ -156,20 +160,20 @@ public class MissionReportService {
             }
         }
 
-        writer.addSection("Dates cles");
-        writer.addKeyValue("Creation", formatDateTime(order.getCreatedAt()));
-        writer.addKeyValue("Debut", formatDate(order.getStartDate()));
-        writer.addKeyValue("Echeance", formatDate(order.getDueDate()));
+        writer.addSection("Dates clés");
+        writer.addKeyValue("Création", formatDateTime(order.getCreatedAt()));
+        writer.addKeyValue("Début", formatDate(order.getStartDate()));
+        writer.addKeyValue("Échéance", formatDate(order.getDueDate()));
         writer.addKeyValue("Livraison", formatDateTime(order.getDeliveredAt()));
         writer.addKeyValue("Fin", formatDate(order.getEndDate()));
-        writer.addKeyValue("Derniere mise a jour", formatDateTime(order.getUpdatedAt()));
+        writer.addKeyValue("Dernière mise à jour", formatDateTime(order.getUpdatedAt()));
 
         writer.addSection("Prix");
         writer.addKeyValue("Montant convenu", formatAmount(order.getAgreedPrice()));
         writer.addKeyValue("Paiement", formatPaymentStatus(order.getPaymentStatus()));
         Proposal proposal = order.getProposal();
         if (proposal != null) {
-            writer.addKeyValue("Delai estime", proposal.getEstimatedDays() + " jour(s)");
+            writer.addKeyValue("Délai estimé", proposal.getEstimatedDays() + " jour(s)");
             if (hasText(proposal.getMessage())) {
                 writer.addParagraph("Message de candidature: " + proposal.getMessage());
             }
@@ -177,7 +181,7 @@ public class MissionReportService {
 
         writer.addSection("Messages importants");
         if (importantMessages.isEmpty()) {
-            writer.addParagraph("Aucun message n'a ete marque comme important.");
+            writer.addParagraph("Aucun message n'a été marqué comme important.");
         } else {
             for (Message message : importantMessages) {
                 writer.addTimelineItem(
@@ -192,14 +196,14 @@ public class MissionReportService {
         writer.addKeyValue("Livree le", formatDateTime(order.getDeliveredAt()));
         writer.addParagraph(hasText(order.getDeliveryNote())
                 ? order.getDeliveryNote()
-                : "Aucune note de livraison finale n'a encore ete partagee.");
+                : "Aucune note de livraison finale n'a encore été partagée.");
         if (hasText(order.getRevisionRequest())) {
-            writer.addParagraph("Revision demandee: " + order.getRevisionRequest());
+            writer.addParagraph("Révision demandée: " + order.getRevisionRequest());
         }
         if (attachments.isEmpty()) {
-            writer.addParagraph("Aucun fichier de livraison rattache a cette mission.");
+            writer.addParagraph("Aucun fichier de livraison rattaché à cette mission.");
         } else {
-            writer.addParagraph("Fichiers livres:");
+            writer.addParagraph("Fichiers livrés:");
             for (Attachment attachment : attachments) {
                 writer.addBullet(attachment.getOriginalFileName() + " - " + attachment.getAttachmentType()
                         + " - " + formatDateTime(attachment.getCreatedAt()));
@@ -215,14 +219,14 @@ public class MissionReportService {
                 writer.addParagraph("Arbitrage admin: " + order.getDisputeAdminNotes());
             }
             if (hasText(order.getDisputeResolution())) {
-                writer.addKeyValue("Decision", order.getDisputeResolution());
-                writer.addKeyValue("Resolution", formatDateTime(order.getDisputeResolvedAt()));
+                writer.addKeyValue("Décision", order.getDisputeResolution());
+                writer.addKeyValue("Résolution", formatDateTime(order.getDisputeResolvedAt()));
             }
         }
 
         writer.addSection("Timeline");
         if (activities.isEmpty()) {
-            writer.addParagraph("Aucune activite enregistree.");
+            writer.addParagraph("Aucune activité enregistrée.");
         } else {
             for (MissionActivity activity : activities) {
                 writer.addTimelineItem(
@@ -235,8 +239,8 @@ public class MissionReportService {
         if (review != null) {
             writer.addSection("Avis client");
             writer.addKeyValue("Note globale", review.getRating() + "/5");
-            writer.addKeyValue("Qualite", review.getQualityRating() + "/5");
-            writer.addKeyValue("Ponctualite", review.getPunctualityRating() + "/5");
+            writer.addKeyValue("Qualité", review.getQualityRating() + "/5");
+            writer.addKeyValue("Ponctualité", review.getPunctualityRating() + "/5");
             writer.addKeyValue("Communication", review.getCommunicationRating() + "/5");
             if (hasText(review.getComment())) {
                 writer.addParagraph(review.getComment());
@@ -263,13 +267,13 @@ public class MissionReportService {
                     IssueTone.CRITICAL));
         }
 
-        if (hasInconsistentDates(order, milestones)) {
+        String inconsistentDates = describeInconsistentDates(order, milestones);
+        if (hasText(inconsistentDates)) {
             issues.add(new ReportIssue(
                     "Dates incohérentes",
                     "Critique",
-                    "La mission a été créée le " + formatDateTime(order.getCreatedAt())
-                            + ", mais certaines étapes indiquent des dates antérieures à la création. "
-                            + "Ces données doivent être nettoyées ou bloquées côté serveur.",
+                    "Mission créée le " + formatDateTime(order.getCreatedAt()) + ", mais les dates suivantes sont antérieures : "
+                            + inconsistentDates + ". Ces données doivent être nettoyées et refusées côté serveur.",
                     IssueTone.CRITICAL));
         }
 
@@ -277,7 +281,7 @@ public class MissionReportService {
             issues.add(new ReportIssue(
                     "Aucun fichier de livraison",
                     "Important",
-                    "La section livraison finale indique qu'aucun fichier n'est rattaché à la mission. "
+                    "La section livraison finale indique explicitement qu'aucun fichier de livraison n'est rattaché. "
                             + "Impossible de vérifier ce qui a été fourni ni de trancher le litige objectivement.",
                     IssueTone.IMPORTANT));
         }
@@ -286,8 +290,8 @@ public class MissionReportService {
             issues.add(new ReportIssue(
                     "Aucun message marqué comme important",
                     "Important",
-                    "Pas de trace des échanges clés entre client et freelance. "
-                            + "Difficile de suivre l'évolution du projet et de prouver les validations intermédiaires.",
+                    "Pas de trace des échanges clés entre client et freelance. Difficile de suivre l'évolution du projet "
+                            + "et de prouver les validations intermédiaires.",
                     IssueTone.IMPORTANT));
         }
 
@@ -305,23 +309,23 @@ public class MissionReportService {
     private List<PlatformRecommendation> buildPlatformRecommendations() {
         return List.of(
                 new PlatformRecommendation(
-                    "Cahier des charges structuré obligatoire",
+                        "Cahier des charges structuré obligatoire",
                         "Formulaire de brief détaillé à remplir avant de démarrer : fonctionnalités attendues, pages requises, charte graphique, délais, exemples de références. Doit être signé ou validé par le client."),
                 new PlatformRecommendation(
-                    "Upload de fichiers de livraison obligatoire",
+                        "Upload de fichiers de livraison obligatoire",
                         "Rendre le dépôt de fichiers (ZIP, lien de démo, captures) requis avant de pouvoir passer la mission en statut Livrée. Empêcher la clôture sans livrable attaché."),
                 new PlatformRecommendation(
-                    "Validation formelle par étape",
+                        "Validation formelle par étape",
                         "Chaque étape (Recherche, Exécution, Livraison) doit être validée par le client avec une signature numérique ou un bouton d'approbation horodaté. Ces validations deviennent des preuves en cas de litige."),
                 new PlatformRecommendation(
-                    "Messagerie intégrée avec historique",
+                        "Messagerie intégrée avec historique",
                         "Tous les échanges importants (demandes de modification, validations verbales, feedback) doivent passer par la plateforme et être archivés. Permettre de pin des messages clés pour les retrouver facilement."),
                 new PlatformRecommendation(
-                    "Processus de litige structuré",
-                        "Ajouter : délai de réponse pour le freelance, possibilité d'attacher des preuves des deux côtés, rôle d'un médiateur admin, et décision finale documentée."),
+                        "Processus de litige structuré",
+                        "Actuellement le litige n'a qu'un motif textuel. Ajouter : délai de réponse pour le freelance, possibilité d'attacher des preuves des deux côtés, rôle d'un médiateur admin, et décision finale documentée."),
                 new PlatformRecommendation(
                         "Validation des dates à la création",
-                        "Ajouter une validation côté serveur qui refuse les dates antérieures à la création de la mission.")
+                        "Refuser côté serveur les dates de début, d'échéance et de jalon antérieures à la création de la mission afin d'éviter les données de test incohérentes.")
         );
     }
 
@@ -389,34 +393,43 @@ public class MissionReportService {
         }
 
         int wordCount = brief.trim().split("\\s+").length;
-        boolean hasOneSentence = brief.chars().filter(character -> character == '.' || character == '!' || character == '?').count() <= 1;
+        boolean hasOneSentence = brief.chars()
+                .filter(character -> character == '.' || character == '!' || character == '?')
+                .count() <= 1;
         boolean lacksProjectSignals = !containsAnyIgnoreCase(
                 brief,
-                "page", "fonctionnalite", "charte", "couleur", "reference", "livrable", "maquette", "seo", "admin", "paiement"
+                "page", "fonctionnalité", "fonctionnalite", "charte", "couleur", "référence", "reference",
+                "livrable", "maquette", "seo", "admin", "paiement", "contenu", "responsive"
         );
 
         return wordCount < 18 || (hasOneSentence && lacksProjectSignals);
     }
 
-    private boolean hasInconsistentDates(Order order, List<MissionMilestone> milestones) {
+    private String describeInconsistentDates(Order order, List<MissionMilestone> milestones) {
         if (order.getCreatedAt() == null) {
-            return false;
+            return "";
         }
 
         LocalDate createdDate = order.getCreatedAt().toLocalDate();
-        if (order.getStartDate() != null && order.getStartDate().isBefore(createdDate)) {
-            return true;
-        }
-        if (order.getDueDate() != null && order.getDueDate().isBefore(createdDate)) {
-            return true;
-        }
-        if (order.getEndDate() != null && order.getEndDate().isBefore(createdDate)) {
-            return true;
+        java.util.ArrayList<String> values = new java.util.ArrayList<>();
+        addDateIfBefore(values, "début", order.getStartDate(), createdDate);
+        addDateIfBefore(values, "échéance", order.getDueDate(), createdDate);
+        addDateIfBefore(values, "fin", order.getEndDate(), createdDate);
+
+        for (MissionMilestone milestone : safeList(milestones)) {
+            String label = hasText(milestone.getTitle())
+                    ? "étape " + milestone.getTitle()
+                    : "étape sans titre";
+            addDateIfBefore(values, label, milestone.getDeadline(), createdDate);
         }
 
-        return safeList(milestones)
-                .stream()
-                .anyMatch(milestone -> milestone.getDeadline() != null && milestone.getDeadline().isBefore(createdDate));
+        return String.join(", ", values);
+    }
+
+    private void addDateIfBefore(List<String> values, String label, LocalDate value, LocalDate reference) {
+        if (value != null && reference != null && value.isBefore(reference)) {
+            values.add(label + " " + formatDate(value));
+        }
     }
 
     private boolean isSharedFollowUpTooVague(String notes) {
@@ -425,7 +438,7 @@ public class MissionReportService {
         }
 
         return notes.trim().split("\\s+").length < 14
-                || !containsAnyIgnoreCase(notes, "client", "freelance", "date", "livrable", "fichier", "validation", "commentaire");
+                || !containsAnyIgnoreCase(notes, "client", "freelance", "date", "livrable", "fichier", "validation", "commentaire", "validé", "valide");
     }
 
     private boolean containsAnyIgnoreCase(String value, String... expectedValues) {
@@ -682,8 +695,34 @@ public class MissionReportService {
             y -= boxHeight + 7f;
         }
 
+        void addAuditSummary(int issueCount, int recommendationCount) throws IOException {
+            float boxHeight = 58f;
+            ensureSpace(boxHeight + 12f);
+
+            drawFilledRect(MARGIN, y - boxHeight, CONTENT_WIDTH, boxHeight, 0.93f, 0.97f, 0.99f);
+            drawStrokeRect(MARGIN, y - boxHeight, CONTENT_WIDTH, boxHeight, 0.73f, 0.84f, 0.90f);
+            drawFilledRect(MARGIN, y - boxHeight, 5f, boxHeight, ACCENT_R, ACCENT_G, ACCENT_B);
+
+            writeTextAt("Audit de mission", FONT_BOLD, 12.5f, MARGIN + 16f, y - 18f, TEXT_R, TEXT_G, TEXT_B);
+            writeTextAt(
+                    "Synthèse automatique des risques, preuves manquantes et améliorations plateforme.",
+                    FONT_REGULAR,
+                    9.5f,
+                    MARGIN + 16f,
+                    y - 36f,
+                    MUTED_R,
+                    MUTED_G,
+                    MUTED_B);
+
+            float metricWidth = 82f;
+            float metricX = PAGE_WIDTH - MARGIN - metricWidth * 2 - 10f;
+            drawMiniStat(metricX, y - 14f, metricWidth, String.valueOf(issueCount), "problèmes");
+            drawMiniStat(metricX + metricWidth + 10f, y - 14f, metricWidth, String.valueOf(recommendationCount), "actions");
+            y -= boxHeight + 12f;
+        }
+
         void addIssueCard(String title, String severity, String description, IssueTone tone) throws IOException {
-            List<String> descriptionLines = wrap(description, FONT_REGULAR, 9.8f, CONTENT_WIDTH - 28f);
+            List<String> descriptionLines = wrap(description, FONT_REGULAR, 9.8f, CONTENT_WIDTH - 32f);
             float boxHeight = 58f + descriptionLines.size() * 12.5f;
             ensureSpace(boxHeight + 8f);
 
@@ -692,10 +731,10 @@ public class MissionReportService {
             drawFilledRect(MARGIN, y - boxHeight, CONTENT_WIDTH, boxHeight, fill[0], fill[1], fill[2]);
             drawStrokeRect(MARGIN, y - boxHeight, CONTENT_WIDTH, boxHeight, BORDER_R, BORDER_G, BORDER_B);
             drawFilledRect(MARGIN, y - boxHeight, 5f, boxHeight, accent[0], accent[1], accent[2]);
-            writeTextAt(title, FONT_BOLD, 12f, MARGIN + 16f, y - 17f, TEXT_R, TEXT_G, TEXT_B);
-            drawPill(severity, PAGE_WIDTH - MARGIN - 90f, y - 18f, accent[0], accent[1], accent[2], 1f, 1f, 1f);
+            writeTextAt(title, FONT_BOLD, 12f, MARGIN + 16f, y - 18f, TEXT_R, TEXT_G, TEXT_B);
+            drawPill(severity, PAGE_WIDTH - MARGIN - 92f, y - 18f, accent[0], accent[1], accent[2], 1f, 1f, 1f);
 
-            float textY = y - 40f;
+            float textY = y - 41f;
             for (String line : descriptionLines) {
                 writeTextAt(line, FONT_REGULAR, 9.8f, MARGIN + 16f, textY, TEXT_R, TEXT_G, TEXT_B);
                 textY -= 12.5f;
@@ -703,18 +742,19 @@ public class MissionReportService {
             y -= boxHeight + 8f;
         }
 
-        void addRecommendationCard(String title, String description) throws IOException {
-            List<String> descriptionLines = wrap(description, FONT_REGULAR, 9.7f, CONTENT_WIDTH - 34f);
-            float boxHeight = 48f + descriptionLines.size() * 12.5f;
+        void addRecommendationCard(int index, String title, String description) throws IOException {
+            List<String> descriptionLines = wrap(description, FONT_REGULAR, 9.7f, CONTENT_WIDTH - 56f);
+            float boxHeight = 50f + descriptionLines.size() * 12.5f;
             ensureSpace(boxHeight + 7f);
 
             drawCard(MARGIN, y - boxHeight, CONTENT_WIDTH, boxHeight);
-            drawFilledRect(MARGIN + 12f, y - 24f, 10f, 10f, ACCENT_R, ACCENT_G, ACCENT_B);
-            writeTextAt(title, FONT_BOLD, 11.2f, MARGIN + 32f, y - 17f, TEXT_R, TEXT_G, TEXT_B);
+            drawFilledRect(MARGIN + 14f, y - 31f, 20f, 20f, PRIMARY_R, PRIMARY_G, PRIMARY_B);
+            writeTextAt(String.valueOf(index), FONT_BOLD, 9f, MARGIN + 21f, y - 25f, 1f, 1f, 1f);
+            writeTextAt(title, FONT_BOLD, 11.2f, MARGIN + 44f, y - 18f, TEXT_R, TEXT_G, TEXT_B);
 
-            float textY = y - 38f;
+            float textY = y - 39f;
             for (String line : descriptionLines) {
-                writeTextAt(line, FONT_REGULAR, 9.7f, MARGIN + 32f, textY, MUTED_R, MUTED_G, MUTED_B);
+                writeTextAt(line, FONT_REGULAR, 9.7f, MARGIN + 44f, textY, MUTED_R, MUTED_G, MUTED_B);
                 textY -= 12.5f;
             }
             y -= boxHeight + 7f;
@@ -869,6 +909,7 @@ public class MissionReportService {
             String normalized = emptyFallback(value)
                     .replace('\r', ' ')
                     .replace('\n', ' ')
+                    .replace('\u00a0', ' ')
                     .replace('’', '\'')
                     .replace('‘', '\'')
                     .replace('“', '"')
@@ -944,6 +985,13 @@ public class MissionReportService {
             float width = Math.min(96f, stringWidth(safeValue, FONT_BOLD, 8.2f) + 18f);
             drawFilledRect(x, baselineY - 10f, width, 15f, fillR, fillG, fillB);
             writeTextAt(safeValue, FONT_BOLD, 8.2f, x + 8f, baselineY - 5f, textR, textG, textB);
+        }
+
+        private void drawMiniStat(float x, float topY, float width, String value, String label) throws IOException {
+            drawFilledRect(x, topY - 32f, width, 36f, 1f, 1f, 1f);
+            drawStrokeRect(x, topY - 32f, width, 36f, BORDER_R, BORDER_G, BORDER_B);
+            writeTextAt(value, FONT_BOLD, 13f, x + 10f, topY - 9f, PRIMARY_R, PRIMARY_G, PRIMARY_B);
+            writeTextAt(label, FONT_REGULAR, 7.8f, x + 10f, topY - 23f, MUTED_R, MUTED_G, MUTED_B);
         }
 
         private float[] issueAccent(IssueTone tone) {
