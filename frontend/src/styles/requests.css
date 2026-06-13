@@ -8,11 +8,11 @@
 .requests-header p { color: var(--text-muted); font-size: var(--text-base); max-width: 600px; }
 
 /* Filters */
-.requests-filters { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-8); padding: var(--space-4); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); }
+.requests-filters { position: relative; z-index: 120; display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-8); padding: var(--space-4); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); }
 .requests-search-bar { display: flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 180px; position: relative; }
 .requests-search-bar svg { position: absolute; left: var(--space-3); color: var(--text-muted); pointer-events: none; }
 .requests-search-bar .form-input { padding-left: 2.5rem; }
-.requests-city-field { z-index: 20; }
+.requests-city-field { z-index: 130; }
 .requests-city-select {
   width: 100%;
 }
@@ -32,7 +32,7 @@
   box-shadow: 0 0 0 3px oklch(0.62 0.12 220 / 0.1);
 }
 .requests-city-select .custom-select-menu {
-  z-index: 80;
+  z-index: 140;
   max-height: 15rem;
 }
 .requests-radius-filter { display: grid; grid-template-columns: auto minmax(8rem, 12rem); gap: var(--space-2); align-items: center; min-height: 2.6rem; padding: 0 var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
@@ -42,7 +42,7 @@
 .requests-urgent-filter input { accent-color: var(--accent-500); }
 
 /* Grid */
-.requests-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr)); gap: var(--space-6); }
+.requests-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr)); gap: var(--space-6); }
 
 /* Request Card */
 .request-card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-6); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); cursor: pointer; transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base); }

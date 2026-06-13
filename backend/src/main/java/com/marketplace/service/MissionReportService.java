@@ -39,7 +39,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -102,6 +101,9 @@ public class MissionReportService {
             List<Message> importantMessages,
             Review review
     ) throws IOException {
+        List<ReportIssue> detectedIssues = buildDetectedIssues(order, milestones, attachments, importantMessages);
+        List<PlatformRecommendation> platformRecommendations = buildPlatformRecommendations();
+
         writer.addHeader(
                 "Rapport de mission",
                 resolveMissionTitle(order),
@@ -124,6 +126,20 @@ public class MissionReportService {
         writer.addParagraph(resolveInitialBrief(order));
         if (hasText(order.getNotes())) {
             writer.addParagraph("Suivi partage: " + order.getNotes());
+        }
+
+        writer.addSection("Problèmes détectés");
+        if (detectedIssues.isEmpty()) {
+            writer.addParagraph("Aucun problème majeur n'a été détecté automatiquement dans ce rapport.");
+        } else {
+            for (ReportIssue issue : detectedIssues) {
+                writer.addIssueCard(issue.title(), issue.severity(), issue.description(), issue.tone());
+            }
+        }
+
+        writer.addSection("Ce qu'il faut ajouter à la plateforme");
+        for (PlatformRecommendation recommendation : platformRecommendations) {
+            writer.addRecommendationCard(recommendation.title(), recommendation.description());
         }
 
         writer.addSection("Etapes");
@@ -228,6 +244,87 @@ public class MissionReportService {
         }
     }
 
+    private List<ReportIssue> buildDetectedIssues(
+            Order order,
+            List<MissionMilestone> milestones,
+            List<Attachment> attachments,
+            List<Message> importantMessages
+    ) {
+        java.util.ArrayList<ReportIssue> issues = new java.util.ArrayList<>();
+        String initialBrief = stripBriefPrefix(resolveInitialBrief(order));
+
+        if (isBriefTooVague(initialBrief)) {
+            issues.add(new ReportIssue(
+                    "Brief trop vague",
+                    "Critique",
+                    "Le brief initial se résume à une seule phrase : \"" + initialBrief
+                            + "\". Aucun cahier des charges, aucune fonctionnalité définie, aucune charte graphique mentionnée. "
+                            + "C'est la cause probable du litige.",
+                    IssueTone.CRITICAL));
+        }
+
+        if (hasInconsistentDates(order, milestones)) {
+            issues.add(new ReportIssue(
+                    "Dates incohérentes",
+                    "Critique",
+                    "La mission a été créée le " + formatDateTime(order.getCreatedAt())
+                            + ", mais certaines étapes indiquent des dates antérieures à la création. "
+                            + "Ces données doivent être nettoyées ou bloquées côté serveur.",
+                    IssueTone.CRITICAL));
+        }
+
+        if (attachments.isEmpty()) {
+            issues.add(new ReportIssue(
+                    "Aucun fichier de livraison",
+                    "Important",
+                    "La section livraison finale indique qu'aucun fichier n'est rattaché à la mission. "
+                            + "Impossible de vérifier ce qui a été fourni ni de trancher le litige objectivement.",
+                    IssueTone.IMPORTANT));
+        }
+
+        if (importantMessages.isEmpty()) {
+            issues.add(new ReportIssue(
+                    "Aucun message marqué comme important",
+                    "Important",
+                    "Pas de trace des échanges clés entre client et freelance. "
+                            + "Difficile de suivre l'évolution du projet et de prouver les validations intermédiaires.",
+                    IssueTone.IMPORTANT));
+        }
+
+        if (isSharedFollowUpTooVague(order.getNotes())) {
+            issues.add(new ReportIssue(
+                    "Suivi partagé trop vague",
+                    "Mineur",
+                    "\"" + order.getNotes() + "\" : aucun détail sur ce qui a été validé, par qui, et quand exactement.",
+                    IssueTone.MINOR));
+        }
+
+        return issues;
+    }
+
+    private List<PlatformRecommendation> buildPlatformRecommendations() {
+        return List.of(
+                new PlatformRecommendation(
+                    "Cahier des charges structuré obligatoire",
+                        "Formulaire de brief détaillé à remplir avant de démarrer : fonctionnalités attendues, pages requises, charte graphique, délais, exemples de références. Doit être signé ou validé par le client."),
+                new PlatformRecommendation(
+                    "Upload de fichiers de livraison obligatoire",
+                        "Rendre le dépôt de fichiers (ZIP, lien de démo, captures) requis avant de pouvoir passer la mission en statut Livrée. Empêcher la clôture sans livrable attaché."),
+                new PlatformRecommendation(
+                    "Validation formelle par étape",
+                        "Chaque étape (Recherche, Exécution, Livraison) doit être validée par le client avec une signature numérique ou un bouton d'approbation horodaté. Ces validations deviennent des preuves en cas de litige."),
+                new PlatformRecommendation(
+                    "Messagerie intégrée avec historique",
+                        "Tous les échanges importants (demandes de modification, validations verbales, feedback) doivent passer par la plateforme et être archivés. Permettre de pin des messages clés pour les retrouver facilement."),
+                new PlatformRecommendation(
+                    "Processus de litige structuré",
+                        "Ajouter : délai de réponse pour le freelance, possibilité d'attacher des preuves des deux côtés, rôle d'un médiateur admin, et décision finale documentée."),
+                new PlatformRecommendation(
+                        "Validation des dates à la création",
+                        "Ajouter une validation côté serveur qui refuse les dates antérieures à la création de la mission.")
+        );
+    }
+
     private List<Message> getImportantMessages(Long orderId) {
         Optional<Conversation> conversation = conversationRepository.findByOrder_Id(orderId);
         return conversation
@@ -277,6 +374,68 @@ public class MissionReportService {
         }
 
         return "Brief initial non renseigne.";
+    }
+
+    private String stripBriefPrefix(String value) {
+        if (!hasText(value)) {
+            return "";
+        }
+        return value.replaceFirst("(?i)^brief initial:\\s*", "").trim();
+    }
+
+    private boolean isBriefTooVague(String brief) {
+        if (!hasText(brief)) {
+            return true;
+        }
+
+        int wordCount = brief.trim().split("\\s+").length;
+        boolean hasOneSentence = brief.chars().filter(character -> character == '.' || character == '!' || character == '?').count() <= 1;
+        boolean lacksProjectSignals = !containsAnyIgnoreCase(
+                brief,
+                "page", "fonctionnalite", "charte", "couleur", "reference", "livrable", "maquette", "seo", "admin", "paiement"
+        );
+
+        return wordCount < 18 || (hasOneSentence && lacksProjectSignals);
+    }
+
+    private boolean hasInconsistentDates(Order order, List<MissionMilestone> milestones) {
+        if (order.getCreatedAt() == null) {
+            return false;
+        }
+
+        LocalDate createdDate = order.getCreatedAt().toLocalDate();
+        if (order.getStartDate() != null && order.getStartDate().isBefore(createdDate)) {
+            return true;
+        }
+        if (order.getDueDate() != null && order.getDueDate().isBefore(createdDate)) {
+            return true;
+        }
+        if (order.getEndDate() != null && order.getEndDate().isBefore(createdDate)) {
+            return true;
+        }
+
+        return safeList(milestones)
+                .stream()
+                .anyMatch(milestone -> milestone.getDeadline() != null && milestone.getDeadline().isBefore(createdDate));
+    }
+
+    private boolean isSharedFollowUpTooVague(String notes) {
+        if (!hasText(notes)) {
+            return false;
+        }
+
+        return notes.trim().split("\\s+").length < 14
+                || !containsAnyIgnoreCase(notes, "client", "freelance", "date", "livrable", "fichier", "validation", "commentaire");
+    }
+
+    private boolean containsAnyIgnoreCase(String value, String... expectedValues) {
+        String normalizedValue = value == null ? "" : value.toLowerCase();
+        for (String expectedValue : expectedValues) {
+            if (normalizedValue.contains(expectedValue.toLowerCase())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String formatOrderStatus(OrderStatus status) {
@@ -345,6 +504,18 @@ public class MissionReportService {
 
     private <T> List<T> safeList(List<T> values) {
         return values != null ? values : List.of();
+    }
+
+    private enum IssueTone {
+        CRITICAL,
+        IMPORTANT,
+        MINOR
+    }
+
+    private record ReportIssue(String title, String severity, String description, IssueTone tone) {
+    }
+
+    private record PlatformRecommendation(String title, String description) {
     }
 
     private record ReportMetric(String label, String value) {
@@ -511,6 +682,44 @@ public class MissionReportService {
             y -= boxHeight + 7f;
         }
 
+        void addIssueCard(String title, String severity, String description, IssueTone tone) throws IOException {
+            List<String> descriptionLines = wrap(description, FONT_REGULAR, 9.8f, CONTENT_WIDTH - 28f);
+            float boxHeight = 58f + descriptionLines.size() * 12.5f;
+            ensureSpace(boxHeight + 8f);
+
+            float[] accent = issueAccent(tone);
+            float[] fill = issueFill(tone);
+            drawFilledRect(MARGIN, y - boxHeight, CONTENT_WIDTH, boxHeight, fill[0], fill[1], fill[2]);
+            drawStrokeRect(MARGIN, y - boxHeight, CONTENT_WIDTH, boxHeight, BORDER_R, BORDER_G, BORDER_B);
+            drawFilledRect(MARGIN, y - boxHeight, 5f, boxHeight, accent[0], accent[1], accent[2]);
+            writeTextAt(title, FONT_BOLD, 12f, MARGIN + 16f, y - 17f, TEXT_R, TEXT_G, TEXT_B);
+            drawPill(severity, PAGE_WIDTH - MARGIN - 90f, y - 18f, accent[0], accent[1], accent[2], 1f, 1f, 1f);
+
+            float textY = y - 40f;
+            for (String line : descriptionLines) {
+                writeTextAt(line, FONT_REGULAR, 9.8f, MARGIN + 16f, textY, TEXT_R, TEXT_G, TEXT_B);
+                textY -= 12.5f;
+            }
+            y -= boxHeight + 8f;
+        }
+
+        void addRecommendationCard(String title, String description) throws IOException {
+            List<String> descriptionLines = wrap(description, FONT_REGULAR, 9.7f, CONTENT_WIDTH - 34f);
+            float boxHeight = 48f + descriptionLines.size() * 12.5f;
+            ensureSpace(boxHeight + 7f);
+
+            drawCard(MARGIN, y - boxHeight, CONTENT_WIDTH, boxHeight);
+            drawFilledRect(MARGIN + 12f, y - 24f, 10f, 10f, ACCENT_R, ACCENT_G, ACCENT_B);
+            writeTextAt(title, FONT_BOLD, 11.2f, MARGIN + 32f, y - 17f, TEXT_R, TEXT_G, TEXT_B);
+
+            float textY = y - 38f;
+            for (String line : descriptionLines) {
+                writeTextAt(line, FONT_REGULAR, 9.7f, MARGIN + 32f, textY, MUTED_R, MUTED_G, MUTED_B);
+                textY -= 12.5f;
+            }
+            y -= boxHeight + 7f;
+        }
+
         void addIndentedParagraph(String value) throws IOException {
             writeWrapped(emptyFallback(value), FONT_REGULAR, 9.5f, 13f, 18f);
         }
@@ -657,12 +866,29 @@ public class MissionReportService {
         }
 
         private String sanitizeText(String value) {
-            String withoutMarks = Normalizer.normalize(value, Normalizer.Form.NFD)
-                    .replaceAll("\\p{M}", "");
-            return withoutMarks
+            String normalized = emptyFallback(value)
                     .replace('\r', ' ')
                     .replace('\n', ' ')
-                    .replaceAll("[^\\x20-\\x7E]", "?");
+                    .replace('’', '\'')
+                    .replace('‘', '\'')
+                    .replace('“', '"')
+                    .replace('”', '"')
+                    .replace('–', '-')
+                    .replace('—', '-')
+                    .replace("œ", "oe")
+                    .replace("Œ", "OE");
+
+            StringBuilder safeText = new StringBuilder(normalized.length());
+            for (int index = 0; index < normalized.length(); index += 1) {
+                char character = normalized.charAt(index);
+                if ((character >= 32 && character <= 126) || (character >= 160 && character <= 255)) {
+                    safeText.append(character);
+                } else {
+                    safeText.append('?');
+                }
+            }
+
+            return safeText.toString();
         }
 
         private void writeTextAt(
@@ -718,6 +944,22 @@ public class MissionReportService {
             float width = Math.min(96f, stringWidth(safeValue, FONT_BOLD, 8.2f) + 18f);
             drawFilledRect(x, baselineY - 10f, width, 15f, fillR, fillG, fillB);
             writeTextAt(safeValue, FONT_BOLD, 8.2f, x + 8f, baselineY - 5f, textR, textG, textB);
+        }
+
+        private float[] issueAccent(IssueTone tone) {
+            return switch (tone) {
+                case CRITICAL -> new float[] {0.82f, 0.18f, 0.18f};
+                case IMPORTANT -> new float[] {0.86f, 0.42f, 0.04f};
+                case MINOR -> new float[] {ACCENT_R, ACCENT_G, ACCENT_B};
+            };
+        }
+
+        private float[] issueFill(IssueTone tone) {
+            return switch (tone) {
+                case CRITICAL -> new float[] {1.00f, 0.96f, 0.96f};
+                case IMPORTANT -> new float[] {1.00f, 0.98f, 0.92f};
+                case MINOR -> new float[] {0.94f, 0.97f, 1.00f};
+            };
         }
 
         private boolean hasText(String value) {
