@@ -13,42 +13,27 @@
 .requests-search-bar svg { position: absolute; left: var(--space-3); color: var(--text-muted); pointer-events: none; }
 .requests-search-bar .form-input { padding-left: 2.5rem; }
 .requests-city-field { z-index: 20; }
-.requests-city-options {
-  position: absolute;
-  top: calc(100% + 0.45rem);
-  left: 0;
-  z-index: 70;
-  display: grid;
-  width: min(100%, 22rem);
-  max-height: 15rem;
-  padding: 0.35rem;
-  overflow-y: auto;
-  background: #ffffff;
-  border: 1px solid #cfe1ec;
-  border-radius: 0.75rem;
-  box-shadow: 0 18px 45px -24px oklch(0.27 0.07 245 / 0.42), 0 2px 8px oklch(0.27 0.07 245 / 0.08);
-}
-.requests-city-options button {
-  display: flex;
-  align-items: center;
+.requests-city-select {
   width: 100%;
-  min-height: 2.2rem;
-  padding: 0 0.75rem;
-  color: var(--text-primary);
-  font: inherit;
-  font-size: var(--text-sm);
-  font-weight: 700;
-  text-align: left;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-radius: 0.5rem;
 }
-.requests-city-options button:hover,
-.requests-city-options button:focus-visible {
-  color: var(--primary-500);
-  background: var(--primary-soft);
-  outline: 0;
+.requests-city-select .custom-select-trigger {
+  width: 100%;
+  min-height: 2.6rem;
+  padding-left: 2.5rem;
+  color: var(--text-primary);
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: none;
+}
+.requests-city-select .custom-select-trigger:hover,
+.requests-city-select.is-open .custom-select-trigger,
+.requests-city-select .custom-select-trigger:focus-visible {
+  border-color: oklch(0.62 0.12 220 / 0.6);
+  box-shadow: 0 0 0 3px oklch(0.62 0.12 220 / 0.1);
+}
+.requests-city-select .custom-select-menu {
+  z-index: 80;
+  max-height: 15rem;
 }
 .requests-radius-filter { display: grid; grid-template-columns: auto minmax(8rem, 12rem); gap: var(--space-2); align-items: center; min-height: 2.6rem; padding: 0 var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .requests-radius-filter span { min-width: 3.25rem; color: var(--primary-500); font-size: var(--text-sm); font-weight: 800; }

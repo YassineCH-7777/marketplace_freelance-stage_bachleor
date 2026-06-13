@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOpenRequests } from '@/api/requestApi';
-import GoogleLocationInput from '@/components/common/GoogleLocationInput';
+import CustomSelect from '@/components/common/CustomSelect';
 import useAuth from '@/hooks/useAuth';
 import {
   DEFAULT_SEARCH_RADIUS_KM,
@@ -71,7 +71,6 @@ export default function ServiceRequests() {
   const [searchLongitude, setSearchLongitude] = useState(user?.searchLongitude ?? null);
   const [radiusKm, setRadiusKm] = useState(preferredSearchRadius);
   const [urgentOnly, setUrgentOnly] = useState(false);
-  const [cityOptionsOpen, setCityOptionsOpen] = useState(false);
   const navigate = useNavigate();
   const searchLocation = useMemo(
     () => ({
@@ -110,17 +109,13 @@ export default function ServiceRequests() {
     return [...new Set(values)].sort((a, b) => a.localeCompare(b));
   }, [preferredSearchCity, requests]);
 
-  const visibleCityOptions = useMemo(() => {
-    const normalizedCity = normalizeLocationKey(city);
-    const options = cityOptions.filter((option) => normalizeLocationKey(option) !== normalizedCity);
-
-    if (!normalizedCity) {
-      return options;
-    }
-
-    const matchingOptions = options.filter((option) => normalizeLocationKey(option).includes(normalizedCity));
-    return matchingOptions.length ? matchingOptions : options;
-  }, [city, cityOptions]);
+  const citySelectOptions = useMemo(
+    () => [
+      { value: '', label: 'Toutes les villes' },
+      ...cityOptions.map((option) => ({ value: option, label: option })),
+    ],
+    [cityOptions],
+  );
 
   const filteredRequests = useMemo(() => {
     const normalizedKeyword = normalizeLocationKey(keyword);
@@ -151,28 +146,11 @@ export default function ServiceRequests() {
     });
   }, [city, keyword, radiusKm, requests, searchLocation, urgentOnly]);
 
-  const handleSearchLocationTextChange = useCallback((value) => {
-    setCity(value);
+  const handleCityChange = (nextCity) => {
+    setCity(nextCity);
     setSearchPlaceId('');
     setSearchLatitude(null);
     setSearchLongitude(null);
-    setCityOptionsOpen(true);
-  }, []);
-
-  const handleSearchLocationSelect = useCallback((place) => {
-    setCity(place.label || '');
-    setSearchPlaceId(place.placeId || '');
-    setSearchLatitude(place.lat);
-    setSearchLongitude(place.lng);
-    setCityOptionsOpen(false);
-  }, []);
-
-  const handleCityOptionSelect = (option) => {
-    setCity(option);
-    setSearchPlaceId('');
-    setSearchLatitude(null);
-    setSearchLongitude(null);
-    setCityOptionsOpen(false);
   };
 
   const handleRadiusChange = (event) => {
@@ -214,31 +192,14 @@ export default function ServiceRequests() {
           </div>
           <div className="requests-search-bar requests-city-field">
             <MapPin size={18} />
-            <GoogleLocationInput
-              placeholder="Ville, quartier ou adresse..."
+            <CustomSelect
+              id="request-city-filter"
+              label="Filtrer par ville"
+              className="requests-city-select"
+              options={citySelectOptions}
               value={city}
-              onTextChange={handleSearchLocationTextChange}
-              onPlaceSelect={handleSearchLocationSelect}
-              onFocus={() => setCityOptionsOpen(true)}
-              onBlur={() => window.setTimeout(() => setCityOptionsOpen(false), 120)}
-              aria-expanded={cityOptionsOpen && visibleCityOptions.length > 0}
-              aria-haspopup="listbox"
+              onChange={handleCityChange}
             />
-            {cityOptionsOpen && visibleCityOptions.length > 0 && (
-              <div className="requests-city-options" role="listbox" aria-label="Suggestions de villes">
-                {visibleCityOptions.map((option) => (
-                  <button
-                    type="button"
-                    key={option}
-                    role="option"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => handleCityOptionSelect(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
           <div className="requests-radius-filter">
             <span>{formatRadiusLabel(radiusKm)}</span>
