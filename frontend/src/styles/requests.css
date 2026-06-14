@@ -25,6 +25,12 @@
   border-color: var(--border);
   box-shadow: none;
 }
+.requests-city-field .custom-select-trigger svg {
+  position: static;
+  left: auto;
+  color: var(--primary-500);
+  pointer-events: none;
+}
 .requests-city-select .custom-select-trigger:hover,
 .requests-city-select.is-open .custom-select-trigger,
 .requests-city-select .custom-select-trigger:focus-visible {
