@@ -203,6 +203,14 @@
   background: var(--surface-elevated);
 }
 
+.notification-item.is-unread {
+  background: oklch(0.98 0.018 220);
+}
+
+.notification-item.is-unread .notification-item-body p {
+  font-weight: 800;
+}
+
 .notification-item-icon {
   display: inline-flex;
   align-items: center;

@@ -10,7 +10,10 @@ import {
   ShieldAlert,
   Star,
 } from 'lucide-react';
-import { getNotifications } from '@/api/notificationApi';
+import { getNotifications, markAllNotificationsAsRead } from '@/api/notificationApi';
+import useAuth from '@/hooks/useAuth';
+import { requestNotificationsRefresh } from '@/utils/notificationEvents';
+import { applyStoredNotificationReadState, rememberReadNotifications } from '@/utils/notificationReadState';
 import '@/styles/dashboard.css';
 
 function NotificationTypeIcon({ type }) {
@@ -32,7 +35,16 @@ function NotificationTypeIcon({ type }) {
   }
 }
 
+function isNotificationUnread(notification) {
+  return !Boolean(notification.isRead ?? notification.read);
+}
+
+function markNotificationReadLocally(notification) {
+  return { ...notification, isRead: true, read: true };
+}
+
 export default function Notifications() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,27 +52,49 @@ export default function Notifications() {
   useEffect(() => {
     let isMounted = true;
 
-    getNotifications()
-      .then((response) => {
-        if (isMounted) {
-          setNotifications(response.data);
+    const loadNotifications = async () => {
+      try {
+        const response = await getNotifications();
+        const nextNotifications = applyStoredNotificationReadState(user, response.data || []);
+        const hasUnreadNotifications = nextNotifications.some(isNotificationUnread);
+
+        if (!isMounted) {
+          return;
         }
-      })
-      .catch(() => {
+
+        setNotifications(
+          hasUnreadNotifications ? nextNotifications.map(markNotificationReadLocally) : nextNotifications,
+        );
+
+        if (hasUnreadNotifications) {
+          rememberReadNotifications(user, nextNotifications);
+
+          try {
+            await markAllNotificationsAsRead();
+            requestNotificationsRefresh();
+          } catch {
+            if (isMounted) {
+              setNotifications(nextNotifications.map(markNotificationReadLocally));
+            }
+          }
+        }
+      } catch {
         if (isMounted) {
           setNotifications([]);
         }
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) {
           setLoading(false);
         }
-      });
+      }
+    };
+
+    loadNotifications();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user]);
 
   const openConversation = (notification) => {
     const options = notification.relatedEntityId

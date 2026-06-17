@@ -12,7 +12,12 @@ import '@/styles/dashboard.css';
 import '@/styles/messages.css';
 
 const getConversationTime = (conversation) => {
-  const value = conversation.lastMessageAt || conversation.updatedAt;
+  const value = conversation.lastMessageAt || conversation.updatedAt || conversation.createdAt;
+  return value ? new Date(value).getTime() : 0;
+};
+
+const getMessageTime = (message) => {
+  const value = message.createdAt || message.updatedAt;
   return value ? new Date(value).getTime() : 0;
 };
 
@@ -23,7 +28,9 @@ const normalizeMessage = (message) => ({
   attachments: message.attachments || [],
 });
 
-const normalizeMessages = (items) => items.map(normalizeMessage);
+const sortMessages = (items) => [...items].sort((a, b) => getMessageTime(a) - getMessageTime(b));
+
+const normalizeMessages = (items) => sortMessages(items.map(normalizeMessage));
 
 const sortConversations = (items) =>
   [...items].sort((a, b) => getConversationTime(b) - getConversationTime(a));
@@ -68,7 +75,7 @@ export default function Messages() {
   const { user } = useAuth();
   const location = useLocation();
   const requestedConversationId = location.state?.conversationId;
-  const messagesEndRef = useRef(null);
+  const chatMessagesRef = useRef(null);
   const [conversations, setConversations] = useState([]);
   const [activeConvo, setActiveConvo] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -181,7 +188,15 @@ export default function Messages() {
   }, [activeConvo?.id, markConversationReadLocally]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const chatMessagesElement = chatMessagesRef.current;
+
+    if (!chatMessagesElement) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      chatMessagesElement.scrollTop = chatMessagesElement.scrollHeight;
+    });
   }, [messages, activeConvo]);
 
   const handleSend = async (event) => {
@@ -207,17 +222,30 @@ export default function Messages() {
         }
       }
 
-      setMessages((current) => [...current, sentMessage]);
+      const sentAt = sentMessage.createdAt || new Date().toISOString();
+      const normalizedSentMessage = { ...sentMessage, createdAt: sentAt };
+
+      setMessages((current) => sortMessages([...current, normalizedSentMessage]));
       setNewMsg('');
       setSelectedFiles([]);
+      setActiveConvo((currentConversation) =>
+        currentConversation?.id === activeConvo.id
+          ? {
+              ...currentConversation,
+              lastMessageAt: sentAt,
+              lastMessageContent: normalizedSentMessage.content,
+            }
+          : currentConversation,
+      );
       setConversations((current) =>
         sortConversations(
           current.map((conversation) =>
             conversation.id === activeConvo.id
               ? {
                   ...conversation,
-                  lastMessageAt: sentMessage.createdAt,
-                  lastMessageContent: sentMessage.content,
+                  lastMessageAt: sentAt,
+                  updatedAt: sentAt,
+                  lastMessageContent: normalizedSentMessage.content,
                   unreadCount: 0,
                 }
               : conversation,
@@ -370,7 +398,7 @@ export default function Messages() {
                   <span style={{ fontWeight: 600 }}>{getOtherName(activeConvo)}</span>
                 </div>
 
-                <div className="chat-messages">
+                <div className="chat-messages" ref={chatMessagesRef}>
                   {msgsLoading ? (
                     <div className="empty-state" style={{ padding: '2rem' }}>
                       <Loader2 size={24} className="spinner" />
@@ -416,7 +444,6 @@ export default function Messages() {
                       );
                     })
                   )}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 <form className="chat-composer" onSubmit={handleSend}>

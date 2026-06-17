@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bot, CheckCircle, FileText, Loader2, MessageSquare, Search, Send, Sparkles, UserPlus, X } from 'lucide-react';
 import { getAssistantWebhookUrl, sendAssistantMessage } from '@/api/assistantApi';
 import { getRecommendedServices, matchClientNeed } from '@/api/serviceApi';
@@ -8,6 +8,59 @@ import useAuth from '@/hooks/useAuth';
 import '@/styles/ai-assistant.css';
 
 const STORAGE_PREFIX = 'proxiskills-floating-assistant-v3';
+const SERVICE_WIZARD_DRAFT_KEY = 'marketplace-service-wizard-draft';
+const SERVICE_WIZARD_DRAFT_EVENT = 'marketplace-service-draft-created';
+
+const SERVICE_CATEGORY_HINTS = [
+  { category: 'Developpement web', signals: ['site web', 'web', 'react', 'wordpress', 'application', 'app mobile'] },
+  { category: 'Design graphique', signals: ['logo', 'design', 'branding', 'identite', 'charte', 'affiche', 'figma'] },
+  { category: 'Montage video', signals: ['montage video', 'video', 'montage'] },
+  { category: 'Photographie', signals: ['photo', 'photographie', 'photographe'] },
+  { category: 'Marketing digital', signals: ['seo', 'marketing', 'instagram', 'reseau'] },
+];
+
+const SERVICE_DRAFT_TOPICS = [
+  {
+    keyword: 'site web',
+    title: 'Creation de site web sur mesure',
+    signals: ['site web', 'site vitrine', 'landing page', 'wordpress', 'web'],
+    suggestedPrice: 1500,
+    deliveryDays: 10,
+    deliverables: ['Cadrage des pages', 'Design responsive', 'Developpement du site', 'Mise en ligne'],
+  },
+  {
+    keyword: 'logo',
+    title: 'Creation de logo professionnel',
+    signals: ['logo', 'branding', 'identite visuelle', 'charte'],
+    suggestedPrice: 700,
+    deliveryDays: 4,
+    deliverables: ['Brief creatif', 'Propositions de logo', 'Corrections incluses', 'Fichiers finaux'],
+  },
+  {
+    keyword: 'montage video',
+    title: 'Montage video professionnel',
+    signals: ['montage video', 'video', 'reel', 'short', 'youtube'],
+    suggestedPrice: 800,
+    deliveryDays: 5,
+    deliverables: ['Tri des rushs', 'Montage principal', 'Habillage simple', 'Export final'],
+  },
+  {
+    keyword: 'application mobile',
+    title: 'Creation d application mobile',
+    signals: ['application mobile', 'app mobile', 'appli mobile', 'android', 'ios'],
+    suggestedPrice: 3500,
+    deliveryDays: 20,
+    deliverables: ['Cadrage fonctionnel', 'Maquettes principales', 'Developpement mobile', 'Version testable'],
+  },
+  {
+    keyword: 'seo',
+    title: 'Optimisation SEO de votre site',
+    signals: ['seo', 'referencement', 'mots cles'],
+    suggestedPrice: 900,
+    deliveryDays: 7,
+    deliverables: ['Audit rapide', 'Recherche de mots-cles', 'Optimisation des pages', 'Plan d actions'],
+  },
+];
 
 const ASSISTANT_CONFIG = {
   general: {
@@ -456,6 +509,70 @@ function normalizeAssistantText(value) {
     .toLowerCase();
 }
 
+function resolveServiceCategoryHint(message, keywords = []) {
+  const searchableText = normalizeAssistantText([message, ...keywords].filter(Boolean).join(' '));
+  const match = SERVICE_CATEGORY_HINTS.find((entry) =>
+    entry.signals.some((signal) => searchableText.includes(signal)),
+  );
+
+  return match?.category || '';
+}
+
+function resolveServiceDraftTopic(message) {
+  const normalizedMessage = normalizeAssistantText(message);
+  return SERVICE_DRAFT_TOPICS.find((topic) =>
+    topic.signals.some((signal) => normalizedMessage.includes(signal)),
+  );
+}
+
+function buildServiceWizardDraft(draft, message, user) {
+  const price = Number(draft.suggestedPrice || 0);
+  const mainKeyword = draft.keywords?.[0] || 'service professionnel';
+
+  return {
+    title: draft.title || '',
+    categoryId: '',
+    categoryName: resolveServiceCategoryHint(message, draft.keywords),
+    subCategory: mainKeyword.replace(/\b\w/g, (letter) => letter.toUpperCase()),
+    serviceCity: user?.city || '',
+    executionMode: 'REMOTE',
+    shortDescription: `Service de ${mainKeyword} adapte au besoin du client, avec cadrage et livraison soignee.`,
+    detailedDescription: draft.description || '',
+    included: (draft.deliverables || []).join('\n'),
+    excluded: 'Publicite payante\nAchats externes\nAbonnements ou licences non fournis',
+    pricingType: 'FIXED',
+    price: price ? String(price) : '',
+    minimumBudget: price ? String(Math.round(price * 0.75)) : '',
+    extraOptions: '',
+    deliveryTimeDays: String(draft.deliveryDays || 5),
+    availability: 'Disponible',
+    workDays: 'A confirmer selon le planning',
+    urgentDelivery: false,
+    urgentDetails: '',
+    coverImageUrl: '',
+    galleryUrls: '',
+    portfolioUrl: '',
+    previousProjectUrl: '',
+    documentsUrl: '',
+    revisions: '2',
+    communicationMode: 'Messagerie plateforme',
+    cancellationTerms: 'Annulation possible avant le demarrage de la mission.',
+    clientRequirements: 'Brief du besoin\nContenus disponibles\nExemples ou references souhaitees',
+    source: 'assistant',
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function persistServiceWizardDraft(draft) {
+  safeWriteStorage(SERVICE_WIZARD_DRAFT_KEY, JSON.stringify(draft));
+
+  try {
+    window.dispatchEvent(new CustomEvent(SERVICE_WIZARD_DRAFT_EVENT, { detail: { draft } }));
+  } catch {
+    // Older browsers can still read the draft from localStorage after navigation.
+  }
+}
+
 function isFreelanceIntent(message) {
   const normalizedMessage = normalizeAssistantText(message);
   return [
@@ -682,7 +799,11 @@ function isServiceDraftIntent(message) {
 
 function buildLocalServiceDraft(message) {
   const normalizedMessage = normalizeAssistantText(message);
+  const topic = resolveServiceDraftTopic(message);
   const keywordCandidates = [
+    topic?.keyword,
+    'site web',
+    'application mobile',
     'react',
     'spring boot',
     'java',
@@ -691,24 +812,27 @@ function buildLocalServiceDraft(message) {
     'wordpress',
     'seo',
     'logo',
+    'montage video',
     'video',
     'photo',
     'reseau',
     'instagram',
-  ].filter((keyword) => normalizedMessage.includes(keyword));
-  const keywords = keywordCandidates.length ? keywordCandidates : ['service professionnel', 'freelance', 'livraison'];
+  ].filter((keyword) => keyword && normalizedMessage.includes(keyword));
+  const keywords = keywordCandidates.length
+    ? [...new Set(keywordCandidates)]
+    : ['service professionnel', 'freelance', 'livraison'];
   const mainKeyword = keywords[0].replace(/\b\w/g, (letter) => letter.toUpperCase());
 
   return {
-    title: `${mainKeyword} sur mesure pour votre projet`,
+    title: topic?.title || `${mainKeyword} sur mesure pour votre projet`,
     description:
       message && message.length > 30
         ? `Je vous accompagne de maniere claire et structuree sur ce besoin : ${message}. L'offre inclut un cadrage, une execution soignee, des retours intermediaires et une livraison prete a utiliser.`
         : 'Je propose un service clair, rapide et adapte aux besoins du client, avec cadrage, execution, corrections et livraison finale.',
-    suggestedPrice: 800,
+    suggestedPrice: topic?.suggestedPrice || 800,
     keywords,
-    deliveryDays: 5,
-    deliverables: ['Cadrage du besoin', 'Livraison finale', 'Corrections incluses'],
+    deliveryDays: topic?.deliveryDays || 5,
+    deliverables: topic?.deliverables || ['Cadrage du besoin', 'Livraison finale', 'Corrections incluses'],
   };
 }
 
@@ -1302,6 +1426,8 @@ function buildLocalFreelanceMessage(profile) {
 async function buildLocalAssistantResponse({ type, message, user }) {
   if (isServiceDraftIntent(message)) {
     const serviceDraft = buildLocalServiceDraft(message);
+    const wizardDraft = buildServiceWizardDraft(serviceDraft, message, user);
+
     return {
       content: buildLocalServiceDraftMessage(serviceDraft),
       generalResult:
@@ -1309,9 +1435,9 @@ async function buildLocalAssistantResponse({ type, message, user }) {
           ? {
               kind: 'platformGuide',
               title: 'Offre service amelioree',
-              description: 'Utilisez cette base pour publier ou mettre a jour votre service freelance.',
+              description: 'Verifiez cette base puis appliquez le brouillon dans le formulaire si elle vous convient.',
+              serviceDraft: wizardDraft,
               actions: [
-                { label: 'Publier un service', path: '/freelancer/services' },
                 { label: 'Mon profil', path: '/freelancer/profile' },
               ],
             }
@@ -1570,7 +1696,7 @@ function StructuredPreview({ type, snapshot, onFieldChange, onConfirm, onCopy, c
   );
 }
 
-function GeneralAssistantResult({ result, onActionClick }) {
+function GeneralAssistantResult({ result, onActionClick, onApplyServiceDraft }) {
   if (!result) {
     return null;
   }
@@ -1641,9 +1767,18 @@ function GeneralAssistantResult({ result, onActionClick }) {
       </div>
       <p>{result.description}</p>
       <div className="floating-ai-general-actions">
+        {result.serviceDraft && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => onApplyServiceDraft(result.serviceDraft)}
+          >
+            <CheckCircle size={14} /> Appliquer brouillon
+          </button>
+        )}
         {actions.slice(0, 3).map((action, index) => (
           <Link
-            className={`btn ${index === 0 ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+            className={`btn ${index === 0 && !result.serviceDraft ? 'btn-primary' : 'btn-secondary'} btn-sm`}
             to={action.path}
             onClick={onActionClick}
             key={`${action.path}-${action.label}`}
@@ -1729,6 +1864,7 @@ function PostConfirmationActions({
 
 export default function FloatingAiAssistant() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -2052,6 +2188,19 @@ export default function FloatingAiAssistant() {
     }
   };
 
+  const handleApplyServiceDraft = (draft) => {
+    if (!draft) {
+      return;
+    }
+
+    persistServiceWizardDraft(draft);
+    setIsOpen(false);
+
+    if (location.pathname !== '/freelancer/services') {
+      navigate('/freelancer/services?assistantDraft=1');
+    }
+  };
+
   return (
     <div className={`floating-ai-assistant ${isOpen ? 'is-open' : ''}`}>
       {isOpen && (
@@ -2084,7 +2233,11 @@ export default function FloatingAiAssistant() {
               >
                 {message.content && <span className="floating-ai-message-text">{message.content}</span>}
                 {message.generalResult && (
-                  <GeneralAssistantResult result={message.generalResult} onActionClick={() => setIsOpen(false)} />
+                  <GeneralAssistantResult
+                    result={message.generalResult}
+                    onActionClick={() => setIsOpen(false)}
+                    onApplyServiceDraft={handleApplyServiceDraft}
+                  />
                 )}
               </article>
             ))}

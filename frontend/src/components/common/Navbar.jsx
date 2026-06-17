@@ -16,8 +16,9 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { getNotifications } from '@/api/notificationApi';
+import { getNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '@/api/notificationApi';
 import { NOTIFICATIONS_REFRESH_EVENT } from '@/utils/notificationEvents';
+import { applyStoredNotificationReadState, rememberReadNotifications } from '@/utils/notificationReadState';
 import './Navbar.css';
 
 function NotificationIcon({ type }) {
@@ -49,6 +50,14 @@ function formatNotificationDate(value) {
   });
 }
 
+function isNotificationUnread(notification) {
+  return !Boolean(notification.isRead ?? notification.read);
+}
+
+function markNotificationsReadLocally(notifications) {
+  return notifications.map((notification) => ({ ...notification, isRead: true, read: true }));
+}
+
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
@@ -61,26 +70,68 @@ export default function Navbar() {
   const [notificationsError, setNotificationsError] = useState(false);
 
   const recentNotifications = useMemo(() => notifications.slice(0, 5), [notifications]);
+  const unreadCount = useMemo(() => notifications.filter(isNotificationUnread).length, [notifications]);
   const isHomePage = location.pathname === '/';
 
   const loadNotifications = useCallback(async () => {
     if (!isAuthenticated) {
       setNotifications([]);
-      return;
+      return [];
     }
 
     setNotificationsLoading(true);
     setNotificationsError(false);
     try {
       const response = await getNotifications();
-      setNotifications(response.data);
+      const nextNotifications = applyStoredNotificationReadState(user, response.data || []);
+      setNotifications(nextNotifications);
+      return nextNotifications;
     } catch {
       setNotifications([]);
       setNotificationsError(true);
+      return [];
     } finally {
       setNotificationsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
+
+  const markLoadedNotificationsAsRead = useCallback(
+    async (loadedNotifications = notifications) => {
+      if (!loadedNotifications.some(isNotificationUnread)) {
+        return;
+      }
+
+      setNotifications(markNotificationsReadLocally);
+      rememberReadNotifications(user, loadedNotifications);
+
+      try {
+        await markAllNotificationsAsRead();
+      } catch {
+        // Keep the UI read locally; a refresh will retry against the backend.
+      }
+    },
+    [notifications, user],
+  );
+
+  const markOneNotificationAsRead = useCallback(
+    (notification) => {
+      if (!notification?.id || !isNotificationUnread(notification)) {
+        return;
+      }
+
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((currentNotification) =>
+          currentNotification.id === notification.id
+            ? { ...currentNotification, isRead: true, read: true }
+          : currentNotification,
+        ),
+      );
+      rememberReadNotifications(user, [notification]);
+
+      markNotificationAsRead(notification.id).catch(() => loadNotifications());
+    },
+    [loadNotifications, user],
+  );
 
   useEffect(() => {
     loadNotifications();
@@ -138,10 +189,22 @@ export default function Navbar() {
   };
 
   const toggleNotifications = () => {
-    setNotificationOpen((current) => !current);
-    if (!notificationOpen) {
-      loadNotifications();
+    if (notificationOpen) {
+      setNotificationOpen(false);
+      return;
     }
+
+    setNotificationOpen(true);
+    markLoadedNotificationsAsRead(notifications);
+    loadNotifications().then(markLoadedNotificationsAsRead);
+  };
+
+  const handleRefreshNotifications = () => {
+    loadNotifications().then((loadedNotifications) => {
+      if (notificationOpen) {
+        markLoadedNotificationsAsRead(loadedNotifications);
+      }
+    });
   };
 
   const handleViewAllNotifications = () => {
@@ -150,6 +213,7 @@ export default function Navbar() {
   };
 
   const handleNotificationClick = (notification) => {
+    markOneNotificationAsRead(notification);
     closeMenus();
     if (notification.type === 'NEW_MESSAGE') {
       const options = notification.relatedEntityId
@@ -194,8 +258,8 @@ export default function Navbar() {
                   aria-label="Notifications"
                 >
                   <Bell size={18} />
-                  {notifications.length > 0 && (
-                    <span className="notification-badge">{notifications.length > 9 ? '9+' : notifications.length}</span>
+                  {unreadCount > 0 && (
+                    <span className="notification-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
                   )}
                 </button>
 
@@ -204,9 +268,13 @@ export default function Navbar() {
                     <div className="notification-popover-header">
                       <div>
                         <strong>Notifications</strong>
-                        <span>{notifications.length} alerte{notifications.length > 1 ? 's' : ''} recente{notifications.length > 1 ? 's' : ''}</span>
+                        <span>
+                          {unreadCount > 0
+                            ? `${unreadCount} nouvelle${unreadCount > 1 ? 's' : ''}`
+                            : 'Aucune nouvelle alerte'}
+                        </span>
                       </div>
-                      <button type="button" className="notification-refresh" onClick={loadNotifications}>
+                      <button type="button" className="notification-refresh" onClick={handleRefreshNotifications}>
                         {notificationsLoading ? <Loader2 size={14} className="spinner" /> : 'Actualiser'}
                       </button>
                     </div>
@@ -231,7 +299,7 @@ export default function Navbar() {
                         recentNotifications.map((notification) => (
                           <button
                             type="button"
-                            className="notification-item"
+                            className={`notification-item ${isNotificationUnread(notification) ? 'is-unread' : ''}`}
                             key={notification.id}
                             onClick={() => handleNotificationClick(notification)}
                           >

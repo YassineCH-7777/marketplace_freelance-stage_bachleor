@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -36,6 +36,7 @@ import {
 import '@/styles/dashboard.css';
 
 const SERVICE_DRAFT_KEY = 'marketplace-service-wizard-draft';
+const SERVICE_DRAFT_CREATED_EVENT = 'marketplace-service-draft-created';
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const WIZARD_STEPS = [
@@ -117,6 +118,59 @@ function section(title, rows) {
   return cleanRows.length ? `${title}\n${cleanRows.join('\n')}` : null;
 }
 
+function normalizeDraftText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function resolveDraftCategoryName(draft) {
+  const searchableText = normalizeDraftText(
+    [
+      draft.categoryName,
+      draft.categoryHint,
+      draft.title,
+      draft.subCategory,
+      draft.shortDescription,
+      draft.detailedDescription,
+      Array.isArray(draft.keywords) ? draft.keywords.join(' ') : draft.keywords,
+    ]
+      .filter(Boolean)
+      .join(' '),
+  );
+
+  const aliases = [
+    { category: 'Developpement web', signals: ['site web', 'web', 'react', 'wordpress', 'application', 'app mobile'] },
+    { category: 'Design graphique', signals: ['logo', 'design', 'branding', 'identite', 'charte', 'affiche', 'figma'] },
+    { category: 'Montage video', signals: ['montage video', 'video', 'montage'] },
+    { category: 'Photographie', signals: ['photo', 'photographie', 'photographe'] },
+    { category: 'Marketing digital', signals: ['seo', 'marketing', 'instagram', 'reseau'] },
+  ];
+
+  return aliases.find((entry) => entry.signals.some((signal) => searchableText.includes(signal)))?.category || '';
+}
+
+function resolveDraftCategoryId(draft, categories) {
+  if (draft.categoryId) {
+    return String(draft.categoryId);
+  }
+
+  const preferredName = normalizeDraftText(draft.categoryName || draft.categoryHint || resolveDraftCategoryName(draft));
+
+  if (!preferredName) {
+    return '';
+  }
+
+  const matchedCategory = categories.find((category) => {
+    const categoryName = normalizeDraftText(category.name);
+    return categoryName === preferredName || categoryName.includes(preferredName) || preferredName.includes(categoryName);
+  });
+
+  return matchedCategory ? String(matchedCategory.id) : '';
+}
+
 function getPricingLabel(value) {
   return PRICING_OPTIONS.find((option) => option.value === value)?.label || 'Prix fixe';
 }
@@ -155,10 +209,19 @@ function buildPublishedDescription(form) {
   return blocks.filter(Boolean).join('\n\n').trim();
 }
 
-function readDraft(defaultCity) {
+function readDraft(defaultCity, categories = []) {
   try {
     const savedDraft = localStorage.getItem(SERVICE_DRAFT_KEY);
-    return savedDraft ? { ...buildEmptyForm(defaultCity), ...JSON.parse(savedDraft) } : null;
+    if (!savedDraft) {
+      return null;
+    }
+
+    const parsedDraft = JSON.parse(savedDraft);
+    return {
+      ...buildEmptyForm(defaultCity),
+      ...parsedDraft,
+      categoryId: resolveDraftCategoryId(parsedDraft, categories),
+    };
   } catch {
     return null;
   }
@@ -202,6 +265,7 @@ function normalizePublicCategories(categories) {
 
 export default function MyServices() {
   const { user } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -244,6 +308,84 @@ export default function MyServices() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    const applyAssistantDraft = () => {
+      const assistantDraft = readDraft(user?.city, categories);
+
+      if (!assistantDraft) {
+        return;
+      }
+
+      setPageError('');
+      setEditId(null);
+      setForm(assistantDraft);
+      setCurrentStep(0);
+      setValidationError('');
+      setDraftMessage('Brouillon IA applique. Verifiez la categorie et completez les medias avant publication.');
+      setShowModal(true);
+    };
+
+    const handleStorageDraft = (event) => {
+      if (event.key === SERVICE_DRAFT_KEY) {
+        applyAssistantDraft();
+      }
+    };
+
+    window.addEventListener(SERVICE_DRAFT_CREATED_EVENT, applyAssistantDraft);
+    window.addEventListener('storage', handleStorageDraft);
+
+    return () => {
+      window.removeEventListener(SERVICE_DRAFT_CREATED_EVENT, applyAssistantDraft);
+      window.removeEventListener('storage', handleStorageDraft);
+    };
+  }, [categories, user?.city]);
+
+  useEffect(() => {
+    if (!showModal || editId || form.categoryId || categories.length === 0) {
+      return;
+    }
+
+    const categoryId = resolveDraftCategoryId(form, categories);
+
+    if (categoryId) {
+      setForm((currentForm) => (currentForm.categoryId ? currentForm : { ...currentForm, categoryId }));
+    }
+  }, [
+    categories,
+    editId,
+    form.categoryHint,
+    form.categoryId,
+    form.categoryName,
+    form.detailedDescription,
+    form.shortDescription,
+    form.subCategory,
+    form.title,
+    showModal,
+  ]);
+
+  useEffect(() => {
+    const shouldOpenAssistantDraft = new URLSearchParams(location.search).get('assistantDraft') === '1';
+
+    if (!shouldOpenAssistantDraft) {
+      return;
+    }
+
+    const assistantDraft = readDraft(user?.city, categories);
+
+    if (!assistantDraft) {
+      return;
+    }
+
+    setPageError('');
+    setEditId(null);
+    setForm(assistantDraft);
+    setCurrentStep(0);
+    setValidationError('');
+    setDraftMessage('Brouillon IA applique. Verifiez la categorie et completez les medias avant publication.');
+    setShowModal(true);
+    navigate('/freelancer/services', { replace: true });
+  }, [categories, location.search, navigate, user?.city]);
+
   const refreshServices = () => {
     setLoading(true);
 
@@ -262,7 +404,7 @@ export default function MyServices() {
   const openCreate = () => {
     setPageError('');
     setEditId(null);
-    setForm(readDraft(user?.city) || buildEmptyForm(user?.city));
+    setForm(readDraft(user?.city, categories) || buildEmptyForm(user?.city));
     setCurrentStep(0);
     setValidationError('');
     setDraftMessage('');

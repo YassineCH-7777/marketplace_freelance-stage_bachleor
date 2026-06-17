@@ -68,6 +68,22 @@ public class NotificationService {
     }
 
     /**
+     * Marque toutes les notifications de l'utilisateur comme lues.
+     */
+    @Transactional
+    public int markAllAsRead(Long userId) {
+        return notificationRepository.markAllAsRead(userId);
+    }
+
+    /**
+     * Marque une notification comme lue si elle appartient a l'utilisateur connecte.
+     */
+    @Transactional
+    public int markAsRead(Long userId, Long notificationId) {
+        return notificationRepository.markAsRead(notificationId, userId);
+    }
+
+    /**
      * Retourne les notifications visibles et nettoie celles qui pointent vers des conversations supprimees.
      */
     @Transactional
@@ -100,6 +116,7 @@ public class NotificationService {
                 .content(notification.getBody() != null ? notification.getBody() : notification.getTitle())
                 .relatedEntityType(notification.getRelatedEntityType())
                 .relatedEntityId(notification.getRelatedEntityId())
+                .isRead(notification.isRead())
                 .createdAt(notification.getCreatedAt())
                 .build();
     }

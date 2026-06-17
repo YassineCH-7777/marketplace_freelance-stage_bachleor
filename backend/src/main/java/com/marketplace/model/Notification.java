@@ -38,6 +38,10 @@ public class Notification {
     @Column(name = "related_entity_id")
     private Long relatedEntityId;
 
+    @Builder.Default
+    @Column(name = "is_read", nullable = false)
+    private boolean isRead = false;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "notification_type")

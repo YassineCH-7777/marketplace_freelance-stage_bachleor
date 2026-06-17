@@ -807,6 +807,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     body                TEXT,
     related_entity_type VARCHAR(50),
     related_entity_id   BIGINT,
+    is_read             BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_notifications_user
@@ -814,6 +815,9 @@ CREATE TABLE IF NOT EXISTS notifications (
 
     CONSTRAINT chk_notifications_title_not_empty CHECK (char_length(trim(title)) >= 2)
 );
+
+ALTER TABLE notifications
+    ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- =========================================================
 -- 15) TABLE REPORTS
