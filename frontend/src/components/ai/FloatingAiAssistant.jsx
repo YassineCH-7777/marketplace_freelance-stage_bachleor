@@ -605,6 +605,13 @@ function hasServiceRecommendationIntent(message) {
   const actionSignals = [
     'cherche',
     'besoin',
+    'veux',
+    'veut',
+    'voudrais',
+    'souhaite',
+    'aimerais',
+    'commander',
+    'obtenir',
     'trouver',
     'recommande',
     'recommend',
@@ -628,6 +635,10 @@ function hasServiceRecommendationIntent(message) {
     'app',
     'mobile',
     'design',
+    'branding',
+    'identite',
+    'charte',
+    'affiche',
     'seo',
     'wordpress',
     'ecommerce',
@@ -647,7 +658,11 @@ function hasServiceRecommendationIntent(message) {
   const hasActionSignal = actionSignals.some((signal) => normalizedMessage.includes(signal));
   const hasServiceSignal = serviceSignals.some((signal) => normalizedMessage.includes(signal));
 
-  return hasActionSignal && (hasServiceSignal || tokens.length >= 5);
+  if (hasServiceSignal) {
+    return true;
+  }
+
+  return hasActionSignal && tokens.length >= 5;
 }
 
 function isServiceDraftIntent(message) {
