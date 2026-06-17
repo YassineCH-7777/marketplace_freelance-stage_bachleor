@@ -43,6 +43,9 @@ public class AuthService {
     private final GoogleTokenVerifier googleTokenVerifier;
     private final SecureRandom secureRandom = new SecureRandom();
 
+    /**
+     * Cree un compte local avec mot de passe chiffre et statut en attente de validation.
+     */
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         String email = normalizeEmail(request.getEmail());
@@ -69,6 +72,9 @@ public class AuthService {
         return mapToAuthResponse(user, null);
     }
 
+    /**
+     * Authentifie un compte local actif et retourne un JWT.
+     */
     public AuthResponse login(LoginRequest request) {
         String email = normalizeEmail(request.getEmail());
         User user = userRepository.findByEmail(email)
@@ -93,6 +99,9 @@ public class AuthService {
         return mapToAuthResponse(user, jwtToken);
     }
 
+    /**
+     * Cree ou met a jour un compte a partir d'un token Firebase.
+     */
     @Transactional
     public AuthResponse registerWithFirebase(FirebaseAuthRequest request) {
         FirebaseTokenVerifier.FirebaseAccount firebaseAccount = firebaseTokenVerifier.verify(request.getIdToken());
@@ -100,6 +109,9 @@ public class AuthService {
         return mapToAuthResponse(user, null);
     }
 
+    /**
+     * Connecte un utilisateur via Firebase apres verification de l'email.
+     */
     @Transactional
     public AuthResponse authenticateWithFirebase(FirebaseAuthRequest request) {
         FirebaseTokenVerifier.FirebaseAccount firebaseAccount = firebaseTokenVerifier.verify(request.getIdToken());
@@ -117,6 +129,9 @@ public class AuthService {
         return mapToAuthResponse(user, jwtToken);
     }
 
+    /**
+     * Connecte ou cree un utilisateur via Google OAuth.
+     */
     @Transactional
     public AuthResponse authenticateWithGoogle(GoogleAuthRequest request) {
         GoogleTokenVerifier.GoogleAccount googleAccount = googleTokenVerifier.verify(request.getIdToken());
@@ -134,22 +149,37 @@ public class AuthService {
         return mapToAuthResponse(user, jwtToken);
     }
 
+    /**
+     * Informe que la validation email est deleguee a Firebase Auth.
+     */
     public AuthResponse verifyEmail(String token) {
         throw new BusinessException("La validation e-mail est maintenant geree par Firebase Auth.");
     }
 
+    /**
+     * Informe que le renvoi de validation est gere par Firebase Auth.
+     */
     public void resendVerification(String email) {
         throw new BusinessException("Le renvoi de validation est maintenant gere par Firebase Auth.");
     }
 
+    /**
+     * Informe que le parcours mot de passe oublie est gere par Firebase Auth.
+     */
     public void forgotPassword(String email) {
         throw new BusinessException("La reinitialisation du mot de passe est maintenant geree par Firebase Auth.");
     }
 
+    /**
+     * Informe que la reinitialisation du mot de passe est geree par Firebase Auth.
+     */
     public AuthResponse resetPassword(PasswordResetRequest request) {
         throw new BusinessException("La reinitialisation du mot de passe est maintenant geree par Firebase Auth.");
     }
 
+    /**
+     * Invalide un JWT afin qu'il ne soit plus accepte apres deconnexion.
+     */
     public void logout(String jwt) {
         try {
             java.util.Date exp = jwtService.extractExpiration(jwt);

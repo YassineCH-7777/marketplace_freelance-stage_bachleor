@@ -23,6 +23,9 @@ public class RecommendationController {
 
     private final RecommendationService recommendationService;
 
+    /**
+     * Recommande des freelances selon les criteres explicites du client.
+     */
     @GetMapping
     public ResponseEntity<List<RecommendationResultDto>> recommendFreelancers(
             @ModelAttribute RecommendationRequestDto request
@@ -30,6 +33,9 @@ public class RecommendationController {
         return ResponseEntity.ok(recommendationService.recommendFreelancers(request));
     }
 
+    /**
+     * Analyse un besoin client en langage naturel pour proposer un matching exploitable.
+     */
     @PostMapping("/match")
     public ResponseEntity<MatchingAssistantResponseDto> matchClientNeed(
             @RequestBody MatchingAssistantRequestDto request

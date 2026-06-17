@@ -28,6 +28,9 @@ public class FavoriteService {
     private final ServiceRepository serviceRepository;
     private final FreelancerProfileRepository freelancerProfileRepository;
 
+    /**
+     * Liste les services et freelances favoris d'un client.
+     */
     @Transactional(readOnly = true)
     public List<FavoriteDto> getClientFavorites(Long clientId) {
         ensureClient(clientId);
@@ -37,6 +40,9 @@ public class FavoriteService {
                 .toList();
     }
 
+    /**
+     * Ajoute un service aux favoris sans creer de doublon.
+     */
     @Transactional
     public FavoriteDto addServiceFavorite(Long clientId, Long serviceId) {
         User client = ensureClient(clientId);
@@ -51,6 +57,9 @@ public class FavoriteService {
                         .build())));
     }
 
+    /**
+     * Supprime un service des favoris si l'association existe.
+     */
     @Transactional
     public void removeServiceFavorite(Long clientId, Long serviceId) {
         ensureClient(clientId);
@@ -58,6 +67,9 @@ public class FavoriteService {
                 .ifPresent(favoriteRepository::delete);
     }
 
+    /**
+     * Ajoute un freelance aux favoris sans creer de doublon.
+     */
     @Transactional
     public FavoriteDto addFreelancerFavorite(Long clientId, Long freelancerUserId) {
         User client = ensureClient(clientId);
@@ -72,6 +84,9 @@ public class FavoriteService {
                         .build())));
     }
 
+    /**
+     * Supprime un freelance des favoris si l'association existe.
+     */
     @Transactional
     public void removeFreelancerFavorite(Long clientId, Long freelancerUserId) {
         ensureClient(clientId);

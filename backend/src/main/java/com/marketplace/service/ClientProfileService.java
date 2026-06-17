@@ -19,12 +19,18 @@ public class ClientProfileService {
 
     private final UserRepository userRepository;
 
+    /**
+     * Charge le profil du client connecte.
+     */
     @Transactional(readOnly = true)
     public UserDto getProfile(Long userId) {
         User user = getClientUser(userId);
         return mapToDto(user);
     }
 
+    /**
+     * Met a jour le profil client et ses preferences de recherche locale.
+     */
     @Transactional
     public UserDto updateProfile(Long userId, UserDto dto) {
         User user = getClientUser(userId);

@@ -19,11 +19,17 @@ public class MessageController {
 
     private final MessageService messageService;
 
+    /**
+     * Liste les conversations accessibles par l'utilisateur connecte.
+     */
     @GetMapping("/conversations")
     public ResponseEntity<List<ConversationDto>> getConversations(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(messageService.getUserConversations(user.getId()));
     }
 
+    /**
+     * Cree ou retrouve une conversation directe avec un autre utilisateur.
+     */
     @PostMapping("/conversations")
     public ResponseEntity<ConversationDto> createConversation(
             @AuthenticationPrincipal User user, 
@@ -32,6 +38,9 @@ public class MessageController {
         return ResponseEntity.ok(messageService.createConversationForUser(user.getId(), targetUserId));
     }
 
+    /**
+     * Cree ou retrouve la conversation rattachee a une commande.
+     */
     @PostMapping("/conversations/orders/{orderId}")
     public ResponseEntity<ConversationDto> createOrderConversation(
             @AuthenticationPrincipal User user,
@@ -39,17 +48,26 @@ public class MessageController {
         return ResponseEntity.ok(messageService.createConversationForOrder(user.getId(), orderId));
     }
 
+    /**
+     * Recupere les messages d'une conversation apres controle de participation.
+     */
     @GetMapping("/conversations/{id}")
     public ResponseEntity<List<MessageDto>> getMessages(@PathVariable Long id, @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(messageService.getMessages(id, user.getId()));
     }
 
+    /**
+     * Masque une conversation du point de vue de l'utilisateur connecte.
+     */
     @DeleteMapping("/conversations/{id}")
     public ResponseEntity<Void> deleteConversation(@PathVariable Long id, @AuthenticationPrincipal User user) {
         messageService.deleteConversation(id, user.getId());
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Ajoute un message dans une conversation autorisee.
+     */
     @PostMapping("/conversations/{id}")
     public ResponseEntity<MessageDto> sendMessage(
             @PathVariable Long id, 
@@ -58,6 +76,9 @@ public class MessageController {
         return ResponseEntity.ok(messageService.sendMessage(id, user.getId(), dto.getContent()));
     }
 
+    /**
+     * Marque ou demarque un message important pour faciliter le suivi.
+     */
     @PutMapping("/{id}/important")
     public ResponseEntity<MessageDto> updateMessageImportance(
             @PathVariable Long id,

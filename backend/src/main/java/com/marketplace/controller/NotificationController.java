@@ -18,6 +18,9 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
+    /**
+     * Retourne les notifications de l'utilisateur connecte, triees par date recente.
+     */
     @GetMapping
     public ResponseEntity<List<NotificationDto>> getNotifications(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(notificationService.getAllNotifications(user.getId()));

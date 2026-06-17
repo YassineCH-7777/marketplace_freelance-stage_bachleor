@@ -34,19 +34,31 @@ public class JwtService {
         }
     }
 
+    /**
+     * Extrait l'email utilisateur stocke comme sujet du JWT.
+     */
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
+    /**
+     * Recupere une information specifique depuis les claims du JWT.
+     */
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
 
+    /**
+     * Genere un JWT standard pour l'utilisateur authentifie.
+     */
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
     }
 
+    /**
+     * Genere un JWT en ajoutant des claims supplementaires si necessaire.
+     */
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
@@ -61,6 +73,9 @@ public class JwtService {
                 .compact();
     }
 
+    /**
+     * Verifie que le token appartient a l'utilisateur et qu'il n'est pas expire.
+     */
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
@@ -70,6 +85,9 @@ public class JwtService {
         return extractExpiration(token).before(new Date());
     }
 
+    /**
+     * Extrait la date d'expiration pour la validation et la blacklist.
+     */
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }

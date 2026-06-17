@@ -29,6 +29,9 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
     private final CorsConfigurationSource corsConfigurationSource;
 
+    /**
+     * Configure les routes publiques, les routes protegees et le filtre JWT stateless.
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -48,6 +51,9 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Branche Spring Security sur le chargement utilisateur et le hash BCrypt.
+     */
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
@@ -56,11 +62,17 @@ public class SecurityConfig {
         return authProvider;
     }
 
+    /**
+     * Expose l'AuthenticationManager utilise lors du login email/mot de passe.
+     */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
+    /**
+     * Fournit l'encodeur de mots de passe BCrypt.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

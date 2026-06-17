@@ -24,6 +24,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserDetailsService userDetailsService;
     private final TokenBlacklistService tokenBlacklistService;
 
+    /**
+     * Lit le header Authorization, valide le JWT et place l'utilisateur dans le contexte Spring Security.
+     */
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,

@@ -40,6 +40,9 @@ public class AdminService {
     private final CategoryRepository categoryRepository;
     private final NotificationService notificationService;
 
+    /**
+     * Calcule les statistiques globales affichees dans le tableau de bord admin.
+     */
     @Transactional(readOnly = true)
     public AdminStatsDto getPlatformStatistics() {
         return AdminStatsDto.builder()
@@ -59,11 +62,17 @@ public class AdminService {
                 .build();
     }
 
+    /**
+     * Recupere tous les utilisateurs avec leurs informations de supervision.
+     */
     @Transactional(readOnly = true)
     public List<UserDto> getAllUsers() {
         return userRepository.findAll().stream().map(this::mapToUserDto).collect(Collectors.toList());
     }
 
+    /**
+     * Suspend un utilisateur afin de bloquer son acces a la plateforme.
+     */
     @Transactional
     public void suspendUser(Long userId) {
         User user = userRepository.findById(userId)
@@ -72,6 +81,9 @@ public class AdminService {
         userRepository.save(user);
     }
 
+    /**
+     * Reactive un utilisateur suspendu ou en attente de moderation.
+     */
     @Transactional
     public void activateUser(Long userId) {
         User user = userRepository.findById(userId)
@@ -80,11 +92,17 @@ public class AdminService {
         userRepository.save(user);
     }
 
+    /**
+     * Liste tous les signalements pour traitement admin.
+     */
     @Transactional(readOnly = true)
     public List<ReportDto> getAllReports() {
         return reportRepository.findAll().stream().map(this::mapToReportDto).collect(Collectors.toList());
     }
 
+    /**
+     * Marque un signalement comme resolu avec les notes d'analyse.
+     */
     @Transactional
     public void resolveReport(Long reportId, String adminNotes) {
         Report report = reportRepository.findById(reportId)
@@ -94,6 +112,9 @@ public class AdminService {
         reportRepository.save(report);
     }
 
+    /**
+     * Change le statut de moderation d'une offre.
+     */
     @Transactional
     public void moderateService(Long serviceId, ServiceStatus status) {
         ServiceEntity service = serviceRepository.findById(serviceId)
@@ -102,6 +123,9 @@ public class AdminService {
         serviceRepository.save(service);
     }
 
+    /**
+     * Liste toutes les offres, y compris celles non publiees.
+     */
     @Transactional(readOnly = true)
     public List<ServiceDto> getAllServices() {
         return serviceRepository.findAll().stream()
@@ -109,6 +133,9 @@ public class AdminService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Liste toutes les commandes pour le suivi global de la plateforme.
+     */
     @Transactional(readOnly = true)
     public List<OrderDto> getAllOrders() {
         return orderRepository.findAll().stream()
@@ -116,6 +143,9 @@ public class AdminService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Envoie une notification systeme aux utilisateurs actifs de l'audience ciblee.
+     */
     @Transactional
     public int sendSystemNotification(String content, String audience) {
         String normalizedContent = content == null ? "" : content.trim();
@@ -137,11 +167,17 @@ public class AdminService {
     }
 
     // Category Management
+    /**
+     * Recupere les categories admin, actives ou inactives.
+     */
     @Transactional(readOnly = true)
     public List<CategoryDto> getAllCategories() {
         return categoryRepository.findAll().stream().map(this::mapToCategoryDto).collect(Collectors.toList());
     }
 
+    /**
+     * Cree une categorie et genere son slug.
+     */
     @Transactional
     public CategoryDto createCategory(CategoryDto dto) {
         Category category = Category.builder()
@@ -154,6 +190,9 @@ public class AdminService {
         return mapToCategoryDto(category);
     }
 
+    /**
+     * Met a jour une categorie existante et son slug.
+     */
     @Transactional
     public CategoryDto updateCategory(Long id, CategoryDto dto) {
         Category category = categoryRepository.findById(id)

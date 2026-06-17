@@ -33,6 +33,9 @@ public class ServiceRequestService {
     private final CategoryRepository categoryRepository;
     private final AttachmentRepository attachmentRepository;
 
+    /**
+     * Cree une demande publique client avec validation du contenu, du budget et de la categorie.
+     */
     @Transactional
     public ServiceRequestDto createServiceRequest(Long clientId, ServiceRequestDto dto) {
         User client = userRepository.findById(clientId)
@@ -72,6 +75,9 @@ public class ServiceRequestService {
         return mapToDto(saved, true);
     }
 
+    /**
+     * Liste les demandes encore ouvertes que les freelances peuvent consulter.
+     */
     @Transactional(readOnly = true)
     public List<ServiceRequestDto> getOpenServiceRequests() {
         return serviceRequestRepository.findByStatusOrderByCreatedAtDesc(ServiceRequestStatus.OPEN)
@@ -80,6 +86,9 @@ public class ServiceRequestService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Recupere l'historique des demandes creees par un client.
+     */
     @Transactional(readOnly = true)
     public List<ServiceRequestDto> getClientServiceRequests(Long clientId) {
         return serviceRequestRepository.findByClient_IdOrderByCreatedAtDesc(clientId)
@@ -88,12 +97,18 @@ public class ServiceRequestService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Charge le detail d'une demande avec les candidatures lorsque necessaire.
+     */
     @Transactional(readOnly = true)
     public ServiceRequestDto getServiceRequestDetail(Long requestId) {
         ServiceRequest request = findById(requestId);
         return mapToDto(request, true);
     }
 
+    /**
+     * Filtre les demandes ouvertes selon les criteres de recherche publics.
+     */
     @Transactional(readOnly = true)
     public List<ServiceRequestDto> searchServiceRequests(
             String keyword, Long categoryId, String city, Boolean isUrgent) {
@@ -114,6 +129,9 @@ public class ServiceRequestService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Met a jour une demande uniquement si le client en est proprietaire et si elle reste modifiable.
+     */
     @Transactional
     public ServiceRequestDto updateServiceRequest(Long requestId, Long clientId, ServiceRequestDto dto) {
         ServiceRequest request = findById(requestId);
@@ -163,6 +181,9 @@ public class ServiceRequestService {
         return mapToDto(serviceRequestRepository.save(request), true);
     }
 
+    /**
+     * Annule une demande qui n'est pas deja terminee ou annulee.
+     */
     @Transactional
     public void cancelServiceRequest(Long requestId, Long clientId) {
         ServiceRequest request = findById(requestId);
@@ -176,11 +197,17 @@ public class ServiceRequestService {
         serviceRequestRepository.save(request);
     }
 
+    /**
+     * Recherche une demande ou leve une exception metier si elle n'existe pas.
+     */
     public ServiceRequest findById(Long id) {
         return serviceRequestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Demande introuvable"));
     }
 
+    /**
+     * Verifie que le client connecte est bien le proprietaire de la demande.
+     */
     public void ensureOwnership(ServiceRequest request, Long clientId) {
         if (!request.getClient().getId().equals(clientId)) {
             throw new UnauthorizedException("Acces refuse");
@@ -189,6 +216,9 @@ public class ServiceRequestService {
 
     // --- Mapping ---
 
+    /**
+     * Convertit une demande en DTO et ajoute les propositions seulement quand l'ecran en a besoin.
+     */
     public ServiceRequestDto mapToDto(ServiceRequest sr, boolean includeProposals) {
         ServiceRequestDto.ServiceRequestDtoBuilder builder = ServiceRequestDto.builder()
                 .id(sr.getId())

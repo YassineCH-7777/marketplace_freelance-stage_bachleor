@@ -100,6 +100,9 @@ public class RecommendationService {
     private final ServiceRepository serviceRepository;
     private final ServiceImageRepository serviceImageRepository;
 
+    /**
+     * Classe les services publies selon adequation, proximite, budget, delai et signaux de confiance.
+     */
     @Transactional(readOnly = true)
     public List<RecommendationResultDto> recommendFreelancers(RecommendationRequestDto request) {
         RecommendationRequestDto safeRequest = request == null ? new RecommendationRequestDto() : request;
@@ -115,6 +118,9 @@ public class RecommendationService {
                 .toList();
     }
 
+    /**
+     * Interprete un besoin en langage naturel puis renvoie les recommandations correspondantes.
+     */
     @Transactional(readOnly = true)
     public MatchingAssistantResponseDto matchClientNeed(MatchingAssistantRequestDto request) {
         MatchingAssistantRequestDto safeRequest = request == null ? new MatchingAssistantRequestDto() : request;

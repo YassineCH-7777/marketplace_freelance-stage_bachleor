@@ -62,6 +62,9 @@ public class OrderService {
     private final MessageService messageService;
     private final AttachmentRepository attachmentRepository;
 
+    /**
+     * Liste les demandes directes recues par un freelance depuis ses services.
+     */
     public List<OrderRequestDto> getIncomingRequests(Long freelancerId) {
         return orderRequestRepository.findByService_Freelancer_User_Id(freelancerId)
                 .stream()
@@ -69,6 +72,9 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Accepte une demande directe, cree la commande et initialise ses jalons.
+     */
     @Transactional
     public void acceptRequest(Long requestId, Long freelancerId) {
         OrderRequest request = orderRequestRepository.findById(requestId)
@@ -103,6 +109,9 @@ public class OrderService {
         messageService.ensureOrderConversation(savedOrder);
     }
 
+    /**
+     * Refuse une demande directe adressee au freelance.
+     */
     @Transactional
     public void refuseRequest(Long requestId, Long freelancerId) {
         OrderRequest request = orderRequestRepository.findById(requestId)
@@ -114,6 +123,9 @@ public class OrderService {
         orderRequestRepository.save(request);
     }
 
+    /**
+     * Recupere les commandes associees au profil freelance connecte.
+     */
     public List<OrderDto> getFreelancerOrders(Long freelancerId) {
         FreelancerProfile freelancer = freelancerProfileRepository.findByUserId(freelancerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Profil freelance introuvable"));
@@ -123,6 +135,9 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Met a jour le suivi d'execution d'une mission cote freelance.
+     */
     @Transactional
     public OrderDto updateFreelancerOrder(Long orderId, Long freelancerId, OrderExecutionUpdateDto dto) {
         Order order = orderRepository.findById(orderId)
@@ -204,6 +219,9 @@ public class OrderService {
         return mapToOrderDto(savedOrder);
     }
 
+    /**
+     * Ajoute un jalon de mission et recalcule l'avancement global.
+     */
     @Transactional
     public MissionMilestoneDto addMissionMilestone(Long orderId, Long freelancerId, MissionMilestoneDto dto) {
         Order order = orderRepository.findById(orderId)
@@ -242,6 +260,9 @@ public class OrderService {
         return mapToMilestoneDto(savedMilestone);
     }
 
+    /**
+     * Met a jour un jalon existant et synchronise le statut de la commande si besoin.
+     */
     @Transactional
     public MissionMilestoneDto updateMissionMilestone(Long orderId, Long milestoneId, Long freelancerId, MissionMilestoneDto dto) {
         Order order = orderRepository.findById(orderId)
@@ -305,6 +326,9 @@ public class OrderService {
         return mapToMilestoneDto(savedMilestone);
     }
 
+    /**
+     * Cree une demande directe d'un client vers un service freelance.
+     */
     @Transactional
     public OrderRequestDto createOrderRequest(Long clientId, OrderRequestDto dto) {
         User client = userRepository.findById(clientId)
@@ -331,6 +355,9 @@ public class OrderService {
         return mapToRequestDto(savedRequest);
     }
 
+    /**
+     * Recupere les commandes creees par le client connecte.
+     */
     public List<OrderDto> getClientOrders(Long clientId) {
         return orderRepository.findByClient_Id(clientId)
                 .stream()
@@ -338,6 +365,9 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Simule le blocage du paiement en escrow avant execution avancee de la mission.
+     */
     @Transactional
     public OrderDto confirmEscrowPayment(Long orderId, Long clientId) {
         Order order = findClientOrder(orderId, clientId);
@@ -364,6 +394,9 @@ public class OrderService {
         return mapToOrderDto(savedOrder);
     }
 
+    /**
+     * Valide la livraison, libere le paiement simule et termine la mission.
+     */
     @Transactional
     public OrderDto acceptDelivery(Long orderId, Long clientId, OrderClientDecisionDto dto) {
         Order order = findClientOrder(orderId, clientId);
@@ -390,6 +423,9 @@ public class OrderService {
         return mapToOrderDto(savedOrder);
     }
 
+    /**
+     * Demande une revision apres livraison en conservant le paiement en escrow.
+     */
     @Transactional
     public OrderDto requestRevision(Long orderId, Long clientId, OrderClientDecisionDto dto) {
         Order order = findClientOrder(orderId, clientId);
@@ -423,12 +459,18 @@ public class OrderService {
         return mapToOrderDto(savedOrder);
     }
 
+    /**
+     * Ouvre un litige a l'initiative du client.
+     */
     @Transactional
     public OrderDto openClientDispute(Long orderId, Long clientId, OrderDisputeRequestDto dto) {
         Order order = findClientOrder(orderId, clientId);
         return openDispute(order, order.getClient(), dto);
     }
 
+    /**
+     * Ouvre un litige a l'initiative du freelance.
+     */
     @Transactional
     public OrderDto openFreelancerDispute(Long orderId, Long freelancerId, OrderDisputeRequestDto dto) {
         Order order = orderRepository.findById(orderId)
@@ -437,6 +479,9 @@ public class OrderService {
         return openDispute(order, order.getFreelancer().getUser(), dto);
     }
 
+    /**
+     * Applique la decision admin sur un litige et cloture la commande selon la resolution.
+     */
     @Transactional
     public OrderDto resolveAdminDispute(Long orderId, Long adminId, AdminDisputeDecisionDto dto) {
         Order order = orderRepository.findById(orderId)

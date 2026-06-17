@@ -21,6 +21,9 @@ public class MissionReportController {
 
     private final MissionReportService missionReportService;
 
+    /**
+     * Genere et telecharge le rapport PDF d'une mission accessible a l'utilisateur.
+     */
     @GetMapping("/{id}/report")
     public ResponseEntity<byte[]> downloadMissionReport(
             @PathVariable Long id,

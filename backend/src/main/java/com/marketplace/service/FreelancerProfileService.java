@@ -24,11 +24,17 @@ public class FreelancerProfileService {
 
     private final FreelancerProfileRepository profileRepository;
 
+    /**
+     * Charge le profil professionnel du freelance connecte.
+     */
     @Transactional(readOnly = true)
     public FreelancerProfileDto getProfile(Long userId) {
         return mapToDto(getFreelancerProfile(userId));
     }
 
+    /**
+     * Met a jour le profil freelance, ses competences et ses donnees locales.
+     */
     @Transactional
     public FreelancerProfileDto updateProfile(Long userId, FreelancerProfileDto dto) {
         FreelancerProfile profile = getFreelancerProfile(userId);

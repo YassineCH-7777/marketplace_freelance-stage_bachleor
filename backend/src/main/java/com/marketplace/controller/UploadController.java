@@ -55,6 +55,9 @@ public class UploadController {
 
     private final AttachmentRepository attachmentRepository;
 
+    /**
+     * Enregistre une image de service apres validation du format et de la signature.
+     */
     @PostMapping("/freelancer/uploads/image")
     public ResponseEntity<ImageUploadResponse> uploadServiceImage(
             @AuthenticationPrincipal User user,
@@ -100,6 +103,9 @@ public class UploadController {
         }
     }
 
+    /**
+     * Sert publiquement une image de service stockee localement.
+     */
     @GetMapping("/public/uploads/services/{filename:.+}")
     public ResponseEntity<Resource> getServiceImage(@PathVariable String filename) {
         try {
@@ -123,6 +129,9 @@ public class UploadController {
         }
     }
 
+    /**
+     * Telecharge une piece jointe apres verification des droits d'acces.
+     */
     @GetMapping("/uploads/attachments/{filename:.+}")
     @Transactional(readOnly = true)
     public ResponseEntity<Resource> getAttachment(
@@ -172,6 +181,9 @@ public class UploadController {
         }
     }
 
+    /**
+     * Verifie la presence, la taille, le type MIME et la signature de l'image.
+     */
     private void validateImage(MultipartFile image) {
         if (image == null || image.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucune image fournie");
@@ -189,14 +201,23 @@ public class UploadController {
         validateImageSignature(image, normalizedContentType);
     }
 
+    /**
+     * Calcule le dossier local dedie aux images de services.
+     */
     private Path getServiceUploadDirectory() {
         return Paths.get(uploadDir, "services").toAbsolutePath().normalize();
     }
 
+    /**
+     * Calcule le dossier local dedie aux pieces jointes.
+     */
     private Path getAttachmentUploadDirectory() {
         return Paths.get(uploadDir, "attachments").toAbsolutePath().normalize();
     }
 
+    /**
+     * Associe le type MIME valide a l'extension de fichier stockee.
+     */
     private String resolveExtension(String contentType) {
         if (MediaType.IMAGE_PNG_VALUE.equals(contentType)) {
             return ".png";
@@ -213,6 +234,9 @@ public class UploadController {
         return ".jpg";
     }
 
+    /**
+     * Controle les premiers octets du fichier pour eviter les faux types MIME.
+     */
     private void validateImageSignature(MultipartFile image, String contentType) {
         try (InputStream inputStream = image.getInputStream()) {
             byte[] header = inputStream.readNBytes(16);
@@ -231,6 +255,9 @@ public class UploadController {
         }
     }
 
+    /**
+     * Determine si l'utilisateur peut acceder a une piece jointe.
+     */
     private boolean canAccessAttachment(Attachment attachment, Long userId) {
         if (attachment.getUploader() != null && attachment.getUploader().getId().equals(userId)) {
             return true;
@@ -245,11 +272,17 @@ public class UploadController {
         return attachment.getServiceRequest() != null;
     }
 
+    /**
+     * Verifie que l'utilisateur appartient a la conversation liee au fichier.
+     */
     private boolean isConversationParticipant(Conversation conversation, Long userId) {
         return conversation.getClient().getId().equals(userId)
                 || conversation.getFreelancer().getUser().getId().equals(userId);
     }
 
+    /**
+     * Compare un en-tete binaire avec une signature attendue.
+     */
     private boolean startsWith(byte[] value, int... prefix) {
         if (value.length < prefix.length) {
             return false;
@@ -262,10 +295,16 @@ public class UploadController {
         return true;
     }
 
+    /**
+     * Compare le debut d'un en-tete avec une signature ASCII.
+     */
     private boolean startsWithAscii(byte[] value, String prefix) {
         return startsWithAsciiAt(value, prefix, 0);
     }
 
+    /**
+     * Compare une signature ASCII a une position precise de l'en-tete.
+     */
     private boolean startsWithAsciiAt(byte[] value, String prefix, int offset) {
         byte[] prefixBytes = prefix.getBytes(StandardCharsets.US_ASCII);
         if (value.length < offset + prefixBytes.length) {

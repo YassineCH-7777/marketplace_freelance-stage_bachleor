@@ -47,6 +47,9 @@ public class MessageService {
     private final AttachmentRepository attachmentRepository;
     private final NotificationService notificationService;
 
+    /**
+     * Cree une conversation directe uniquement entre un client et un freelance.
+     */
     @Transactional
     public ConversationDto createConversationForUser(Long requesterId, Long targetUserId) {
         if (requesterId.equals(targetUserId)) {
@@ -72,6 +75,9 @@ public class MessageService {
         return mapToConversationDto(conversation, requesterId);
     }
 
+    /**
+     * Cree ou recupere la conversation associee a une commande.
+     */
     @Transactional
     public ConversationDto createConversationForOrder(Long requesterId, Long orderId) {
         Order order = orderRepository.findById(orderId)
@@ -85,6 +91,9 @@ public class MessageService {
         return mapToConversationDto(conversation, requesterId);
     }
 
+    /**
+     * Ajoute le premier message d'une demande directe dans la conversation.
+     */
     @Transactional
     public void addOrderRequestOpeningMessage(OrderRequest request) {
         Conversation conversation = getOrCreateSingleConversation(request.getClient(), request.getService().getFreelancer());
@@ -93,6 +102,9 @@ public class MessageService {
         }
     }
 
+    /**
+     * Garantit qu'une commande possede une conversation partagee client/freelance.
+     */
     @Transactional
     public Conversation ensureOrderConversation(Order order) {
         Optional<Conversation> existingOrderConversation = conversationRepository.findByOrder_Id(order.getId());
@@ -109,6 +121,9 @@ public class MessageService {
         return conversation;
     }
 
+    /**
+     * Liste les conversations de l'utilisateur en evitant les doublons historiques.
+     */
     public List<ConversationDto> getUserConversations(Long userId) {
         return deduplicateConversations(conversationRepository.findByClient_IdOrFreelancer_User_Id(userId, userId))
                 .stream()
@@ -118,6 +133,9 @@ public class MessageService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Charge les messages d'une conversation et marque ceux-ci comme lus.
+     */
     @Transactional
     public List<MessageDto> getMessages(Long conversationId, Long userId) {
         Conversation conversation = conversationRepository.findById(conversationId)
@@ -133,6 +151,9 @@ public class MessageService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Supprime une conversation accessible a l'utilisateur et ses notifications liees.
+     */
     @Transactional
     public void deleteConversation(Long conversationId, Long userId) {
         Conversation conversation = conversationRepository.findById(conversationId)
@@ -145,6 +166,9 @@ public class MessageService {
         conversationRepository.delete(conversation);
     }
 
+    /**
+     * Envoie un message apres verification de la participation a la conversation.
+     */
     @Transactional
     public MessageDto sendMessage(Long conversationId, Long senderId, String content) {
         Conversation conversation = conversationRepository.findById(conversationId)
@@ -159,6 +183,9 @@ public class MessageService {
         return mapToMessageDto(saveMessage(conversation, sender, content, true));
     }
 
+    /**
+     * Met a jour le marqueur important d'un message visible par l'utilisateur.
+     */
     @Transactional
     public MessageDto updateMessageImportance(Long messageId, Long userId, boolean important) {
         Message message = messageRepository.findById(messageId)

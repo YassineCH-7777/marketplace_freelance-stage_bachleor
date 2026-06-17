@@ -21,10 +21,16 @@ public class GoogleTokenVerifier {
     private final String clientId;
     private JwtDecoder jwtDecoder;
 
+    /**
+     * Initialise le verificateur avec le client OAuth Google autorise.
+     */
     public GoogleTokenVerifier(@Value("${google.oauth.client-id:}") String clientId) {
         this.clientId = clientId;
     }
 
+    /**
+     * Verifie le JWT Google et extrait les informations de profil necessaires.
+     */
     public GoogleAccount verify(String idToken) {
         if (clientId == null || clientId.isBlank()) {
             throw new BusinessException("Google OAuth n'est pas configure cote backend.", HttpStatus.SERVICE_UNAVAILABLE);

@@ -68,6 +68,9 @@ public class MissionReportService {
     private final AttachmentRepository attachmentRepository;
     private final ReviewRepository reviewRepository;
 
+    /**
+     * Genere un rapport PDF de mission apres verification que l'utilisateur participe a la commande.
+     */
     @Transactional(readOnly = true)
     public byte[] generateMissionReport(Long orderId, Long userId) {
         Order order = orderRepository.findById(orderId)

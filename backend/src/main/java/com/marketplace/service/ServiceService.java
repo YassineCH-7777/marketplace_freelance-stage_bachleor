@@ -31,6 +31,9 @@ public class ServiceService {
     private final FreelancerProfileRepository freelancerProfileRepository;
     private final ServiceImageRepository serviceImageRepository;
 
+    /**
+     * Cree une offre freelance publiee dans le catalogue.
+     */
     @Transactional
     public ServiceDto createService(Long freelancerId, ServiceDto dto) {
         User freelancerUser = userRepository.findById(freelancerId)
@@ -61,6 +64,9 @@ public class ServiceService {
         return mapToDto(savedService);
     }
 
+    /**
+     * Met a jour une offre apres controle de son proprietaire.
+     */
     @Transactional
     public ServiceDto updateService(Long serviceId, Long freelancerId, ServiceDto dto) {
         ServiceEntity service = serviceRepository.findById(serviceId)
@@ -91,6 +97,9 @@ public class ServiceService {
         return mapToDto(savedService);
     }
 
+    /**
+     * Archive une offre pour la masquer du catalogue sans supprimer l'historique.
+     */
     @Transactional
     public void deleteService(Long serviceId, Long freelancerId) {
         ServiceEntity service = serviceRepository.findById(serviceId)

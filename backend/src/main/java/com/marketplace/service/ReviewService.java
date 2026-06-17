@@ -23,6 +23,9 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final OrderRepository orderRepository;
 
+    /**
+     * Cree ou met a jour l'avis du client apres une commande terminee.
+     */
     @Transactional
     public ReviewDto leaveReview(Long clientId, ReviewDto dto) {
         if (dto.getOrderId() == null) {
@@ -70,6 +73,9 @@ public class ReviewService {
         return mapToDto(reviewRepository.save(review));
     }
 
+    /**
+     * Retourne les avis publics d'un freelance du plus recent au plus ancien.
+     */
     public List<ReviewDto> getReviewsByFreelancer(Long freelancerId) {
         return reviewRepository.findByFreelancer_User_IdOrderByCreatedAtDesc(freelancerId)
                 .stream()

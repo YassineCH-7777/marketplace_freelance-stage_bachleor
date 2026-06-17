@@ -33,6 +33,9 @@ public class PublicController {
     private final ServiceImageRepository serviceImageRepository;
     private final ReviewService reviewService;
 
+    /**
+     * Expose les services publies dans le catalogue public.
+     */
     @GetMapping("/services")
     public ResponseEntity<List<ServiceDto>> getAllActiveServices() {
         // repository stores DB enum values (DRAFT, PUBLISHED...), map published to be shown as ACTIVE in UI
@@ -43,6 +46,9 @@ public class PublicController {
         return ResponseEntity.ok(services);
     }
 
+    /**
+     * Retourne uniquement les categories actives visibles par les visiteurs.
+     */
     @GetMapping("/categories")
     public ResponseEntity<List<CategoryDto>> getActiveCategories() {
         List<CategoryDto> categories = categoryRepository.findAll()
@@ -58,6 +64,9 @@ public class PublicController {
         return ResponseEntity.ok(categories);
     }
 
+    /**
+     * Recherche les services selon le besoin local: mot-cle, categorie, ville, mode et delai.
+     */
     @GetMapping("/services/search")
     public ResponseEntity<List<ServiceDto>> searchServices(
         @RequestParam(required = false) String keyword,
@@ -91,6 +100,9 @@ public class PublicController {
         return ResponseEntity.ok(services);
     }
 
+    /**
+     * Affiche le profil public d'un freelance a partir de son identifiant utilisateur.
+     */
     @GetMapping("/freelancers/{userId}")
     public ResponseEntity<FreelancerProfileDto> getFreelancerProfile(@PathVariable Long userId) {
         return freelancerProfileRepository.findByUserId(userId)
@@ -99,11 +111,17 @@ public class PublicController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Liste les avis publics attaches au freelance.
+     */
     @GetMapping("/freelancers/{userId}/reviews")
     public ResponseEntity<List<ReviewDto>> getFreelancerReviews(@PathVariable Long userId) {
         return ResponseEntity.ok(reviewService.getReviewsByFreelancer(userId));
     }
 
+    /**
+     * Convertit une entite service en DTO public sans exposer le modele JPA.
+     */
     private ServiceDto mapToServiceDto(ServiceEntity service) {
         return ServiceDto.builder()
                 .id(service.getId())
@@ -125,6 +143,9 @@ public class PublicController {
                 .build();
     }
 
+    /**
+     * Recupere les images de galerie dans l'ordre prevu pour l'affichage public.
+     */
     private List<String> getGalleryImageUrls(Long serviceId) {
         return serviceImageRepository.findByServiceIdOrderBySortOrderAsc(serviceId)
                 .stream()
@@ -132,6 +153,9 @@ public class PublicController {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Transforme le profil freelance interne en donnees publiques consultables.
+     */
     private FreelancerProfileDto mapToProfileDto(FreelancerProfile profile) {
         return FreelancerProfileDto.builder()
                 .id(profile.getId())
@@ -152,6 +176,9 @@ public class PublicController {
                 .build();
     }
 
+    /**
+     * Normalise une valeur de filtre afin de comparer sans tenir compte de la casse.
+     */
     private String normalize(String value) {
         if (value == null) {
             return null;
@@ -160,10 +187,16 @@ public class PublicController {
         return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * Verifie qu'un texte contient le filtre attendu en ignorant la casse.
+     */
     private boolean containsIgnoreCase(String value, String expected) {
         return expected == null || (value != null && value.toLowerCase(Locale.ROOT).contains(expected));
     }
 
+    /**
+     * Compare le mode d'execution calcule avec le filtre demande.
+     */
     private boolean matchesMode(ServiceEntity service, String expectedMode) {
         if (expectedMode == null) {
             return true;
@@ -172,6 +205,9 @@ public class PublicController {
         return resolveExecutionMode(service).toLowerCase(Locale.ROOT).equals(expectedMode);
     }
 
+    /**
+     * Deduit le mode ON_SITE, HYBRID ou REMOTE a partir des donnees du service.
+     */
     private String resolveExecutionMode(ServiceEntity service) {
         if (!service.isRemote()) {
             return "ON_SITE";

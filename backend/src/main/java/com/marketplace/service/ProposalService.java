@@ -32,6 +32,9 @@ public class ProposalService {
     private final NotificationService notificationService;
     private final MessageService messageService;
 
+    /**
+     * Enregistre la candidature d'un freelance sur une demande ouverte.
+     */
     @Transactional
     public ProposalDto submitProposal(Long freelancerUserId, ProposalDto dto) {
         FreelancerProfile freelancer = freelancerProfileRepository.findByUserId(freelancerUserId)
@@ -100,6 +103,9 @@ public class ProposalService {
         return mapProposalToDto(saved);
     }
 
+    /**
+     * Liste les candidatures recues sur une demande client.
+     */
     @Transactional(readOnly = true)
     public List<ProposalDto> getProposalsForRequest(Long requestId) {
         return proposalRepository.findByServiceRequest_IdOrderByCreatedAtDesc(requestId)
@@ -108,6 +114,9 @@ public class ProposalService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Recupere toutes les candidatures envoyees par un freelance.
+     */
     @Transactional(readOnly = true)
     public List<ProposalDto> getFreelancerProposals(Long freelancerUserId) {
         return proposalRepository.findByFreelancer_User_IdOrderByCreatedAtDesc(freelancerUserId)
@@ -116,6 +125,9 @@ public class ProposalService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retire une candidature encore en attente a la demande du freelance.
+     */
     @Transactional
     public void withdrawProposal(Long proposalId, Long freelancerUserId) {
         Proposal proposal = proposalRepository.findById(proposalId)
@@ -133,6 +145,9 @@ public class ProposalService {
         proposalRepository.save(proposal);
     }
 
+    /**
+     * Accepte une candidature, passe la demande en cours et cree la commande de mission.
+     */
     @Transactional
     public ProposalDto acceptProposal(Long proposalId, Long clientId) {
         Proposal proposal = proposalRepository.findById(proposalId)
@@ -203,6 +218,9 @@ public class ProposalService {
         return mapProposalToDto(proposal);
     }
 
+    /**
+     * Rejette une candidature en attente et notifie le freelance concerne.
+     */
     @Transactional
     public ProposalDto rejectProposal(Long proposalId, Long clientId) {
         Proposal proposal = proposalRepository.findById(proposalId)
@@ -231,6 +249,9 @@ public class ProposalService {
         return mapProposalToDto(proposal);
     }
 
+    /**
+     * Cloture une demande et refuse les candidatures restantes si aucune suite n'est possible.
+     */
     @Transactional
     public void closeServiceRequest(Long requestId, Long clientId) {
         ServiceRequest serviceRequest = serviceRequestRepository.findById(requestId)
@@ -269,6 +290,9 @@ public class ProposalService {
 
     // --- Mapping (static for reuse) ---
 
+    /**
+     * Convertit une candidature en DTO reutilisable par les demandes et les tableaux de bord.
+     */
     public static ProposalDto mapProposalToDto(Proposal proposal) {
         FreelancerProfile fp = proposal.getFreelancer();
         User freelancerUser = fp.getUser();

@@ -29,6 +29,9 @@ public class AiDraftService {
     private final ClientRequestDraftRepository clientRequestDraftRepository;
     private final FreelancerProfileDraftRepository freelancerProfileDraftRepository;
 
+    /**
+     * Sauvegarde un brouillon de demande client produit par l'assistant IA.
+     */
     @Transactional
     public ClientRequestDraftDto saveClientRequestDraft(ClientRequestDraftRequest request) {
         User client = getUser(request.getUserId());
@@ -48,6 +51,9 @@ public class AiDraftService {
         return mapClientDraft(clientRequestDraftRepository.save(draft));
     }
 
+    /**
+     * Sauvegarde ou met a jour un brouillon de profil freelance enrichi par l'IA.
+     */
     @Transactional
     public FreelancerProfileDraftDto saveFreelancerProfileDraft(FreelancerProfileDraftRequest request) {
         User user = getUser(request.getUserId());

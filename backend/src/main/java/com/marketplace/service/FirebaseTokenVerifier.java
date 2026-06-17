@@ -17,10 +17,16 @@ public class FirebaseTokenVerifier {
     private final String projectId;
     private JwtDecoder jwtDecoder;
 
+    /**
+     * Initialise le verificateur avec l'identifiant du projet Firebase attendu.
+     */
     public FirebaseTokenVerifier(@Value("${firebase.project-id:}") String projectId) {
         this.projectId = projectId;
     }
 
+    /**
+     * Verifie le JWT Firebase et extrait les informations de compte utiles a l'authentification.
+     */
     public FirebaseAccount verify(String idToken) {
         if (projectId == null || projectId.isBlank()) {
             throw new BusinessException("Firebase Auth n'est pas configure cote backend.", HttpStatus.SERVICE_UNAVAILABLE);

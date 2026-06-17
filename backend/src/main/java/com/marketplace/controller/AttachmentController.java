@@ -24,6 +24,9 @@ public class AttachmentController {
 
     private final AttachmentService attachmentService;
 
+    /**
+     * Ajoute des pieces jointes a un message existant.
+     */
     @PostMapping("/messages/{messageId}")
     public ResponseEntity<List<AttachmentDto>> uploadMessageAttachments(
             @PathVariable Long messageId,
@@ -34,6 +37,9 @@ public class AttachmentController {
         return ResponseEntity.ok(attachmentService.uploadMessageAttachments(messageId, user.getId(), files, type));
     }
 
+    /**
+     * Ajoute des fichiers de brief a une demande de prestation.
+     */
     @PostMapping("/service-requests/{requestId}")
     public ResponseEntity<List<AttachmentDto>> uploadServiceRequestAttachments(
             @PathVariable Long requestId,
@@ -44,6 +50,9 @@ public class AttachmentController {
         return ResponseEntity.ok(attachmentService.uploadServiceRequestAttachments(requestId, user.getId(), files, type));
     }
 
+    /**
+     * Ajoute des preuves ou fichiers de suivi a une commande.
+     */
     @PostMapping("/orders/{orderId}")
     public ResponseEntity<List<AttachmentDto>> uploadOrderAttachments(
             @PathVariable Long orderId,
@@ -54,6 +63,9 @@ public class AttachmentController {
         return ResponseEntity.ok(attachmentService.uploadOrderAttachments(orderId, user.getId(), files, type));
     }
 
+    /**
+     * Centralise le controle d'authentification pour les uploads proteges.
+     */
     private void ensureAuthenticated(User user) {
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Utilisateur non connecte");

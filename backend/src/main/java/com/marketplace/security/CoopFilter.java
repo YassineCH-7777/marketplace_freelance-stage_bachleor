@@ -14,6 +14,9 @@ public class CoopFilter extends OncePerRequestFilter {
     private static final String COOP_HEADER = "Cross-Origin-Opener-Policy";
     private static final String SAME_ORIGIN_ALLOW_POPUPS = "same-origin-allow-popups";
 
+    /**
+     * Pose l'en-tete COOP compatible avec les popups OAuth cote navigateur.
+     */
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,

@@ -16,11 +16,17 @@ public class AiDraftController {
 
     private final AiDraftService aiDraftService;
 
+    /**
+     * Sauvegarde un brouillon de demande genere ou enrichi par l'assistant IA.
+     */
     @PostMapping("/requests/draft")
     public ResponseEntity<ClientRequestDraftDto> saveClientRequestDraft(@RequestBody ClientRequestDraftRequest request) {
         return ResponseEntity.ok(aiDraftService.saveClientRequestDraft(request));
     }
 
+    /**
+     * Sauvegarde un brouillon de profil freelance issu de l'accompagnement IA.
+     */
     @PostMapping("/freelancers/profile/draft")
     public ResponseEntity<FreelancerProfileDraftDto> saveFreelancerProfileDraft(
             @RequestBody FreelancerProfileDraftRequest request) {

@@ -78,6 +78,9 @@ public class AttachmentService {
     @Value("${marketplace.upload-dir:uploads}")
     private String uploadDir;
 
+    /**
+     * Enregistre les pieces jointes d'un message lorsque l'utilisateur en est l'expediteur.
+     */
     @Transactional
     public List<AttachmentDto> uploadMessageAttachments(Long messageId, Long userId, List<MultipartFile> files, String type) {
         User uploader = findUser(userId);
@@ -91,6 +94,9 @@ public class AttachmentService {
         return storeFiles(uploader, message, null, null, files, type);
     }
 
+    /**
+     * Enregistre les fichiers de brief rattaches a une demande appartenant au client.
+     */
     @Transactional
     public List<AttachmentDto> uploadServiceRequestAttachments(
             Long serviceRequestId,
@@ -109,6 +115,9 @@ public class AttachmentService {
         return storeFiles(uploader, null, serviceRequest, null, files, type);
     }
 
+    /**
+     * Enregistre les fichiers d'une commande si l'utilisateur participe a la mission.
+     */
     @Transactional
     public List<AttachmentDto> uploadOrderAttachments(Long orderId, Long userId, List<MultipartFile> files, String type) {
         User uploader = findUser(userId);

@@ -25,11 +25,17 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final ConversationRepository conversationRepository;
 
+    /**
+     * Cree une notification simple sans lien vers une entite metier precise.
+     */
     @Transactional
     public void createNotification(Long userId, NotificationType type, String content) {
         createNotification(userId, type, content, null, null);
     }
 
+    /**
+     * Cree une notification rattachee a une entite metier consultable par le frontend.
+     */
     @Transactional
     public void createNotification(
             Long userId,
@@ -49,6 +55,9 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
+    /**
+     * Supprime les notifications liees a une entite disparue, par exemple une conversation.
+     */
     @Transactional
     public void deleteNotificationsForRelatedEntity(String relatedEntityType, Long relatedEntityId) {
         if (relatedEntityType == null || relatedEntityId == null) {
@@ -58,6 +67,9 @@ public class NotificationService {
         notificationRepository.deleteByRelatedEntityTypeAndRelatedEntityId(relatedEntityType, relatedEntityId);
     }
 
+    /**
+     * Retourne les notifications visibles et nettoie celles qui pointent vers des conversations supprimees.
+     */
     @Transactional
     public List<NotificationDto> getAllNotifications(Long userId) {
         List<Notification> visibleNotifications = new ArrayList<>();
