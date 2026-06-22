@@ -14,6 +14,7 @@ BEGIN;
 -- 1) EXTENSIONS
 -- =========================================================
 CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- =========================================================
 -- 2) TYPES ENUM
@@ -162,6 +163,45 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION sync_service_location()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.latitude IS NULL OR NEW.longitude IS NULL THEN
+        NEW.location = NULL;
+    ELSE
+        NEW.location = ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326)::geography;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION sync_user_search_location()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.search_latitude IS NULL OR NEW.search_longitude IS NULL THEN
+        NEW.search_location = NULL;
+    ELSE
+        NEW.search_location = ST_SetSRID(ST_MakePoint(NEW.search_longitude, NEW.search_latitude), 4326)::geography;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION sync_service_request_location()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.latitude IS NULL OR NEW.longitude IS NULL THEN
+        NEW.location = NULL;
+    ELSE
+        NEW.location = ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326)::geography;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION refresh_freelancer_rating()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -239,6 +279,7 @@ CREATE TABLE IF NOT EXISTS users (
     search_latitude     DOUBLE PRECISION,
     search_longitude    DOUBLE PRECISION,
     search_radius_km    INT NOT NULL DEFAULT 10,
+    search_location     GEOGRAPHY(Point, 4326),
     profile_picture_url TEXT,
     status              user_status NOT NULL DEFAULT 'ACTIVE',
     email_verified      BOOLEAN NOT NULL DEFAULT FALSE,
@@ -262,7 +303,8 @@ ALTER TABLE users
     ADD COLUMN IF NOT EXISTS search_place_id VARCHAR(255),
     ADD COLUMN IF NOT EXISTS search_latitude DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS search_longitude DOUBLE PRECISION,
-    ADD COLUMN IF NOT EXISTS search_radius_km INT NOT NULL DEFAULT 10;
+    ADD COLUMN IF NOT EXISTS search_radius_km INT NOT NULL DEFAULT 10,
+    ADD COLUMN IF NOT EXISTS search_location GEOGRAPHY(Point, 4326);
 
 UPDATE users
 SET search_radius_km = 10
@@ -273,6 +315,12 @@ UPDATE users
 SET email_verified = TRUE
 WHERE status = 'ACTIVE'
   AND email_verified = FALSE;
+
+UPDATE users
+SET search_location = CASE
+    WHEN search_latitude IS NULL OR search_longitude IS NULL THEN NULL
+    ELSE ST_SetSRID(ST_MakePoint(search_longitude, search_latitude), 4326)::geography
+END;
 
 DO $$
 BEGIN
@@ -354,6 +402,10 @@ CREATE TABLE IF NOT EXISTS services (
     delivery_time_days  INT NOT NULL DEFAULT 1,
     city                VARCHAR(120) NOT NULL,
     is_remote           BOOLEAN NOT NULL DEFAULT FALSE,
+    latitude            DOUBLE PRECISION,
+    longitude           DOUBLE PRECISION,
+    service_radius_km   INT NOT NULL DEFAULT 10,
+    location            GEOGRAPHY(Point, 4326),
     status              service_status NOT NULL DEFAULT 'DRAFT',
     cover_image_url     TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -368,8 +420,47 @@ CREATE TABLE IF NOT EXISTS services (
     CONSTRAINT chk_services_title_not_empty CHECK (char_length(trim(title)) >= 3),
     CONSTRAINT chk_services_description_not_empty CHECK (char_length(trim(description)) >= 10),
     CONSTRAINT chk_services_price CHECK (price >= 0),
-    CONSTRAINT chk_services_delivery_time_days CHECK (delivery_time_days >= 0)
+    CONSTRAINT chk_services_delivery_time_days CHECK (delivery_time_days >= 0),
+    CONSTRAINT chk_services_latitude CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+    CONSTRAINT chk_services_longitude CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
+    CONSTRAINT chk_services_radius CHECK (service_radius_km BETWEEN 1 AND 50)
 );
+
+ALTER TABLE services
+    ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS service_radius_km INT NOT NULL DEFAULT 10,
+    ADD COLUMN IF NOT EXISTS location GEOGRAPHY(Point, 4326);
+
+UPDATE services
+SET service_radius_km = 10
+WHERE service_radius_km IS NULL
+   OR service_radius_km < 1
+   OR service_radius_km > 50;
+
+UPDATE services
+SET location = CASE
+    WHEN latitude IS NULL OR longitude IS NULL THEN NULL
+    ELSE ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
+END;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_services_latitude') THEN
+        ALTER TABLE services
+            ADD CONSTRAINT chk_services_latitude CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_services_longitude') THEN
+        ALTER TABLE services
+            ADD CONSTRAINT chk_services_longitude CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_services_radius') THEN
+        ALTER TABLE services
+            ADD CONSTRAINT chk_services_radius CHECK (service_radius_km BETWEEN 1 AND 50);
+    END IF;
+END $$;
 
 -- =========================================================
 -- 8) TABLE SERVICE IMAGES
@@ -593,6 +684,29 @@ BEGIN
             ADD CONSTRAINT chk_orders_max_revision_rounds CHECK (max_revision_rounds >= 0);
     END IF;
 END $$;
+
+-- =========================================================
+-- 10A) TABLE PLATFORM FEES
+-- =========================================================
+CREATE TABLE IF NOT EXISTS fees (
+    id                  BIGSERIAL PRIMARY KEY,
+    order_id            BIGINT NOT NULL UNIQUE,
+    total_amount        NUMERIC(12,2) NOT NULL,
+    fee_percentage      NUMERIC(5,2) NOT NULL,
+    fee_amount          NUMERIC(12,2) NOT NULL,
+    freelancer_amount   NUMERIC(12,2) NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_fees_order
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE RESTRICT,
+    CONSTRAINT chk_fees_total_amount CHECK (total_amount >= 0),
+    CONSTRAINT chk_fees_percentage CHECK (fee_percentage BETWEEN 0 AND 100),
+    CONSTRAINT chk_fees_amount CHECK (fee_amount >= 0 AND fee_amount <= total_amount),
+    CONSTRAINT chk_fees_freelancer_amount CHECK (freelancer_amount >= 0),
+    CONSTRAINT chk_fees_balance CHECK (total_amount = fee_amount + freelancer_amount)
+);
+
+CREATE INDEX IF NOT EXISTS idx_fees_created_at ON fees(created_at);
 
 -- =========================================================
 -- 10B) TABLE MISSION MILESTONES
@@ -846,6 +960,7 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
 CREATE INDEX IF NOT EXISTS idx_users_city ON users(city);
 CREATE INDEX IF NOT EXISTS idx_users_search_city ON users(search_city);
+CREATE INDEX IF NOT EXISTS idx_users_search_location ON users USING GIST(search_location);
 CREATE INDEX IF NOT EXISTS idx_users_provider ON users(auth_provider, provider_id);
 
 CREATE INDEX IF NOT EXISTS idx_freelancer_profiles_user_id ON freelancer_profiles(user_id);
@@ -860,6 +975,8 @@ CREATE INDEX IF NOT EXISTS idx_services_city ON services(city);
 CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
 CREATE INDEX IF NOT EXISTS idx_services_price ON services(price);
 CREATE INDEX IF NOT EXISTS idx_services_created_at ON services(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_services_location ON services USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_services_radius ON services(service_radius_km);
 
 CREATE INDEX IF NOT EXISTS idx_service_images_service_id ON service_images(service_id);
 
@@ -926,6 +1043,12 @@ BEFORE UPDATE ON users
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_users_sync_search_location ON users;
+CREATE TRIGGER trg_users_sync_search_location
+BEFORE INSERT OR UPDATE OF search_latitude, search_longitude ON users
+FOR EACH ROW
+EXECUTE FUNCTION sync_user_search_location();
+
 DROP TRIGGER IF EXISTS trg_freelancer_profiles_updated_at ON freelancer_profiles;
 CREATE TRIGGER trg_freelancer_profiles_updated_at
 BEFORE UPDATE ON freelancer_profiles
@@ -943,6 +1066,12 @@ CREATE TRIGGER trg_services_updated_at
 BEFORE UPDATE ON services
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_services_sync_location ON services;
+CREATE TRIGGER trg_services_sync_location
+BEFORE INSERT OR UPDATE OF latitude, longitude ON services
+FOR EACH ROW
+EXECUTE FUNCTION sync_service_location();
 
 DROP TRIGGER IF EXISTS trg_order_requests_updated_at ON order_requests;
 CREATE TRIGGER trg_order_requests_updated_at
@@ -1047,6 +1176,10 @@ CREATE TABLE IF NOT EXISTS service_requests (
     deadline            DATE,
     city                VARCHAR(120),
     is_remote           BOOLEAN NOT NULL DEFAULT FALSE,
+    latitude            DOUBLE PRECISION,
+    longitude           DOUBLE PRECISION,
+    request_radius_km   INT NOT NULL DEFAULT 5,
+    location            GEOGRAPHY(Point, 4326),
     is_urgent           BOOLEAN NOT NULL DEFAULT FALSE,
     required_skills     TEXT[] NOT NULL DEFAULT '{}',
     status              service_request_status NOT NULL DEFAULT 'OPEN',
@@ -1065,8 +1198,47 @@ CREATE TABLE IF NOT EXISTS service_requests (
     CONSTRAINT chk_service_requests_budget_max CHECK (budget_max IS NULL OR budget_max >= 0),
     CONSTRAINT chk_service_requests_budget_range CHECK (
         budget_min IS NULL OR budget_max IS NULL OR budget_max >= budget_min
-    )
+    ),
+    CONSTRAINT chk_service_requests_latitude CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+    CONSTRAINT chk_service_requests_longitude CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
+    CONSTRAINT chk_service_requests_radius CHECK (request_radius_km BETWEEN 1 AND 50)
 );
+
+ALTER TABLE service_requests
+    ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS request_radius_km INT NOT NULL DEFAULT 5,
+    ADD COLUMN IF NOT EXISTS location GEOGRAPHY(Point, 4326);
+
+UPDATE service_requests
+SET request_radius_km = 5
+WHERE request_radius_km IS NULL
+   OR request_radius_km < 1
+   OR request_radius_km > 50;
+
+UPDATE service_requests
+SET location = CASE
+    WHEN latitude IS NULL OR longitude IS NULL THEN NULL
+    ELSE ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
+END;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_service_requests_latitude') THEN
+        ALTER TABLE service_requests
+            ADD CONSTRAINT chk_service_requests_latitude CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_service_requests_longitude') THEN
+        ALTER TABLE service_requests
+            ADD CONSTRAINT chk_service_requests_longitude CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_service_requests_radius') THEN
+        ALTER TABLE service_requests
+            ADD CONSTRAINT chk_service_requests_radius CHECK (request_radius_km BETWEEN 1 AND 50);
+    END IF;
+END $$;
 
 -- =========================================================
 -- 21) TABLE PROPOSALS (candidatures freelance)
@@ -1157,6 +1329,8 @@ CREATE INDEX IF NOT EXISTS idx_service_requests_city ON service_requests(city);
 CREATE INDEX IF NOT EXISTS idx_service_requests_is_urgent ON service_requests(is_urgent);
 CREATE INDEX IF NOT EXISTS idx_service_requests_created_at ON service_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_service_requests_deadline ON service_requests(deadline);
+CREATE INDEX IF NOT EXISTS idx_service_requests_location ON service_requests USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_service_requests_radius ON service_requests(request_radius_km);
 
 CREATE INDEX IF NOT EXISTS idx_proposals_service_request_id ON proposals(service_request_id);
 CREATE INDEX IF NOT EXISTS idx_proposals_freelancer_id ON proposals(freelancer_id);
@@ -1179,6 +1353,12 @@ CREATE TRIGGER trg_service_requests_updated_at
 BEFORE UPDATE ON service_requests
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_service_requests_sync_location ON service_requests;
+CREATE TRIGGER trg_service_requests_sync_location
+BEFORE INSERT OR UPDATE OF latitude, longitude ON service_requests
+FOR EACH ROW
+EXECUTE FUNCTION sync_service_request_location();
 
 DROP TRIGGER IF EXISTS trg_proposals_updated_at ON proposals;
 CREATE TRIGGER trg_proposals_updated_at

@@ -56,6 +56,16 @@ public class ServiceRequest {
     @Column(name = "is_remote", nullable = false)
     private boolean remote;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    @Builder.Default
+    @Column(name = "request_radius_km", nullable = false)
+    private Integer requestRadiusKm = 5;
+
     @Column(name = "is_urgent", nullable = false)
     private boolean urgent;
 

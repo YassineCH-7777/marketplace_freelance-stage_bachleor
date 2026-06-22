@@ -7,6 +7,7 @@ import com.marketplace.dto.order.OrderExecutionUpdateDto;
 import com.marketplace.dto.order.OrderRequestDto;
 import com.marketplace.dto.request.ProposalDto;
 import com.marketplace.dto.service.ServiceDto;
+import com.marketplace.dto.service.ServiceLocationRequest;
 import com.marketplace.dto.user.FreelancerProfileDto;
 import com.marketplace.model.User;
 import com.marketplace.service.FreelancerProfileService;
@@ -64,6 +65,17 @@ public class FreelancerController {
     @PutMapping("/services/{id}")
     public ResponseEntity<ServiceDto> updateService(@PathVariable Long id, @AuthenticationPrincipal User user, @RequestBody ServiceDto dto) {
         return ResponseEntity.ok(serviceService.updateService(id, user.getId(), dto));
+    }
+
+    /**
+     * Met a jour la zone d'intervention geographique d'une offre.
+     */
+    @PostMapping("/services/{id}/location")
+    public ResponseEntity<ServiceDto> updateServiceLocation(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user,
+            @RequestBody ServiceLocationRequest request) {
+        return ResponseEntity.ok(serviceService.updateServiceLocation(id, user.getId(), request));
     }
 
     /**

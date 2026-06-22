@@ -5,6 +5,7 @@ import { getRequestDetail } from '@/api/requestApi';
 import { getServiceRequestDetail, acceptProposal, rejectProposal, closeServiceRequest } from '@/api/requestApi';
 import { submitProposal } from '@/api/requestApi';
 import AttachmentList from '@/components/common/AttachmentList';
+import ServiceAreaMap from '@/components/common/ServiceAreaMap';
 import { MapPin, Calendar, Coins, Zap, Star, CheckCircle, XCircle, Clock, Send, Award, X, Paperclip, ListChecks, Plus, Trash2, ArrowLeft } from 'lucide-react';
 import '@/styles/requests.css';
 
@@ -275,6 +276,13 @@ export default function ServiceRequestDetail() {
     <div className="requests-page"><div className="container"><div className="requests-empty animate-fade-in-up"><h3>{error || 'Demande introuvable'}</h3></div></div></div>
   );
 
+  const isRemoteOnly = request.remote
+    || request.executionMode === 'REMOTE'
+    || request.city?.trim().toLowerCase() === 'remote';
+  const hasMappedLocation = !isRemoteOnly
+    && Number.isFinite(Number(request.latitude))
+    && Number.isFinite(Number(request.longitude));
+
   return (
     <div className="requests-page">
       <div className="container">
@@ -304,6 +312,25 @@ export default function ServiceRequestDetail() {
               <h3>Description du projet</h3>
               <p>{request.description}</p>
             </div>
+
+            {hasMappedLocation && (
+              <div className="request-detail-location">
+                <div className="request-detail-location-head">
+                  <MapPin size={18} />
+                  <div>
+                    <h3>Zone de la mission</h3>
+                    <p>{request.city} - Rayon de {request.requestRadiusKm || 5} km</p>
+                  </div>
+                </div>
+                <ServiceAreaMap
+                  city={request.city}
+                  latitude={request.latitude}
+                  longitude={request.longitude}
+                  radiusKm={request.requestRadiusKm || 5}
+                  disabled
+                />
+              </div>
+            )}
 
             {request.attachments?.length > 0 && (
               <div className="request-detail-attachments">

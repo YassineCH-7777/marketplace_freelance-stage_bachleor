@@ -159,6 +159,31 @@ FROM freelancer_profiles fp JOIN users u ON fp.user_id = u.id JOIN categories ca
 WHERE u.email = 'freelance1@marketplace.com'
 ON CONFLICT (slug) DO NOTHING;
 
+UPDATE services
+SET
+    latitude = CASE lower(city)
+        WHEN 'agadir' THEN 30.4278
+        WHEN 'casablanca' THEN 33.5731
+        WHEN 'marrakech' THEN 31.6295
+        WHEN 'rabat' THEN 34.0209
+        WHEN 'tanger' THEN 35.7595
+        ELSE latitude
+    END,
+    longitude = CASE lower(city)
+        WHEN 'agadir' THEN -9.5981
+        WHEN 'casablanca' THEN -7.5898
+        WHEN 'marrakech' THEN -7.9811
+        WHEN 'rabat' THEN -6.8416
+        WHEN 'tanger' THEN -5.8340
+        ELSE longitude
+    END,
+    service_radius_km = CASE
+        WHEN is_remote = FALSE THEN 20
+        ELSE COALESCE(service_radius_km, 10)
+    END
+WHERE latitude IS NULL
+  AND lower(city) IN ('agadir', 'casablanca', 'marrakech', 'rabat', 'tanger');
+
 -- 4B) DEMANDES CLIENTS PUBLIQUES (SERVICE REQUESTS)
 INSERT INTO service_requests (client_id, category_id, title, description, budget_min, budget_max, deadline, city, is_remote, is_urgent, required_skills, status)
 SELECT u.id, cat.id, 'Refonte du menu digital pour restaurant', 'Nous voulons refaire le menu digital de notre restaurant avec une page propre, des photos et un bouton WhatsApp pour les reservations.', 900.00, 1800.00, CURRENT_DATE + 12, 'Marrakech', TRUE, TRUE, ARRAY['Design', 'React', 'WhatsApp'], 'OPEN'
@@ -207,6 +232,32 @@ SELECT u.id, cat.id, 'Installation wifi et imprimante pour cabinet', 'Cabinet me
 FROM users u JOIN categories cat ON cat.slug = 'support-informatique'
 WHERE u.email = 'client2@marketplace.com'
   AND NOT EXISTS (SELECT 1 FROM service_requests sr WHERE sr.client_id = u.id AND sr.title = 'Installation wifi et imprimante pour cabinet');
+
+UPDATE service_requests
+SET latitude = CASE lower(city)
+        WHEN 'agadir' THEN 30.4278
+        WHEN 'casablanca' THEN 33.5731
+        WHEN 'marrakech' THEN 31.6295
+        WHEN 'rabat' THEN 34.0209
+        WHEN 'tanger' THEN 35.7595
+        WHEN 'fes' THEN 34.0181
+        ELSE latitude
+    END,
+    longitude = CASE lower(city)
+        WHEN 'agadir' THEN -9.5981
+        WHEN 'casablanca' THEN -7.5898
+        WHEN 'marrakech' THEN -7.9811
+        WHEN 'rabat' THEN -6.8416
+        WHEN 'tanger' THEN -5.834
+        WHEN 'fes' THEN -5.0078
+        ELSE longitude
+    END,
+    request_radius_km = CASE
+        WHEN is_remote = FALSE THEN 10
+        ELSE COALESCE(request_radius_km, 5)
+    END
+WHERE latitude IS NULL
+  AND lower(city) IN ('agadir', 'casablanca', 'marrakech', 'rabat', 'tanger', 'fes');
 
 -- 5) DEMANDES DE COMMANDE (ORDER REQUESTS)
 INSERT INTO order_requests (client_id, service_id, message, proposed_budget, proposed_date, status)

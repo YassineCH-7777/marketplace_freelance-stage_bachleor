@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import useAuth from '@/hooks/useAuth';
 import { getClientProfile, updateClientProfile } from '@/api/userApi';
+import ServiceAreaMap from '@/components/common/ServiceAreaMap';
+import {
+  formatRadiusLabel,
+  getLocationCoordinates,
+  getRadiusOptionIndex,
+  SEARCH_RADIUS_OPTIONS,
+} from '@/utils/localSearch';
 import { BadgeCheck, Loader2, Mail, MapPin, Phone, Save, ShieldCheck, UserRound } from 'lucide-react';
 import '@/styles/dashboard.css';
 
@@ -91,6 +98,33 @@ export default function ClientProfile() {
       ...currentForm,
       [field]: value,
     }));
+  };
+
+  const updateSearchCity = (value) => {
+    setForm((currentForm) => {
+      const coordinates = !currentForm.searchLatitude || !currentForm.searchLongitude
+        ? getLocationCoordinates(value)
+        : null;
+
+      return {
+        ...currentForm,
+        searchCity: value,
+        searchPlaceId: '',
+        ...(coordinates ? { searchLatitude: coordinates.lat, searchLongitude: coordinates.lng } : {}),
+      };
+    });
+  };
+
+  const updateSearchLocation = ({ latitude, longitude }) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      searchLatitude: latitude,
+      searchLongitude: longitude,
+    }));
+  };
+
+  const updateSearchRadius = (event) => {
+    updateField('searchRadiusKm', SEARCH_RADIUS_OPTIONS[Number(event.target.value)]);
   };
 
   const handleSubmit = async (event) => {
@@ -231,6 +265,39 @@ export default function ClientProfile() {
                   onChange={(event) => updateField('city', event.target.value)}
                   placeholder="Ex: Casablanca"
                 />
+              </div>
+
+              <div className="form-group full-width">
+                <label className="form-label">
+                  <MapPin size={14} style={{ display: 'inline' }} /> Zone de mission preferee
+                </label>
+                <input
+                  className="form-input"
+                  value={form.searchCity}
+                  onChange={(event) => updateSearchCity(event.target.value)}
+                  placeholder="Ex: Casablanca, Maarif"
+                />
+                <div className="profile-location-map">
+                  <ServiceAreaMap
+                    city={form.searchCity || form.city}
+                    latitude={form.searchLatitude}
+                    longitude={form.searchLongitude}
+                    radiusKm={form.searchRadiusKm}
+                    onLocationChange={updateSearchLocation}
+                  />
+                  <div className="wizard-radius-control">
+                    <input
+                      type="range"
+                      min="0"
+                      max={SEARCH_RADIUS_OPTIONS.length - 1}
+                      step="1"
+                      value={getRadiusOptionIndex(form.searchRadiusKm)}
+                      onChange={updateSearchRadius}
+                      aria-label="Rayon de recherche prefere"
+                    />
+                    <strong>{formatRadiusLabel(form.searchRadiusKm)}</strong>
+                  </div>
+                </div>
               </div>
 
               <div className="form-group full-width">

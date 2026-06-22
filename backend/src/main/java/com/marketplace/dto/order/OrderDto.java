@@ -26,6 +26,10 @@ public class OrderDto {
     private Long freelancerId;
     private String freelancerEmail;
     private BigDecimal amount;
+    private BigDecimal feePercentage;
+    private BigDecimal feeAmount;
+    private BigDecimal freelancerAmount;
+    private LocalDateTime feeCreatedAt;
     private OrderStatus status;
     private Integer progressPercentage;
     private PaymentStatus paymentStatus;

@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import CustomSelect from '@/components/common/CustomSelect';
+import ServiceAreaMap from '@/components/common/ServiceAreaMap';
 import useAuth from '@/hooks/useAuth';
 import { getActiveServices, getCategories } from '@/api/serviceApi';
 import {
@@ -33,6 +34,7 @@ import {
   getServiceGalleryImageUrls,
   stripServiceMediaSection,
 } from '@/utils/serviceDescription';
+import { getLocationCoordinates } from '@/utils/localSearch';
 import '@/styles/dashboard.css';
 
 const SERVICE_DRAFT_KEY = 'marketplace-service-wizard-draft';
@@ -72,6 +74,9 @@ function buildEmptyForm(defaultCity = '') {
     subCategory: '',
     serviceCity: defaultCity || '',
     executionMode: 'REMOTE',
+    latitude: null,
+    longitude: null,
+    serviceRadiusKm: '10',
     shortDescription: '',
     detailedDescription: '',
     included: '',
@@ -244,6 +249,24 @@ function resolvePayloadCity(form) {
   return form.executionMode === 'REMOTE' ? 'Remote' : form.serviceCity.trim();
 }
 
+function isLocalExecutionMode(executionMode) {
+  return executionMode === 'ON_SITE' || executionMode === 'HYBRID';
+}
+
+function getKnownCityCoordinates(city) {
+  const coordinates = getLocationCoordinates(city);
+  return coordinates ? { latitude: coordinates.lat, longitude: coordinates.lng } : {};
+}
+
+function normalizeServiceRadius(value) {
+  const radius = Number(value);
+  if (!Number.isFinite(radius)) {
+    return 10;
+  }
+
+  return Math.max(1, Math.min(50, Math.round(radius)));
+}
+
 function extractCategories(services) {
   const categoryMap = new Map();
 
@@ -345,7 +368,17 @@ export default function MyServices() {
       return;
     }
 
-    const categoryId = resolveDraftCategoryId(form, categories);
+    const categoryId = resolveDraftCategoryId(
+      {
+        categoryHint: form.categoryHint,
+        categoryName: form.categoryName,
+        detailedDescription: form.detailedDescription,
+        shortDescription: form.shortDescription,
+        subCategory: form.subCategory,
+        title: form.title,
+      },
+      categories,
+    );
 
     if (categoryId) {
       setForm((currentForm) => (currentForm.categoryId ? currentForm : { ...currentForm, categoryId }));
@@ -422,6 +455,9 @@ export default function MyServices() {
       categoryId: String(service.categoryId),
       serviceCity: service.serviceCity && service.serviceCity !== 'Remote' ? service.serviceCity : user?.city || '',
       executionMode: resolveExecutionMode(service),
+      latitude: service.latitude ?? null,
+      longitude: service.longitude ?? null,
+      serviceRadiusKm: String(service.serviceRadiusKm || 10),
       deliveryTimeDays: String(service.deliveryTimeDays ?? 7),
       coverImageUrl: getServiceCoverImageUrl(service) || '',
       galleryUrls: getServiceGalleryImageUrls(service).join('\n'),
@@ -450,9 +486,25 @@ export default function MyServices() {
         return false;
       }
 
-      if (form.executionMode !== 'REMOTE' && !form.serviceCity.trim()) {
+      if (isLocalExecutionMode(form.executionMode) && !form.serviceCity.trim()) {
         setValidationError('Indiquez la ville pour un service sur place ou hybride.');
         return false;
+      }
+
+      if (isLocalExecutionMode(form.executionMode)) {
+        const latitude = Number(form.latitude);
+        const longitude = Number(form.longitude);
+        const radius = normalizeServiceRadius(form.serviceRadiusKm);
+
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          setValidationError("Choisissez le point d'intervention sur la carte.");
+          return false;
+        }
+
+        if (radius < 1 || radius > 50) {
+          setValidationError('Le rayon doit etre compris entre 1 et 50 km.');
+          return false;
+        }
       }
     }
 
@@ -590,6 +642,9 @@ export default function MyServices() {
         deliveryTimeDays: parseInt(form.deliveryTimeDays, 10),
         serviceCity: resolvePayloadCity(form),
         remote: form.executionMode !== 'ON_SITE',
+        latitude: isLocalExecutionMode(form.executionMode) ? Number(form.latitude) : null,
+        longitude: isLocalExecutionMode(form.executionMode) ? Number(form.longitude) : null,
+        serviceRadiusKm: normalizeServiceRadius(form.serviceRadiusKm),
         coverImageUrl: form.coverImageUrl || null,
         galleryImageUrls: normalizeLines(form.galleryUrls),
       };
@@ -622,7 +677,24 @@ export default function MyServices() {
           key={option.value}
           type="button"
           className={value === option.value ? 'active' : ''}
-          onClick={() => updateForm({ [field]: option.value })}
+          onClick={() => {
+            if (field !== 'executionMode') {
+              updateForm({ [field]: option.value });
+              return;
+            }
+
+            if (option.value === 'REMOTE') {
+              updateForm({ executionMode: option.value, latitude: null, longitude: null });
+              return;
+            }
+
+            const serviceCity = form.serviceCity || user?.city || '';
+            updateForm({
+              executionMode: option.value,
+              serviceCity,
+              ...(!form.latitude || !form.longitude ? getKnownCityCoordinates(serviceCity) : {}),
+            });
+          }}
         >
           {option.label}
         </button>
@@ -673,7 +745,13 @@ export default function MyServices() {
               <input
                 className="form-input"
                 value={form.executionMode === 'REMOTE' ? 'Remote' : form.serviceCity}
-                onChange={(event) => updateForm({ serviceCity: event.target.value })}
+                onChange={(event) => {
+                  const serviceCity = event.target.value;
+                  updateForm({
+                    serviceCity,
+                    ...(!form.latitude || !form.longitude ? getKnownCityCoordinates(serviceCity) : {}),
+                  });
+                }}
                 disabled={form.executionMode === 'REMOTE'}
                 required={form.executionMode !== 'REMOTE'}
                 placeholder="Ex: Fes"
@@ -683,6 +761,37 @@ export default function MyServices() {
               <label className="form-label">Mode de service</label>
               {renderSegmentedOptions(MODE_OPTIONS, form.executionMode, 'executionMode')}
             </div>
+            {isLocalExecutionMode(form.executionMode) && (
+              <>
+                <div className="form-group full-width">
+                  <label className="form-label">
+                    <MapPin size={14} style={{ display: 'inline' }} /> Zone d'intervention
+                  </label>
+                  <ServiceAreaMap
+                    city={form.serviceCity || user?.city}
+                    latitude={form.latitude}
+                    longitude={form.longitude}
+                    radiusKm={normalizeServiceRadius(form.serviceRadiusKm)}
+                    onLocationChange={({ latitude, longitude }) => updateForm({ latitude, longitude })}
+                  />
+                </div>
+                <div className="form-group full-width">
+                  <label className="form-label">Rayon d'intervention</label>
+                  <div className="wizard-radius-control">
+                    <input
+                      type="range"
+                      min="1"
+                      max="50"
+                      step="1"
+                      value={normalizeServiceRadius(form.serviceRadiusKm)}
+                      onChange={(event) => updateForm({ serviceRadiusKm: event.target.value })}
+                      aria-label="Rayon d'intervention"
+                    />
+                    <strong>{normalizeServiceRadius(form.serviceRadiusKm)} km</strong>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         );
       case 1:
@@ -995,6 +1104,7 @@ export default function MyServices() {
               <span>
                 <MapPin size={15} /> {form.executionMode === 'REMOTE' ? 'Remote' : form.serviceCity || 'Ville'}
               </span>
+              {isLocalExecutionMode(form.executionMode) && <span>Rayon {normalizeServiceRadius(form.serviceRadiusKm)} km</span>}
               <span>{getPricingLabel(form.pricingType)}</span>
               <span>{form.revisions || 0} revisions</span>
               <span>{form.availability}</span>

@@ -18,6 +18,9 @@ public class RecommendationRequestDto {
     private String categoryName;
     private String city;
     private String mode;
+    private Double latitude;
+    private Double longitude;
+    private Integer radiusKm;
     private BigDecimal maxBudget;
     private Integer maxDeliveryDays;
     private Integer limit;

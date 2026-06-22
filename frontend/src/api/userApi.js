@@ -9,6 +9,7 @@ export const updateFreelancerProfile = (data) => API.put('/freelancer/profile', 
 // Services
 export const createFreelancerService = (data) => API.post('/freelancer/services', data);
 export const updateFreelancerService = (id, data) => API.put(`/freelancer/services/${id}`, data);
+export const updateFreelancerServiceLocation = (id, data) => API.post(`/freelancer/services/${id}/location`, data);
 export const deleteFreelancerService = (id) => API.delete(`/freelancer/services/${id}`);
 export const uploadServiceImage = (file) => {
   const formData = new FormData();

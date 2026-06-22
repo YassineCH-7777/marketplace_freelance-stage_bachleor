@@ -13,11 +13,11 @@ import {
   Star,
   X,
 } from 'lucide-react';
-import { getActiveServices, getRecommendedServices } from '@/api/serviceApi';
+import { getRecommendedServices, searchServices } from '@/api/serviceApi';
 import { addServiceFavorite, removeServiceFavorite } from '@/api/favoriteApi';
 import CustomSelect from '@/components/common/CustomSelect';
 import FavoriteButton from '@/components/common/FavoriteButton';
-import GoogleLocationInput from '@/components/common/GoogleLocationInput';
+import LocationFilterPicker from '@/components/common/LocationFilterPicker';
 import MatchingAssistant from '@/components/services/MatchingAssistant';
 import useAuth from '@/hooks/useAuth';
 import useClientFavorites from '@/hooks/useClientFavorites';
@@ -496,8 +496,16 @@ export default function Services() {
 
   useEffect(() => {
     let isMounted = true;
+    setLoading(true);
 
-    getActiveServices()
+    searchServices({
+      keyword: keyword || undefined,
+      categoryName: resolvedCategoryName || undefined,
+      city: city || undefined,
+      lat: searchLatitude ?? undefined,
+      lng: searchLongitude ?? undefined,
+      radiusKm: searchLatitude !== null && searchLongitude !== null ? radiusKm : undefined,
+    })
       .then((response) => {
         if (isMounted) {
           setServices(response.data);
@@ -517,7 +525,7 @@ export default function Services() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [city, keyword, radiusKm, resolvedCategoryName, searchLatitude, searchLongitude]);
 
   useEffect(() => {
     let isMounted = true;
@@ -527,6 +535,9 @@ export default function Services() {
       keyword,
       categoryName: resolvedCategoryName,
       city: requestedCity,
+      latitude: searchLatitude ?? undefined,
+      longitude: searchLongitude ?? undefined,
+      radiusKm: searchLatitude !== null && searchLongitude !== null ? radiusKm : undefined,
       maxBudget: maxPrice || undefined,
       limit: 50,
     })
@@ -544,7 +555,7 @@ export default function Services() {
     return () => {
       isMounted = false;
     };
-  }, [city, keyword, maxPrice, preferredSearchCity, resolvedCategoryName]);
+  }, [city, keyword, maxPrice, preferredSearchCity, radiusKm, resolvedCategoryName, searchLatitude, searchLongitude]);
 
   const servicesWithRecommendation = useMemo(() => {
     const recommendationByServiceId = new Map(
@@ -602,7 +613,12 @@ export default function Services() {
           matchesLocationWithinRadius(
             searchLocation,
             [
-              { label: service.serviceCity },
+              {
+                label: service.serviceCity,
+                lat: service.latitude,
+                lng: service.longitude,
+                serviceRadiusKm: service.serviceRadiusKm,
+              },
               { label: service.freelancerCity },
               { label: location },
             ],
@@ -960,15 +976,31 @@ export default function Services() {
               </div>
             )}
 
-            <label className="services-filter-field">
+            <div className="services-filter-field">
               <span>Adresse ou quartier</span>
-              <GoogleLocationInput
+              <LocationFilterPicker
                 value={city}
+                latitude={searchLatitude}
+                longitude={searchLongitude}
+                radiusKm={radiusKm}
                 onTextChange={handleSearchLocationTextChange}
                 onPlaceSelect={handleSearchLocationSelect}
+                onLocationChange={({ latitude, longitude, label }) => {
+                  const nextCity = label || '';
+                  setCity(nextCity);
+                  setSearchPlaceId('');
+                  setSearchLatitude(latitude);
+                  setSearchLongitude(longitude);
+                  updateSearchParams({
+                    city: nextCity,
+                    placeId: '',
+                    lat: latitude,
+                    lng: longitude,
+                  });
+                }}
                 placeholder="Casablanca, Maarif..."
               />
-            </label>
+            </div>
 
             <div className="services-filter-field">
               <span>Rayon</span>

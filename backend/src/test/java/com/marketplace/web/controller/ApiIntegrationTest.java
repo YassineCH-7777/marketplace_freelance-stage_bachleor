@@ -16,6 +16,7 @@ import com.marketplace.persistence.CategoryRepository;
 import com.marketplace.persistence.ClientFavoriteRepository;
 import com.marketplace.persistence.ConversationRepository;
 import com.marketplace.persistence.FreelancerProfileRepository;
+import com.marketplace.persistence.FeeRepository;
 import com.marketplace.persistence.MissionActivityRepository;
 import com.marketplace.persistence.MissionMilestoneRepository;
 import com.marketplace.persistence.MessageRepository;
@@ -94,6 +95,9 @@ class ApiIntegrationTest {
 
     @MockBean
     private FreelancerProfileRepository freelancerProfileRepository;
+
+    @MockBean
+    private FeeRepository feeRepository;
 
     @MockBean
     private OrderRepository orderRepository;

@@ -32,6 +32,10 @@ public class ServiceRequestDto {
     private LocalDate deadline;
     private String city;
     private boolean remote;
+    private String executionMode;
+    private Double latitude;
+    private Double longitude;
+    private Integer requestRadiusKm;
     private boolean urgent;
     private List<String> requiredSkills;
     private ServiceRequestStatus status;

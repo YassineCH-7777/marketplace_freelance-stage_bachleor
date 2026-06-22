@@ -7,6 +7,7 @@ import com.marketplace.dto.service.CategoryDto;
 import com.marketplace.dto.service.ServiceDto;
 import com.marketplace.dto.user.UserDto;
 import com.marketplace.model.Category;
+import com.marketplace.model.Fee;
 import com.marketplace.model.Order;
 import com.marketplace.model.Report;
 import com.marketplace.model.ServiceEntity;
@@ -18,6 +19,7 @@ import com.marketplace.enums.ServiceStatus;
 import com.marketplace.enums.UserRole;
 import com.marketplace.enums.UserStatus;
 import com.marketplace.persistence.CategoryRepository;
+import com.marketplace.persistence.FeeRepository;
 import com.marketplace.persistence.OrderRepository;
 import com.marketplace.persistence.ReportRepository;
 import com.marketplace.persistence.ServiceRepository;
@@ -26,7 +28,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.YearMonth;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,12 +46,15 @@ public class AdminService {
     private final ReportRepository reportRepository;
     private final CategoryRepository categoryRepository;
     private final NotificationService notificationService;
+    private final FeeRepository feeRepository;
 
     /**
      * Calcule les statistiques globales affichees dans le tableau de bord admin.
      */
     @Transactional(readOnly = true)
     public AdminStatsDto getPlatformStatistics() {
+        List<Fee> fees = feeRepository.findAllByOrderByCreatedAtDesc();
+        YearMonth currentMonth = YearMonth.now();
         return AdminStatsDto.builder()
                 .totalUsers(userRepository.count())
                 .totalClients(userRepository.countByRole(UserRole.CLIENT))
@@ -59,6 +69,20 @@ public class AdminService {
                 .totalReports(reportRepository.count())
                 .openReports(reportRepository.countByStatus(ReportStatus.OPEN)
                         + reportRepository.countByStatus(ReportStatus.IN_REVIEW))
+                .feeTransactions(fees.size())
+                .totalFees(sumFeeValues(fees, Fee::getFeeAmount))
+                .currentMonthFees(sumFeeValues(
+                        fees.stream()
+                                .filter(fee -> fee.getCreatedAt() != null
+                                        && YearMonth.from(fee.getCreatedAt()).equals(currentMonth))
+                                .toList(),
+                        Fee::getFeeAmount))
+                .freelancerPayouts(sumFeeValues(fees, Fee::getFreelancerAmount))
+                .feesByCategory(groupFeeAmounts(fees, this::resolveFeeCategory))
+                .feesByCity(groupFeeAmounts(fees, this::resolveFeeCity))
+                .feesByMonth(groupFeeAmounts(fees, fee -> fee.getCreatedAt() != null
+                        ? YearMonth.from(fee.getCreatedAt()).toString()
+                        : "Date inconnue"))
                 .build();
     }
 
@@ -261,6 +285,10 @@ public class AdminService {
                 .freelancerId(order.getFreelancer().getUser().getId())
                 .freelancerEmail(order.getFreelancer().getUser().getEmail())
                 .amount(order.getAgreedPrice())
+                .feePercentage(order.getFee() != null ? order.getFee().getFeePercentage() : null)
+                .feeAmount(order.getFee() != null ? order.getFee().getFeeAmount() : null)
+                .freelancerAmount(order.getFee() != null ? order.getFee().getFreelancerAmount() : null)
+                .feeCreatedAt(order.getFee() != null ? order.getFee().getCreatedAt() : null)
                 .status(order.getStatus())
                 .progressPercentage(order.getProgressPercentage())
                 .paymentStatus(order.getPaymentStatus())
@@ -334,5 +362,49 @@ public class AdminService {
         }
 
         return "REMOTE";
+    }
+
+    private BigDecimal sumFeeValues(List<Fee> fees, Function<Fee, BigDecimal> valueExtractor) {
+        return fees.stream()
+                .map(valueExtractor)
+                .filter(value -> value != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private Map<String, BigDecimal> groupFeeAmounts(List<Fee> fees, Function<Fee, String> keyExtractor) {
+        Map<String, BigDecimal> result = new LinkedHashMap<>();
+        fees.forEach(fee -> result.merge(
+                normalizeFinancialLabel(keyExtractor.apply(fee)),
+                fee.getFeeAmount(),
+                BigDecimal::add));
+        return result;
+    }
+
+    private String resolveFeeCategory(Fee fee) {
+        Order order = fee.getOrder();
+        if (order.getService() != null && order.getService().getCategory() != null) {
+            return order.getService().getCategory().getName();
+        }
+        if (order.getProposal() != null
+                && order.getProposal().getServiceRequest() != null
+                && order.getProposal().getServiceRequest().getCategory() != null) {
+            return order.getProposal().getServiceRequest().getCategory().getName();
+        }
+        return null;
+    }
+
+    private String resolveFeeCity(Fee fee) {
+        Order order = fee.getOrder();
+        if (order.getService() != null) {
+            return order.getService().getCity();
+        }
+        if (order.getProposal() != null && order.getProposal().getServiceRequest() != null) {
+            return order.getProposal().getServiceRequest().getCity();
+        }
+        return null;
+    }
+
+    private String normalizeFinancialLabel(String label) {
+        return label == null || label.isBlank() ? "Non renseigne" : label.trim();
     }
 }

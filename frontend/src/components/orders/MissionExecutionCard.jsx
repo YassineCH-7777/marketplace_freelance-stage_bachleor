@@ -110,6 +110,7 @@ export default function MissionExecutionCard({
     role === 'freelancer' && activeMissionStatuses.includes(order.status) && escrowNeedsFunding;
   const canOpenDispute =
     Boolean(onOpenDispute) && ['ACCEPTED', 'IN_PROGRESS', 'WAITING_CLIENT', 'DELIVERED', 'REVISION'].includes(order.status);
+  const hasFee = order.feeAmount !== null && order.feeAmount !== undefined;
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setTimerTick((tick) => tick + 1), 60000);
@@ -144,6 +145,23 @@ export default function MissionExecutionCard({
         </div>
         <div className="mission-card-price">{order.amount} MAD</div>
       </div>
+
+      {role === 'freelancer' && hasFee && (
+        <div className="mission-financial-summary">
+          <div>
+            <span>Prix de la mission</span>
+            <strong>{order.amount} MAD</strong>
+          </div>
+          <div>
+            <span>Commission ProxiSkills ({order.feePercentage} %)</span>
+            <strong>- {order.feeAmount} MAD</strong>
+          </div>
+          <div className="is-net">
+            <span>Montant recu</span>
+            <strong>{order.freelancerAmount} MAD</strong>
+          </div>
+        </div>
+      )}
 
       <div className="mission-progress-block">
         <div className="mission-progress-copy">

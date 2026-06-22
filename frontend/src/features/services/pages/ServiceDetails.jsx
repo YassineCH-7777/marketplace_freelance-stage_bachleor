@@ -27,6 +27,7 @@ import {
 import { createConversation } from '@/api/messageApi';
 import { getActiveServices } from '@/api/serviceApi';
 import FavoriteButton from '@/components/common/FavoriteButton';
+import ServiceAreaMap from '@/components/common/ServiceAreaMap';
 import {
   getDeliveryTimeLabel,
   getExecutionModeLabel,
@@ -437,6 +438,11 @@ export default function ServiceDetails() {
   const deliveryLabel = getDeliveryTimeLabel(service.deliveryTimeDays);
   const executionModeLabel = getExecutionModeLabel(service.executionMode);
   const formattedPrice = formatPrice(service.price);
+  const isRemoteOnly = service.executionMode === 'REMOTE'
+    || service.serviceCity?.trim().toLowerCase() === 'remote';
+  const hasMappedLocation = !isRemoteOnly
+    && Number.isFinite(Number(service.latitude))
+    && Number.isFinite(Number(service.longitude));
   const trustItems = [
     'Brief clair avant demarrage',
     'Budget visible avant contact',
@@ -523,6 +529,25 @@ export default function ServiceDetails() {
                 <strong>{executionModeLabel}</strong>
               </div>
             </div>
+
+            {hasMappedLocation && (
+              <section className="service-detail-section service-detail-location-section">
+                <div className="service-detail-section-head">
+                  <MapPin size={18} />
+                  <div>
+                    <h2>Zone d'intervention</h2>
+                    <p>{locationLabel} - Rayon de {service.serviceRadiusKm || 10} km</p>
+                  </div>
+                </div>
+                <ServiceAreaMap
+                  city={service.serviceCity}
+                  latitude={service.latitude}
+                  longitude={service.longitude}
+                  radiusKm={service.serviceRadiusKm || 10}
+                  disabled
+                />
+              </section>
+            )}
 
             <section className="service-detail-section">
               <div className="service-detail-section-head">

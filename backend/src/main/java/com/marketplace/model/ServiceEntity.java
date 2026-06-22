@@ -56,6 +56,16 @@ public class ServiceEntity {
     @Column(name = "is_remote", nullable = false)
     private boolean remote;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    @Builder.Default
+    @Column(name = "service_radius_km", nullable = false)
+    private Integer serviceRadiusKm = 10;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;

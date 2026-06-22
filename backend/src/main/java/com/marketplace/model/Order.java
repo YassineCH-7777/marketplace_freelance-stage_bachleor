@@ -50,6 +50,9 @@ public class Order {
     @Column(name = "agreed_price", nullable = false)
     private BigDecimal agreedPrice;
 
+    @OneToOne(mappedBy = "order", fetch = FetchType.LAZY)
+    private Fee fee;
+
     @Column(name = "start_date")
     private LocalDate startDate;
 

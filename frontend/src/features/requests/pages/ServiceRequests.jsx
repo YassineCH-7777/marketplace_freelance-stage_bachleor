@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getOpenRequests } from '@/api/requestApi';
-import CustomSelect from '@/components/common/CustomSelect';
+import { searchRequests } from '@/api/requestApi';
+import LocationFilterPicker from '@/components/common/LocationFilterPicker';
 import useAuth from '@/hooks/useAuth';
 import {
   DEFAULT_SEARCH_RADIUS_KM,
@@ -85,7 +85,16 @@ export default function ServiceRequests() {
   const load = async () => {
     setLoading(true);
     try {
-      const response = await getOpenRequests();
+      const hasCoordinates = searchLatitude !== null && searchLongitude !== null;
+      const response = await searchRequests({
+        keyword: keyword || undefined,
+        city: city || undefined,
+        urgent: urgentOnly || undefined,
+        isUrgent: urgentOnly || undefined,
+        lat: hasCoordinates ? searchLatitude : undefined,
+        lng: hasCoordinates ? searchLongitude : undefined,
+        radiusKm: hasCoordinates ? radiusKm : undefined,
+      });
       setRequests(response.data);
     } catch {
       setRequests([]);
@@ -94,28 +103,13 @@ export default function ServiceRequests() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const [initialLoad] = useState(() => load);
+  useEffect(() => { initialLoad(); }, [initialLoad]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     load();
   };
-
-  const cityOptions = useMemo(() => {
-    const values = requests.map((request) => request.city).filter(Boolean);
-    if (preferredSearchCity) {
-      values.push(preferredSearchCity);
-    }
-    return [...new Set(values)].sort((a, b) => a.localeCompare(b));
-  }, [preferredSearchCity, requests]);
-
-  const citySelectOptions = useMemo(
-    () => [
-      { value: '', label: 'Toutes les villes' },
-      ...cityOptions.map((option) => ({ value: option, label: option })),
-    ],
-    [cityOptions],
-  );
 
   const filteredRequests = useMemo(() => {
     const normalizedKeyword = normalizeLocationKey(keyword);
@@ -134,7 +128,7 @@ export default function ServiceRequests() {
         matchesLocationWithinRadius(
           searchLocation,
           [
-            { label: req.city },
+            { label: req.city, lat: req.latitude, lng: req.longitude, radiusKm: req.requestRadiusKm },
             { label: req.clientCity },
           ],
           radius,
@@ -190,16 +184,26 @@ export default function ServiceRequests() {
               className="form-input"
             />
           </div>
-          <div className="requests-search-bar requests-city-field">
-            <CustomSelect
-              id="request-city-filter"
-              label="Filtrer par ville"
-              className="requests-city-select"
-              options={citySelectOptions}
-              value={city}
-              onChange={handleCityChange}
-            />
-          </div>
+          <LocationFilterPicker
+            className="requests-city-field"
+            value={city}
+            latitude={searchLatitude}
+            longitude={searchLongitude}
+            radiusKm={radiusKm}
+            onTextChange={handleCityChange}
+            onPlaceSelect={(place) => {
+              setCity(place.label || '');
+              setSearchPlaceId(place.placeId || '');
+              setSearchLatitude(place.lat);
+              setSearchLongitude(place.lng);
+            }}
+            onLocationChange={({ latitude, longitude, label }) => {
+              setCity(label || '');
+              setSearchPlaceId('');
+              setSearchLatitude(latitude);
+              setSearchLongitude(longitude);
+            }}
+          />
           <div className="requests-radius-filter">
             <span>{formatRadiusLabel(radiusKm)}</span>
             <input
@@ -246,7 +250,7 @@ export default function ServiceRequests() {
                 </div>
                 <p className="request-card-desc">{req.description.length > 120 ? req.description.slice(0, 120) + '...' : req.description}</p>
                 <div className="request-card-meta">
-                  {req.city && <span className="request-meta-item"><MapPin size={13} /> {req.city}</span>}
+                  {req.city && <span className="request-meta-item"><MapPin size={13} /> {req.city}{req.requestRadiusKm ? ` - ${req.requestRadiusKm} km` : ''}</span>}
                   <span className="request-meta-item"><Coins size={13} /> {formatBudget(req.budgetMin, req.budgetMax)}</span>
                   {req.deadline && <span className="request-meta-item"><Calendar size={13} /> {formatDate(req.deadline)}</span>}
                 </div>

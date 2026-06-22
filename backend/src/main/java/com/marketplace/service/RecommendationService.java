@@ -39,6 +39,8 @@ public class RecommendationService {
 
     private static final int DEFAULT_LIMIT = 8;
     private static final int MAX_LIMIT = 30;
+    private static final int DEFAULT_RADIUS_KM = 10;
+    private static final int MAX_RADIUS_KM = 50;
     private static final Pattern DIACRITICS = Pattern.compile("\\p{M}+");
     private static final Pattern MONEY_PATTERN = Pattern.compile(
             "(?:(?:budget|max|maximum|prix|tarif)\\s*(?:de|:|a)?\\s*(\\d{2,7})|\\b(\\d{2,7})\\s*(?:mad|dh|dhs|dirhams?))"
@@ -194,6 +196,22 @@ public class RecommendationService {
         }
 
         String requestedCity = normalize(request.getCity());
+        if (hasCoordinates(request.getLatitude(), request.getLongitude())
+                && hasCoordinates(service.getLatitude(), service.getLongitude())) {
+            double distanceKm = calculateDistanceKm(
+                    request.getLatitude(),
+                    request.getLongitude(),
+                    service.getLatitude(),
+                    service.getLongitude()
+            );
+            int requestedRadius = resolveRadiusKm(request.getRadiusKm(), DEFAULT_RADIUS_KM);
+            int serviceRadius = resolveRadiusKm(service.getServiceRadiusKm(), requestedRadius);
+
+            if (distanceKm <= Math.min(requestedRadius, serviceRadius) || service.isRemote()) {
+                return true;
+            }
+        }
+
         if (requestedCity == null) {
             return true;
         }
@@ -258,6 +276,29 @@ public class RecommendationService {
     }
 
     private double calculateProximityScore(ServiceEntity service, RecommendationRequestDto request) {
+        if (hasCoordinates(request.getLatitude(), request.getLongitude())
+                && hasCoordinates(service.getLatitude(), service.getLongitude())) {
+            double distanceKm = calculateDistanceKm(
+                    request.getLatitude(),
+                    request.getLongitude(),
+                    service.getLatitude(),
+                    service.getLongitude()
+            );
+            int requestedRadius = resolveRadiusKm(request.getRadiusKm(), DEFAULT_RADIUS_KM);
+            int serviceRadius = resolveRadiusKm(service.getServiceRadiusKm(), requestedRadius);
+            int effectiveRadius = Math.min(requestedRadius, serviceRadius);
+
+            if (distanceKm <= Math.max(1, effectiveRadius * 0.25)) {
+                return 1.0;
+            }
+
+            if (distanceKm <= effectiveRadius) {
+                return clamp(1.0 - ((distanceKm / effectiveRadius) * 0.45));
+            }
+
+            return service.isRemote() ? 0.58 : 0.12;
+        }
+
         String requestedCity = normalize(request.getCity());
         if (requestedCity == null) {
             return service.isRemote() ? 0.70 : 0.55;
@@ -275,6 +316,36 @@ public class RecommendationService {
         }
 
         return service.isRemote() ? 0.6 : 0.15;
+    }
+
+    private boolean hasCoordinates(Double latitude, Double longitude) {
+        return latitude != null
+                && longitude != null
+                && latitude >= -90
+                && latitude <= 90
+                && longitude >= -180
+                && longitude <= 180;
+    }
+
+    private int resolveRadiusKm(Integer radiusKm, int fallbackRadiusKm) {
+        if (radiusKm == null || radiusKm < 1 || radiusKm > MAX_RADIUS_KM) {
+            return fallbackRadiusKm;
+        }
+
+        return radiusKm;
+    }
+
+    private double calculateDistanceKm(Double fromLatitude, Double fromLongitude, Double toLatitude, Double toLongitude) {
+        double earthRadiusKm = 6371.0;
+        double deltaLat = Math.toRadians(toLatitude - fromLatitude);
+        double deltaLng = Math.toRadians(toLongitude - fromLongitude);
+        double fromLat = Math.toRadians(fromLatitude);
+        double toLat = Math.toRadians(toLatitude);
+
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+                + Math.cos(fromLat) * Math.cos(toLat) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+
+        return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private double calculateBudgetScore(ServiceEntity service, RecommendationRequestDto request) {
@@ -450,6 +521,9 @@ public class RecommendationService {
                 .freelancerCity(service.getFreelancer().getUser().getCity())
                 .serviceCity(service.getCity())
                 .remote(service.isRemote())
+                .latitude(service.getLatitude())
+                .longitude(service.getLongitude())
+                .serviceRadiusKm(service.getServiceRadiusKm())
                 .deliveryTimeDays(service.getDeliveryTimeDays())
                 .coverImageUrl(service.getCoverImageUrl())
                 .galleryImageUrls(getGalleryImageUrls(service.getId()))

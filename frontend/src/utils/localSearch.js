@@ -77,8 +77,10 @@ export function getLocationCoordinates(location) {
   }
 
   if (typeof location === 'object') {
-    const lat = Number(location.lat ?? location.latitude);
-    const lng = Number(location.lng ?? location.longitude);
+    const rawLat = location.lat ?? location.latitude;
+    const rawLng = location.lng ?? location.longitude;
+    const lat = rawLat === null || rawLat === undefined || rawLat === '' ? Number.NaN : Number(rawLat);
+    const lng = rawLng === null || rawLng === undefined || rawLng === '' ? Number.NaN : Number(rawLng);
 
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
       return { lat, lng };
@@ -88,6 +90,33 @@ export function getLocationCoordinates(location) {
   }
 
   return CITY_COORDINATES[normalizeLocationKey(location)] || null;
+}
+
+export function getNearestCity(latitude, longitude) {
+  const point = getLocationCoordinates({ lat: latitude, lng: longitude });
+  if (!point) {
+    return null;
+  }
+
+  let nearest = null;
+  Object.entries(CITY_COORDINATES).forEach(([key, coordinates]) => {
+    if (key === 'tangier') {
+      return;
+    }
+
+    const distanceKm = getCoordinateDistanceKm(point, coordinates);
+    if (!nearest || distanceKm < nearest.distanceKm) {
+      nearest = {
+        city: key
+          .split(' ')
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(' '),
+        distanceKm,
+      };
+    }
+  });
+
+  return nearest;
 }
 
 export function getLocationLabel(location) {
@@ -122,21 +151,29 @@ export function getLocationDistanceKm(fromLocation, toLocation) {
 
 export function matchesLocationWithinRadius(targetLocation, candidateLocations, radiusKm) {
   const targetLabel = normalizeLocationKey(getLocationLabel(targetLocation));
+  const targetCoordinates = getLocationCoordinates(targetLocation);
 
-  if (!targetLabel && !getLocationCoordinates(targetLocation)) {
+  if (!targetLabel && !targetCoordinates) {
     return true;
   }
 
   const candidates = Array.isArray(candidateLocations) ? candidateLocations : [candidateLocations];
   return candidates.some((candidateLocation) => {
     const candidateLabel = normalizeLocationKey(getLocationLabel(candidateLocation));
+    const candidateCoordinates = getLocationCoordinates(candidateLocation);
 
-    if (!candidateLabel || candidateLabel === 'remote' || candidateLabel === 'a distance') {
+    if (candidateLabel === 'remote' || candidateLabel === 'a distance') {
+      return false;
+    }
+
+    if (!candidateLabel && !candidateCoordinates) {
       return false;
     }
 
     if (
+      (!targetCoordinates || !candidateCoordinates) &&
       targetLabel &&
+      candidateLabel &&
       (candidateLabel === targetLabel ||
         candidateLabel.includes(targetLabel) ||
         targetLabel.includes(candidateLabel))
@@ -145,7 +182,13 @@ export function matchesLocationWithinRadius(targetLocation, candidateLocations, 
     }
 
     const distanceKm = getLocationDistanceKm(targetLocation, candidateLocation);
-    return distanceKm !== null && distanceKm <= resolveSearchRadius(radiusKm);
+    const candidateRadius = Number(candidateLocation?.serviceRadiusKm ?? candidateLocation?.radiusKm);
+    const effectiveRadius =
+      Number.isFinite(candidateRadius) && candidateRadius > 0
+        ? Math.min(resolveSearchRadius(radiusKm), candidateRadius)
+        : resolveSearchRadius(radiusKm);
+
+    return distanceKm !== null && distanceKm <= effectiveRadius;
   });
 }
 

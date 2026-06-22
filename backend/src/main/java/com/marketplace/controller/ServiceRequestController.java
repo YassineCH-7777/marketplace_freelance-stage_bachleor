@@ -31,8 +31,21 @@ public class ServiceRequestController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String city,
-            @RequestParam(required = false) Boolean urgent) {
-        return ResponseEntity.ok(serviceRequestService.searchServiceRequests(keyword, categoryId, city, urgent));
+            @RequestParam(required = false) Boolean urgent,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng,
+            @RequestParam(required = false) Double latitude,
+            @RequestParam(required = false) Double longitude,
+            @RequestParam(required = false) Integer radiusKm) {
+        return ResponseEntity.ok(serviceRequestService.searchServiceRequests(
+                keyword,
+                categoryId,
+                city,
+                urgent,
+                lat != null ? lat : latitude,
+                lng != null ? lng : longitude,
+                radiusKm
+        ));
     }
 
     /**

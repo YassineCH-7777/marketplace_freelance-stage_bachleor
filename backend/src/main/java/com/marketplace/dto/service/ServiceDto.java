@@ -26,6 +26,9 @@ public class ServiceDto {
     private String freelancerCity;
     private String serviceCity;
     private Boolean remote;
+    private Double latitude;
+    private Double longitude;
+    private Integer serviceRadiusKm;
     private String executionMode;
     private String status;
 }

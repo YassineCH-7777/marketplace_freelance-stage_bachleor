@@ -1,21 +1,53 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getIncomingRequests } from '@/api/userApi';
-import { ArrowRight, Briefcase, ClipboardList } from 'lucide-react';
+import { getFreelancerOrders, getIncomingRequests } from '@/api/userApi';
+import { ArrowRight, Briefcase, ClipboardList, CreditCard, Receipt, Wallet } from 'lucide-react';
 import '@/styles/dashboard.css';
+
+const formatMoney = (value) => new Intl.NumberFormat('fr-FR', {
+  currency: 'MAD',
+  style: 'currency',
+}).format(Number(value) || 0);
 
 export default function FreelancerDashboard() {
   const [requests, setRequests] = useState([]);
+  const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    getIncomingRequests().then(r => setRequests(r.data)).catch(() => {});
+    let isMounted = true;
+    Promise.allSettled([getIncomingRequests(), getFreelancerOrders()])
+      .then(([requestsResult, ordersResult]) => {
+        if (!isMounted) return;
+        setRequests(requestsResult.status === 'fulfilled' ? requestsResult.value.data : []);
+        setOrders(ordersResult.status === 'fulfilled' ? ordersResult.value.data : []);
+      });
+    return () => { isMounted = false; };
   }, []);
 
   const pendingRequests = requests.filter(r => r.status === 'PENDING');
+  const paidMissions = orders.filter((order) => order.feeAmount !== null && order.feeAmount !== undefined);
+  const grossRevenue = paidMissions.reduce((total, order) => total + Number(order.amount || 0), 0);
+  const totalFees = paidMissions.reduce((total, order) => total + Number(order.feeAmount || 0), 0);
+  const netRevenue = paidMissions.reduce((total, order) => total + Number(order.freelancerAmount || 0), 0);
 
   return (
     <div className="dashboard-page">
       <div className="container">
+        <div className="dashboard-stats freelancer-finance-stats animate-fade-in-up">
+          <div className="dash-stat-card">
+            <div className="dash-stat-icon blue"><CreditCard size={22} /></div>
+            <div className="dash-stat-info"><span className="dash-stat-value">{formatMoney(grossRevenue)}</span><span className="dash-stat-label">Missions validees</span></div>
+          </div>
+          <div className="dash-stat-card">
+            <div className="dash-stat-icon yellow"><Receipt size={22} /></div>
+            <div className="dash-stat-info"><span className="dash-stat-value">{formatMoney(totalFees)}</span><span className="dash-stat-label">Commissions ProxiSkills</span></div>
+          </div>
+          <div className="dash-stat-card">
+            <div className="dash-stat-icon green"><Wallet size={22} /></div>
+            <div className="dash-stat-info"><span className="dash-stat-value">{formatMoney(netRevenue)}</span><span className="dash-stat-label">Montant net recu</span></div>
+          </div>
+        </div>
+
         <div className="freelancer-dashboard-shortcuts animate-fade-in-up">
           <Link to="/freelancer/services" className="freelancer-dashboard-shortcut">
             <span>

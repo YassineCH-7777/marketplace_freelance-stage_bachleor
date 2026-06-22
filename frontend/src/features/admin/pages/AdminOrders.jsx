@@ -134,6 +134,8 @@ export default function AdminOrders() {
                     <th>Client</th>
                     <th>Freelance</th>
                     <th>Montant</th>
+                    <th>Commission</th>
+                    <th>Net freelance</th>
                     <th>Statut</th>
                     <th>Progression</th>
                     <th>Paiement</th>
@@ -152,6 +154,8 @@ export default function AdminOrders() {
                         <td>{order.clientEmail}</td>
                         <td>{order.freelancerEmail}</td>
                         <td>{formatAdminMoney(order.amount)}</td>
+                        <td>{formatAdminMoney(order.feeAmount)}</td>
+                        <td>{formatAdminMoney(order.freelancerAmount)}</td>
                         <td>
                           <span className={`badge ${getAdminBadgeClass(order.status)}`}>
                             {getOrderStatusMeta(order.status).label}
@@ -212,7 +216,7 @@ export default function AdminOrders() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="10" style={{ color: 'var(--text-muted)' }}>
+                      <td colSpan="12" style={{ color: 'var(--text-muted)' }}>
                         Aucune commande trouvee.
                       </td>
                     </tr>

@@ -27,6 +27,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ServiceRequestService {
 
+    private static final int DEFAULT_REQUEST_RADIUS_KM = 5;
+    private static final int DEFAULT_SEARCH_RADIUS_KM = 10;
+    private static final int MAX_RADIUS_KM = 50;
+
     private final ServiceRequestRepository serviceRequestRepository;
     private final ProposalRepository proposalRepository;
     private final UserRepository userRepository;
@@ -55,6 +59,10 @@ public class ServiceRequestService {
         }
 
         validateBudgetRange(dto);
+        String executionMode = resolveExecutionMode(dto);
+        boolean remote = !"ON_SITE".equals(executionMode);
+        String city = resolveRequestCity(dto.getCity(), client.getCity(), executionMode);
+        boolean localCoverage = !"REMOTE".equals(executionMode);
 
         ServiceRequest request = ServiceRequest.builder()
                 .client(client)
@@ -64,8 +72,11 @@ public class ServiceRequestService {
                 .budgetMin(dto.getBudgetMin())
                 .budgetMax(dto.getBudgetMax())
                 .deadline(dto.getDeadline())
-                .city(normalizeOptionalText(dto.getCity()))
-                .remote(dto.isRemote())
+                .city(city)
+                .remote(remote)
+                .latitude(resolveLatitude(dto.getLatitude(), null, localCoverage))
+                .longitude(resolveLongitude(dto.getLongitude(), null, localCoverage))
+                .requestRadiusKm(normalizeRadiusKm(dto.getRequestRadiusKm(), DEFAULT_REQUEST_RADIUS_KM))
                 .urgent(dto.isUrgent())
                 .requiredSkills(dto.getRequiredSkills() != null ? dto.getRequiredSkills() : List.of())
                 .status(ServiceRequestStatus.OPEN)
@@ -111,11 +122,16 @@ public class ServiceRequestService {
      */
     @Transactional(readOnly = true)
     public List<ServiceRequestDto> searchServiceRequests(
-            String keyword, Long categoryId, String city, Boolean isUrgent) {
+            String keyword, Long categoryId, String city, Boolean isUrgent,
+            Double latitude, Double longitude, Integer radiusKm) {
         String normalizedKeyword = normalize(keyword);
         String normalizedCity = normalize(city);
+        boolean hasGeoSearch = latitude != null || longitude != null;
+        List<ServiceRequest> sourceRequests = hasGeoSearch
+                ? findRequestsNearPoint(latitude, longitude, radiusKm)
+                : serviceRequestRepository.findByStatusOrderByCreatedAtDesc(ServiceRequestStatus.OPEN);
 
-        return serviceRequestRepository.findByStatusOrderByCreatedAtDesc(ServiceRequestStatus.OPEN)
+        return sourceRequests
                 .stream()
                 .filter(sr -> normalizedKeyword == null
                         || containsIgnoreCase(sr.getTitle(), normalizedKeyword)
@@ -123,6 +139,8 @@ public class ServiceRequestService {
                 .filter(sr -> categoryId == null
                         || sr.getCategory().getId().equals(categoryId))
                 .filter(sr -> normalizedCity == null
+                        || hasGeoSearch
+                        || sr.isRemote()
                         || containsIgnoreCase(sr.getCity(), normalizedCity))
                 .filter(sr -> isUrgent == null || sr.isUrgent() == isUrgent)
                 .map(sr -> mapToDto(sr, false))
@@ -169,10 +187,18 @@ public class ServiceRequestService {
         if (dto.getDeadline() != null) {
             request.setDeadline(dto.getDeadline());
         }
-        if (dto.getCity() != null) {
-            request.setCity(normalizeOptionalText(dto.getCity()));
-        }
-        request.setRemote(dto.isRemote());
+        String executionMode = dto.getExecutionMode() != null ? resolveExecutionMode(dto) : resolveExecutionMode(request);
+        boolean remote = !"ON_SITE".equals(executionMode);
+        String city = dto.getCity() != null
+                ? resolveRequestCity(dto.getCity(), request.getClient().getCity(), executionMode)
+                : resolveRequestCity(request.getCity(), request.getClient().getCity(), executionMode);
+        boolean localCoverage = !"REMOTE".equals(executionMode);
+
+        request.setCity(city);
+        request.setRemote(remote);
+        request.setLatitude(resolveLatitude(dto.getLatitude(), request.getLatitude(), localCoverage));
+        request.setLongitude(resolveLongitude(dto.getLongitude(), request.getLongitude(), localCoverage));
+        request.setRequestRadiusKm(normalizeRadiusKm(dto.getRequestRadiusKm(), request.getRequestRadiusKm()));
         request.setUrgent(dto.isUrgent());
         if (dto.getRequiredSkills() != null) {
             request.setRequiredSkills(dto.getRequiredSkills());
@@ -236,6 +262,10 @@ public class ServiceRequestService {
                 .deadline(sr.getDeadline())
                 .city(sr.getCity())
                 .remote(sr.isRemote())
+                .executionMode(resolveExecutionMode(sr))
+                .latitude(sr.getLatitude())
+                .longitude(sr.getLongitude())
+                .requestRadiusKm(resolveRadiusKm(sr.getRequestRadiusKm(), DEFAULT_REQUEST_RADIUS_KM))
                 .urgent(sr.isUrgent())
                 .requiredSkills(sr.getRequiredSkills())
                 .status(sr.getStatus())
@@ -260,6 +290,102 @@ public class ServiceRequestService {
     }
 
     // --- Utilities ---
+
+    private List<ServiceRequest> findRequestsNearPoint(Double latitude, Double longitude, Integer radiusKm) {
+        validateCoordinate(latitude, -90, 90, "La latitude de recherche est invalide.");
+        validateCoordinate(longitude, -180, 180, "La longitude de recherche est invalide.");
+
+        return serviceRequestRepository.findOpenRequestsNearPoint(
+                ServiceRequestStatus.OPEN.name(),
+                latitude,
+                longitude,
+                normalizeRadiusKm(radiusKm, DEFAULT_SEARCH_RADIUS_KM)
+        );
+    }
+
+    private String resolveExecutionMode(ServiceRequestDto dto) {
+        String mode = normalize(dto.getExecutionMode());
+        if (mode != null) {
+            return switch (mode) {
+                case "on_site", "onsite", "sur place", "local" -> "ON_SITE";
+                case "hybrid", "hybride" -> "HYBRID";
+                case "remote", "a distance", "distance" -> "REMOTE";
+                default -> throw new BusinessException("Mode de mission invalide.", HttpStatus.BAD_REQUEST);
+            };
+        }
+
+        return dto.isRemote() ? "REMOTE" : "ON_SITE";
+    }
+
+    private String resolveExecutionMode(ServiceRequest request) {
+        if (!request.isRemote()) {
+            return "ON_SITE";
+        }
+
+        String city = normalize(request.getCity());
+        return city == null || "remote".equals(city) ? "REMOTE" : "HYBRID";
+    }
+
+    private String resolveRequestCity(String requestedCity, String fallbackCity, String executionMode) {
+        if ("REMOTE".equals(executionMode)) {
+            return "Remote";
+        }
+
+        String city = normalizeOptionalText(requestedCity);
+        if (city != null) {
+            return city;
+        }
+
+        city = normalizeOptionalText(fallbackCity);
+        if (city != null) {
+            return city;
+        }
+
+        throw new BusinessException("Indiquez la ville ou le quartier de la mission.", HttpStatus.BAD_REQUEST);
+    }
+
+    private Double resolveLatitude(Double requestedValue, Double fallbackValue, boolean localCoverage) {
+        if (!localCoverage) {
+            return null;
+        }
+
+        Double value = requestedValue != null ? requestedValue : fallbackValue;
+        return validateCoordinate(value, -90, 90, "Choisissez un point valide sur la carte.");
+    }
+
+    private Double resolveLongitude(Double requestedValue, Double fallbackValue, boolean localCoverage) {
+        if (!localCoverage) {
+            return null;
+        }
+
+        Double value = requestedValue != null ? requestedValue : fallbackValue;
+        return validateCoordinate(value, -180, 180, "Choisissez un point valide sur la carte.");
+    }
+
+    private Double validateCoordinate(Double value, double min, double max, String message) {
+        if (value == null || value < min || value > max) {
+            throw new BusinessException(message, HttpStatus.BAD_REQUEST);
+        }
+
+        return value;
+    }
+
+    private Integer normalizeRadiusKm(Integer requestedRadiusKm, Integer fallbackRadiusKm) {
+        int radiusKm = requestedRadiusKm != null ? requestedRadiusKm : resolveRadiusKm(fallbackRadiusKm, DEFAULT_REQUEST_RADIUS_KM);
+        if (radiusKm < 1 || radiusKm > MAX_RADIUS_KM) {
+            throw new BusinessException("Le rayon doit etre compris entre 1 et 50 km.", HttpStatus.BAD_REQUEST);
+        }
+
+        return radiusKm;
+    }
+
+    private Integer resolveRadiusKm(Integer radiusKm, Integer fallbackRadiusKm) {
+        if (radiusKm == null || radiusKm < 1 || radiusKm > MAX_RADIUS_KM) {
+            return fallbackRadiusKm;
+        }
+
+        return radiusKm;
+    }
 
     private void validateBudgetRange(ServiceRequestDto dto) {
         if (dto.getBudgetMin() != null && dto.getBudgetMax() != null

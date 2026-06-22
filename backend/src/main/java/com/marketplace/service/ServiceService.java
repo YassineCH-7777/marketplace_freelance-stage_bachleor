@@ -1,12 +1,14 @@
 package com.marketplace.service;
 
 import com.marketplace.dto.service.ServiceDto;
+import com.marketplace.dto.service.ServiceLocationRequest;
 import com.marketplace.model.Category;
 import com.marketplace.model.FreelancerProfile;
 import com.marketplace.model.ServiceEntity;
 import com.marketplace.model.ServiceImage;
 import com.marketplace.model.User;
 import com.marketplace.enums.ServiceStatus;
+import com.marketplace.exception.BusinessException;
 import com.marketplace.exception.ResourceNotFoundException;
 import com.marketplace.exception.UnauthorizedException;
 import com.marketplace.persistence.CategoryRepository;
@@ -15,6 +17,7 @@ import com.marketplace.persistence.ServiceImageRepository;
 import com.marketplace.persistence.ServiceRepository;
 import com.marketplace.persistence.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ServiceService {
+
+    private static final int DEFAULT_SERVICE_RADIUS_KM = 10;
+    private static final int MAX_SERVICE_RADIUS_KM = 50;
 
     private final ServiceRepository serviceRepository;
     private final UserRepository userRepository;
@@ -43,6 +49,11 @@ public class ServiceService {
         Category category = categoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("CatÃ©gorie introuvable"));
 
+        boolean remote = resolveRemote(dto.getRemote(), true);
+        String fallbackCity = remote ? null : freelancerUser.getCity();
+        String serviceCity = resolveServiceCity(dto.getServiceCity(), fallbackCity, remote);
+        boolean localCoverage = hasLocalCoverage(remote, serviceCity);
+
         ServiceEntity service = ServiceEntity.builder()
                 .title(dto.getTitle())
                 .slug(slugify(dto.getTitle()))
@@ -52,10 +63,13 @@ public class ServiceService {
                 .status(ServiceStatus.PUBLISHED)
                 .category(category)
                 .freelancer(freelancer)
-                .city(resolveServiceCity(dto.getServiceCity(), freelancerUser.getCity(), resolveRemote(dto.getRemote(), true)))
+                .city(serviceCity)
                 .deliveryTimeDays(resolveDeliveryTimeDays(dto.getDeliveryTimeDays(), 7))
                 .coverImageUrl(normalizeOptionalText(dto.getCoverImageUrl()))
-                .remote(resolveRemote(dto.getRemote(), true))
+                .remote(remote)
+                .latitude(resolveLatitude(dto.getLatitude(), null, localCoverage))
+                .longitude(resolveLongitude(dto.getLongitude(), null, localCoverage))
+                .serviceRadiusKm(normalizeServiceRadiusKm(dto.getServiceRadiusKm(), DEFAULT_SERVICE_RADIUS_KM))
                 .build();
 
         ServiceEntity savedService = serviceRepository.save(service);
@@ -89,7 +103,12 @@ public class ServiceService {
 
         boolean remote = resolveRemote(dto.getRemote(), service.isRemote());
         service.setRemote(remote);
-        service.setCity(resolveServiceCity(dto.getServiceCity(), service.getCity(), remote));
+        String serviceCity = resolveServiceCity(dto.getServiceCity(), service.getCity(), remote);
+        boolean localCoverage = hasLocalCoverage(remote, serviceCity);
+        service.setCity(serviceCity);
+        service.setLatitude(resolveLatitude(dto.getLatitude(), service.getLatitude(), localCoverage));
+        service.setLongitude(resolveLongitude(dto.getLongitude(), service.getLongitude(), localCoverage));
+        service.setServiceRadiusKm(normalizeServiceRadiusKm(dto.getServiceRadiusKm(), service.getServiceRadiusKm()));
 
         ServiceEntity savedService = serviceRepository.save(service);
         replaceGalleryImages(savedService, dto.getGalleryImageUrls());
@@ -111,6 +130,33 @@ public class ServiceService {
         serviceRepository.save(service);
     }
 
+    /**
+     * Met a jour uniquement la zone d'intervention d'une offre.
+     */
+    @Transactional
+    public ServiceDto updateServiceLocation(Long serviceId, Long freelancerId, ServiceLocationRequest request) {
+        if (request == null) {
+            throw new BusinessException("La zone d'intervention est obligatoire.", HttpStatus.BAD_REQUEST);
+        }
+
+        ServiceEntity service = serviceRepository.findById(serviceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Service introuvable"));
+        if (!service.getFreelancer().getUser().getId().equals(freelancerId)) {
+            throw new UnauthorizedException("Acces refuse");
+        }
+
+        String city = normalizeOptionalText(request.getCity());
+        if (city != null) {
+            service.setCity(city);
+        }
+
+        service.setLatitude(requireLatitude(request.getLatitude()));
+        service.setLongitude(requireLongitude(request.getLongitude()));
+        service.setServiceRadiusKm(normalizeServiceRadiusKm(request.getRadiusKm(), service.getServiceRadiusKm()));
+
+        return mapToDto(serviceRepository.save(service));
+    }
+
     private ServiceDto mapToDto(ServiceEntity service) {
         return ServiceDto.builder()
                 .id(service.getId())
@@ -124,6 +170,9 @@ public class ServiceService {
                 .freelancerCity(service.getFreelancer().getUser().getCity())
                 .serviceCity(service.getCity())
                 .remote(service.isRemote())
+                .latitude(service.getLatitude())
+                .longitude(service.getLongitude())
+                .serviceRadiusKm(resolveServiceRadiusKm(service.getServiceRadiusKm()))
                 .deliveryTimeDays(service.getDeliveryTimeDays())
                 .coverImageUrl(service.getCoverImageUrl())
                 .galleryImageUrls(getGalleryImageUrls(service.getId()))
@@ -162,6 +211,66 @@ public class ServiceService {
 
     private String normalizeOptionalText(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private boolean hasLocalCoverage(boolean remote, String city) {
+        if (!remote) {
+            return true;
+        }
+
+        String normalizedCity = city == null ? "" : city.trim();
+        return !normalizedCity.isEmpty() && !"remote".equalsIgnoreCase(normalizedCity);
+    }
+
+    private Double resolveLatitude(Double requestedValue, Double fallbackValue, boolean localCoverage) {
+        if (!localCoverage) {
+            return null;
+        }
+
+        Double value = requestedValue != null ? requestedValue : fallbackValue;
+        return requireLatitude(value);
+    }
+
+    private Double resolveLongitude(Double requestedValue, Double fallbackValue, boolean localCoverage) {
+        if (!localCoverage) {
+            return null;
+        }
+
+        Double value = requestedValue != null ? requestedValue : fallbackValue;
+        return requireLongitude(value);
+    }
+
+    private Double requireLatitude(Double value) {
+        return requireCoordinate(value, -90, 90, "Choisissez un point valide sur la carte.");
+    }
+
+    private Double requireLongitude(Double value) {
+        return requireCoordinate(value, -180, 180, "Choisissez un point valide sur la carte.");
+    }
+
+    private Double requireCoordinate(Double value, double min, double max, String errorMessage) {
+        if (value == null || value < min || value > max) {
+            throw new BusinessException(errorMessage, HttpStatus.BAD_REQUEST);
+        }
+
+        return value;
+    }
+
+    private Integer normalizeServiceRadiusKm(Integer requestedRadiusKm, Integer fallbackRadiusKm) {
+        int radiusKm = requestedRadiusKm != null ? requestedRadiusKm : resolveServiceRadiusKm(fallbackRadiusKm);
+        if (radiusKm < 1 || radiusKm > MAX_SERVICE_RADIUS_KM) {
+            throw new BusinessException("Le rayon doit etre compris entre 1 et 50 km.", HttpStatus.BAD_REQUEST);
+        }
+
+        return radiusKm;
+    }
+
+    private Integer resolveServiceRadiusKm(Integer radiusKm) {
+        if (radiusKm == null || radiusKm < 1 || radiusKm > MAX_SERVICE_RADIUS_KM) {
+            return DEFAULT_SERVICE_RADIUS_KM;
+        }
+
+        return radiusKm;
     }
 
     private void replaceGalleryImages(ServiceEntity service, List<String> imageUrls) {

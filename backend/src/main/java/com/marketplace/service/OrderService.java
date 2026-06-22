@@ -61,6 +61,7 @@ public class OrderService {
     private final MissionMilestoneRepository missionMilestoneRepository;
     private final MessageService messageService;
     private final AttachmentRepository attachmentRepository;
+    private final FeeService feeService;
 
     /**
      * Liste les demandes directes recues par un freelance depuis ses services.
@@ -210,6 +211,7 @@ public class OrderService {
         }
 
         Order savedOrder = orderRepository.save(order);
+        createFeeForReleasedPayment(savedOrder);
         logActivity(
                 savedOrder,
                 savedOrder.getFreelancer().getUser(),
@@ -414,6 +416,7 @@ public class OrderService {
 
         String comment = dto != null ? normalizeOptionalText(dto.getComment()) : null;
         Order savedOrder = orderRepository.save(order);
+        createFeeForReleasedPayment(savedOrder);
         logActivity(
                 savedOrder,
                 savedOrder.getClient(),
@@ -529,6 +532,7 @@ public class OrderService {
                 order.setDisputeResolvedAt(LocalDateTime.now());
                 completeClientValidationMilestone(order);
                 Order savedOrder = orderRepository.save(order);
+                createFeeForReleasedPayment(savedOrder);
                 logActivity(savedOrder, admin, MissionActivityType.DISPUTED, "Litige cloture",
                         adminNotes != null ? adminNotes : "Mission cloturee apres arbitrage.");
                 return mapToOrderDto(savedOrder);
@@ -574,6 +578,10 @@ public class OrderService {
                 .freelancerId(order.getFreelancer().getUser().getId())
                 .freelancerEmail(order.getFreelancer().getUser().getEmail())
                 .amount(order.getAgreedPrice())
+                .feePercentage(order.getFee() != null ? order.getFee().getFeePercentage() : null)
+                .feeAmount(order.getFee() != null ? order.getFee().getFeeAmount() : null)
+                .freelancerAmount(order.getFee() != null ? order.getFee().getFreelancerAmount() : null)
+                .feeCreatedAt(order.getFee() != null ? order.getFee().getCreatedAt() : null)
                 .status(order.getStatus())
                 .progressPercentage(safeProgress(order.getProgressPercentage()))
                 .paymentStatus(order.getPaymentStatus())
@@ -815,6 +823,12 @@ public class OrderService {
 
     private boolean isPaymentReleased(Order order) {
         return order.getPaymentStatus() == PaymentStatus.RELEASED || order.getPaymentStatus() == PaymentStatus.PAID;
+    }
+
+    private void createFeeForReleasedPayment(Order order) {
+        if (isPaymentReleased(order)) {
+            feeService.createForReleasedOrder(order);
+        }
     }
 
     private BigDecimal resolveAgreedPrice(OrderRequest request) {

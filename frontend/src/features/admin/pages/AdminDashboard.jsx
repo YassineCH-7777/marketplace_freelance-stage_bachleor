@@ -5,10 +5,13 @@ import {
   Bell,
   Briefcase,
   ClipboardList,
+  CreditCard,
   FolderKanban,
   Loader2,
   ShieldCheck,
   Users,
+  Receipt,
+  Wallet,
 } from 'lucide-react';
 import {
   getAdminCategories,
@@ -19,6 +22,7 @@ import {
   getAdminUsers,
 } from '@/api/adminApi';
 import '@/styles/dashboard.css';
+import { formatAdminMoney } from '@/utils/adminMeta';
 
 const emptyAdminData = {
   categories: [],
@@ -120,6 +124,16 @@ export default function AdminDashboard() {
       to: '/admin/reports',
     },
   ];
+  const financeCards = [
+    { label: 'Commissions generees', value: formatAdminMoney(adminData.stats?.totalFees ?? 0), icon: <CreditCard size={22} />, color: 'blue' },
+    { label: 'Commission ce mois', value: formatAdminMoney(adminData.stats?.currentMonthFees ?? 0), icon: <Receipt size={22} />, color: 'yellow' },
+    { label: 'Verse aux freelances', value: formatAdminMoney(adminData.stats?.freelancerPayouts ?? 0), icon: <Wallet size={22} />, color: 'green' },
+  ];
+  const feeBreakdowns = [
+    { title: 'Par categorie', values: adminData.stats?.feesByCategory || {} },
+    { title: 'Par ville', values: adminData.stats?.feesByCity || {} },
+    { title: 'Par mois', values: adminData.stats?.feesByMonth || {} },
+  ];
 
   if (loading) {
     return (
@@ -144,6 +158,37 @@ export default function AdminDashboard() {
             Selectionnez une rubrique pour administrer la plateforme depuis une page dediee.
           </p>
         </div>
+
+        <section className="admin-finance-section animate-fade-in-up">
+          <div className="admin-section-head">
+            <div>
+              <span className="admin-kicker"><CreditCard size={15} /> Revenus ProxiSkills</span>
+              <h2>Suivi des commissions</h2>
+            </div>
+            <span className="badge badge-success">{adminData.stats?.feeTransactions ?? 0} transactions</span>
+          </div>
+          <div className="dashboard-stats">
+            {financeCards.map((card) => (
+              <div className="dash-stat-card" key={card.label}>
+                <div className={`dash-stat-icon ${card.color}`}>{card.icon}</div>
+                <div className="dash-stat-info">
+                  <span className="dash-stat-value">{card.value}</span>
+                  <span className="dash-stat-label">{card.label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="admin-finance-breakdowns">
+            {feeBreakdowns.map((breakdown) => (
+              <div className="card admin-finance-breakdown" key={breakdown.title}>
+                <h3>{breakdown.title}</h3>
+                {Object.entries(breakdown.values).length > 0 ? Object.entries(breakdown.values).map(([label, amount]) => (
+                  <div key={label}><span>{label}</span><strong>{formatAdminMoney(amount)}</strong></div>
+                )) : <p>Aucune commission enregistree.</p>}
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section className="admin-overview-grid">
           {dashboardCards.map((card) => (

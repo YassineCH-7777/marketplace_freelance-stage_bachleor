@@ -31,6 +31,7 @@ import com.marketplace.persistence.ServiceRepository;
 import com.marketplace.persistence.UserRepository;
 import com.marketplace.service.MessageService;
 import com.marketplace.service.OrderService;
+import com.marketplace.service.FeeService;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,6 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -82,6 +84,9 @@ class OrderServiceTest {
 
     @Mock
     private AttachmentRepository attachmentRepository;
+
+    @Mock
+    private FeeService feeService;
 
     @InjectMocks
     private OrderService orderService;
@@ -376,6 +381,7 @@ class OrderServiceTest {
         assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.RELEASED);
         assertThat(result.getStatus()).isEqualTo(OrderStatus.COMPLETED);
         assertThat(result.getProgressPercentage()).isEqualTo(100);
+        verify(feeService).createForReleasedOrder(order);
     }
 
     @Test
